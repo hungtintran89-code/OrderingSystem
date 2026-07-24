@@ -36,4 +36,9 @@ public class User {
     @Column( nullable = false )
     private Date created_at ;
 
+    @PrePersist
+    protected void onCreate() {
+        this.created_at = new Date();
+        this.is_active = true;
+    }
 }
