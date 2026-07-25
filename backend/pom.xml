@@ -69,16 +69,22 @@
 			<scope>compile</scope>
 		</dependency>
 
-			<dependency>
-				<groupId>org.hibernate.orm</groupId>
-				<artifactId>hibernate-core</artifactId>
-				<version>6.6.0.Final</version> <!-- Hoặc phiên bản 6.x ổn định khác -->
-			</dependency>
-			<dependency>
-				<groupId>jakarta.persistence</groupId>
-				<artifactId>jakarta.persistence-api</artifactId>
-				<version>3.1.0</version>
-			</dependency>
+		<dependency>
+			<groupId>org.hibernate.orm</groupId>
+			<artifactId>hibernate-core</artifactId>
+			<version>6.6.0.Final</version> <!-- Hoặc phiên bản 6.x ổn định khác -->
+		</dependency>
+		<dependency>
+			<groupId>jakarta.persistence</groupId>
+			<artifactId>jakarta.persistence-api</artifactId>
+			<version>3.1.0</version>
+		</dependency>
+
+	<!-- Thư viện Validation cho @NotBlank, @NotNull, @Size -->
+	<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
 
 	</dependencies>
 
