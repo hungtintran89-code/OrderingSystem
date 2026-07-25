@@ -3,8 +3,10 @@ package ordersystem.backend.modules.auth.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import ordersystem.backend.modules.auth.enums.RoleEnum;
 
 import java.util.Date;
+import java.util.UUID;
 
 
 @Entity
@@ -16,7 +18,7 @@ public class User {
 
     @Id
     @GeneratedValue( strategy = GenerationType.IDENTITY)
-    private Long user_id ;
+    private UUID user_id ;
 
     @Column( nullable = false , unique = true)
     private String username ;
@@ -28,13 +30,16 @@ public class User {
     private String full_name ;
 
     @Column( nullable = false )
-    private Long role_id ;
+    private RoleEnum role_id ;
 
     @Column( nullable = false )
     private boolean is_active ;
 
     @Column( nullable = false )
     private Date created_at ;
+
+    @Column( nullable = false)
+    private String phone ;
 
     @PrePersist
     protected void onCreate() {
