@@ -28,13 +28,13 @@ public class User {
     private String password_hash ;
 
     @Column( nullable = false )
-    private String full_name ;
+    private String fullname ;
 
     @Column( nullable = false )
-    private RoleEnum role_id ;
+    private RoleEnum role ;
 
     @Column( nullable = false )
-    private UserStatus is_active ;
+    private boolean is_active ;
 
     @Column( nullable = false )
     private Date created_at ;
