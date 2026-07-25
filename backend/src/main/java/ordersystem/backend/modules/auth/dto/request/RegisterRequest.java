@@ -16,8 +16,12 @@ public class RegisterRequest {
     private String username ;
 
     @NotBlank( message = "Password cannot be left blank.")
-    @Size(min = 6 , message = "The username must be between 4 and 20 characters long.")
+    @Size(min = 6 , message = "The password must be between 4 and 20 characters long.")
     private String password ;
+
+    @NotBlank( message = "Email cannot be left blank.")
+    @Size(min = 6 , message = "The email must be between 4 and 20 characters long.")
+    private String email ;
 
     @NotBlank(message = "Full name must not be left blank.")
     private String fullName;
