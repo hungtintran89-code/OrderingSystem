@@ -35,7 +35,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BadCredentialsException("User account is disabled.");
         }
 
-        String accessToken = tokenProvider.generateToken(user.getUserId(), user.getUsername(), user.getRole().name());
+        String accessToken = tokenProvider.generateToken(user.getUserId(), user.getUsername(), user.getRole() );
         return AuthResponse.builder()
                 .token(accessToken)
                 .tokenType("Bearer")

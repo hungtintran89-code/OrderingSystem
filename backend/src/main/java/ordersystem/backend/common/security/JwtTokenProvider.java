@@ -2,6 +2,7 @@ package ordersystem.backend.common.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import ordersystem.backend.modules.auth.enums.RoleEnum;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -22,27 +23,39 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(Long userId, String username, String role) {
+    public String generateToken(Long userId, String username, RoleEnum role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("username", username)
-                .claim("role", role)
+                .claim("role", role != null ? role.name() : null )
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
                 .compact();
     }
 
-    public String getUserIdFromToken(String token) {
-        Claims claims = Jwts.parser()
+    public Claims getClaimsFromToken(String token) {
+        return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-
-        return claims.getSubject();
     }
-}
+
+
+    public String getUserIdFromToken(String token) {
+        return this.getClaimsFromToken(token).getSubject() ;
+    }
+
+    public String getRoleFromToken(String token) {
+        return getClaimsFromToken(token).get("role", String.class);
+    }
+
+
+
+
+
+}
