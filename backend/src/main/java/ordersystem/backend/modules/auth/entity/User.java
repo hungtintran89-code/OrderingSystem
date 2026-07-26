@@ -1,51 +1,49 @@
 package ordersystem.backend.modules.auth.entity;
 
-
 import jakarta.persistence.*;
 import lombok.*;
 import ordersystem.backend.modules.auth.enums.RoleEnum;
-import ordersystem.backend.modules.auth.enums.UserStatus;
 
 import java.util.Date;
-import java.util.UUID;
-
 
 @Entity
-@Table( name = "users")
+@Table(name = "users")
 @Builder
-@Setter @Getter
+@Getter @Setter
 @NoArgsConstructor @AllArgsConstructor
 public class User {
 
     @Id
-    @GeneratedValue( strategy = GenerationType.UUID)
-    private UUID user_id ;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id")
+    private Long userId;
 
-    @Column( nullable = false , unique = true)
-    private String username ;
+    @Column(nullable = false, unique = true)
+    private String username;
 
-    @Column( nullable = false )
-    private String password_hash ;
+    @Column(nullable = false, name = "password_hash")
+    private String passwordHash;
 
-    @Column( nullable = false )
-    private String fullname ;
+    @Column(nullable = false, name = "fullname")
+    private String fullName;
 
     @Enumerated(EnumType.STRING)
-    @Column( nullable = false )
-    private RoleEnum role ;
+    @Column(nullable = false)
+    private RoleEnum role;
 
-    @Column( nullable = false )
-    private boolean is_active ;
+    @Column(nullable = false, name = "is_active")
+    private boolean active;
 
-    @Column( nullable = false )
-    private Date created_at ;
+    @Column(nullable = false, name = "created_at")
+    private Date createdAt;
 
-    @Column( nullable = true)
-    private String phone ;
+    @Column(nullable = true)
+    private String phone;
 
     @PrePersist
     protected void onCreate() {
-        this.created_at = new Date();
-        this.is_active = true ;
+        this.createdAt = new Date();
+        this.active = true;
     }
 }
+

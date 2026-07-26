@@ -28,7 +28,7 @@ public class AdminStaffController {
 
         StaffResponse staffResponse = staffService.createStaff(createStaffRequest);
 
-        log.info("[REST API] Staff created successfully with ID: {}", staffResponse.getUser_id());
+        log.info("[REST API] Staff created successfully with ID: {}", staffResponse.getUserId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created("Staff created successfully", staffResponse));
 
