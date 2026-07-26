@@ -33,7 +33,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/register"
                         ).permitAll()
-                        .requestMatchers("/api/v1/admin/**").permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("MANAGER")
                         .anyRequest().authenticated()
                 );
 
