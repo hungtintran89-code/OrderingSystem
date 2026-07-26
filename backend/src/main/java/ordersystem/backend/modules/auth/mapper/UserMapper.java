@@ -15,25 +15,25 @@ public class UserMapper {
         if( registerRequest == null  ) return null ;
 
         return User.builder()
-                .username( registerRequest.getUsername())
-                .password_hash( registerRequest.getPassword())
-                .full_name( registerRequest.getFullName())
-                .role_id( registerRequest.getRole() )
-                .phone( registerRequest.getPhone() )
+                .username(registerRequest.getUsername())
+                .passwordHash(registerRequest.getPassword())
+                .fullName(registerRequest.getFullName())
+                .role(registerRequest.getRole())
+                .phone(registerRequest.getPhone())
                 .build();
     }
 
-    public AuthResponse toAuthResponse ( User user , String token ){
-        if ( user == null ) return null ;
+    public AuthResponse toAuthResponse(User user, String token) {
+        if (user == null) return null;
 
         return AuthResponse.builder()
-                .token( token )
-                .tokenType( "Bearer")
-                .fullName( user.getFull_name())
-                .userId( user.getUser_id())
-                .username( user.getUsername() )
-                .role( user.getRole_id())
-                .build() ;
+                .token(token)
+                .tokenType("Bearer")
+                .fullName(user.getFullName())
+                .userId(user.getUserId())
+                .username(user.getUsername())
+                .role(user.getRole())
+                .build();
     }
 
 }

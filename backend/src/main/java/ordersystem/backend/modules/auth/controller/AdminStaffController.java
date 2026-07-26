@@ -3,6 +3,7 @@ package ordersystem.backend.modules.auth.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import ordersystem.backend.common.payload.ApiResponse;
 import ordersystem.backend.common.payload.PageResponse;
 import ordersystem.backend.modules.auth.dto.request.CreateStaffRequest;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/admin/staffs")
 @RequiredArgsConstructor
+@Slf4j
 public class AdminStaffController {
 
     private final StaffService staffService ;
@@ -22,8 +24,11 @@ public class AdminStaffController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<StaffResponse>> createStaff (@Valid @RequestBody CreateStaffRequest createStaffRequest) {
+        log.info("[REST API] Received request to create staff with username: {}", createStaffRequest.getUsername());
 
-        StaffResponse staffResponse = staffService.createStaff(createStaffRequest ) ;
+        StaffResponse staffResponse = staffService.createStaff(createStaffRequest);
+
+        log.info("[REST API] Staff created successfully with ID: {}", staffResponse.getUserId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created("Staff created successfully", staffResponse));
 
