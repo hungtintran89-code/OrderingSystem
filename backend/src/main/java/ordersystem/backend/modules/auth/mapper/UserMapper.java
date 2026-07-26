@@ -17,8 +17,8 @@ public class UserMapper {
         return User.builder()
                 .username( registerRequest.getUsername())
                 .password_hash( registerRequest.getPassword())
-                .full_name( registerRequest.getFullName())
-                .role_id( registerRequest.getRole() )
+                .fullname( registerRequest.getFullName())
+                .role( registerRequest.getRole() )
                 .phone( registerRequest.getPhone() )
                 .build();
     }
@@ -29,10 +29,10 @@ public class UserMapper {
         return AuthResponse.builder()
                 .token( token )
                 .tokenType( "Bearer")
-                .fullName( user.getFull_name())
+                .fullName( user.getFullname())
                 .userId( user.getUser_id())
                 .username( user.getUsername() )
-                .role( user.getRole_id())
+                .role( user.getRole())
                 .build() ;
     }
 

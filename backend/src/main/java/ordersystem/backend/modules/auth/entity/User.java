@@ -39,11 +39,12 @@ public class User {
     @Column( nullable = false )
     private Date created_at ;
 
-    @Column( nullable = false)
+    @Column( nullable = true)
     private String phone ;
 
     @PrePersist
     protected void onCreate() {
         this.created_at = new Date();
+        this.is_active = true ;
     }
 }

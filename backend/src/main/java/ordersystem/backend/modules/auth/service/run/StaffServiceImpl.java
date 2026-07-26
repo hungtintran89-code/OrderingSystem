@@ -1,6 +1,7 @@
 package ordersystem.backend.modules.auth.service.run;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import ordersystem.backend.common.payload.PageResponse;
 import ordersystem.backend.common.security.JwtTokenProvider;
 import ordersystem.backend.modules.auth.dto.request.CreateStaffRequest;
@@ -22,6 +23,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class StaffServiceImpl implements StaffService {
 
     private final UserRepository userRepository ;
@@ -29,10 +31,11 @@ public class StaffServiceImpl implements StaffService {
 
     @Override
     public StaffResponse createStaff(CreateStaffRequest request){
+        log.debug("Checking if username exists: {}", request.getUsername());
         if( userRepository.existsByUsername( request.getUsername()) ) {
             throw new UserAlreadyExistsException("Username already exists!")  ;
         }
-
+        log.debug("Encrypting password and saving user to DB...");
         User staff = User.builder()
                 .fullname(request.getFullName())
                 .username(request.getUsername())
