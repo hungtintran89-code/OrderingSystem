@@ -23,7 +23,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider ;
 
-
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
@@ -70,3 +69,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 }
+
+
+
