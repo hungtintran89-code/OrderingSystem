@@ -36,7 +36,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGlobalException(Exception ex) {
-        // In toàn bộ cây vết lỗi (StackTrace) ra Console màu đỏ
         log.error("[SYSTEM ERROR] Unexpected error occurred: ", ex);
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

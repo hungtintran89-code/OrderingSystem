@@ -19,7 +19,6 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final UserMapper userMapper;
     private final JwtTokenProvider tokenProvider;
 
     @Override
