@@ -18,12 +18,12 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
     public void handle(HttpServletRequest request,
                        HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException, ServletException {
-        // Cấu hình Header trả về là JSON
+
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setStatus(HttpServletResponse.SC_FORBIDDEN); // HTTP Status 403
-        // Đóng gói Response theo chuẩn ApiResponse<Void> của dự án
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+
         ApiResponse<Void> apiResponse = ApiResponse.error("Forbidden: You do not have permission to access this resource", 403);
-        // Ghi dữ liệu JSON vào HTTP Response
+
         ObjectMapper mapper = new ObjectMapper();
         response.getWriter().write(mapper.writeValueAsString(apiResponse));
     }

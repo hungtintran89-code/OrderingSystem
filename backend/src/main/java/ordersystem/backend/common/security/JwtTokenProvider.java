@@ -45,7 +45,6 @@ public class JwtTokenProvider {
                 .getPayload();
     }
 
-
     public String getUserIdFromToken(String token) {
         return this.getClaimsFromToken(token).getSubject() ;
     }
@@ -53,9 +52,5 @@ public class JwtTokenProvider {
     public String getRoleFromToken(String token) {
         return getClaimsFromToken(token).get("role", String.class);
     }
-
-
-
-
 
 }
