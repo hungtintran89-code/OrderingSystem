@@ -2,7 +2,7 @@ package ordersystem.backend.common.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-import ordersystem.backend.modules.auth.enums.RoleEnum;
+import ordersystem.backend.modules.auth.enums.UserRole;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -23,7 +23,7 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(Long userId, String username, RoleEnum role) {
+    public String generateToken(Long userId, String username, UserRole role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
@@ -38,11 +38,16 @@ public class JwtTokenProvider {
     }
 
     public Claims getClaimsFromToken(String token) {
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        try {
+
+            return Jwts.parser()
+                    .verifyWith(getSigningKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        }catch( Exception e ){
+            return null ;
+        }
     }
 
     public String getUserIdFromToken(String token) {
