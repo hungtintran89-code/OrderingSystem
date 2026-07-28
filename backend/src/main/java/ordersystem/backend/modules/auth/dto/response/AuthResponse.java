@@ -1,7 +1,7 @@
 package ordersystem.backend.modules.auth.dto.response;
 
 import lombok.*;
-import ordersystem.backend.modules.auth.enums.RoleEnum;
+import ordersystem.backend.modules.auth.enums.UserRole;
 
 @Setter @Getter
 @NoArgsConstructor @AllArgsConstructor
@@ -13,7 +13,7 @@ public class AuthResponse {
     private Long userId;
     private String username;
     private String fullName;
-    private RoleEnum role;
+    private UserRole role;
 
 }
 

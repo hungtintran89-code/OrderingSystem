@@ -2,7 +2,7 @@ package ordersystem.backend.modules.auth.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import ordersystem.backend.modules.auth.enums.RoleEnum;
+import ordersystem.backend.modules.auth.enums.UserRole;
 
 import java.util.Date;
 
@@ -29,7 +29,7 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private RoleEnum role;
+    private UserRole role;
 
     @Column(nullable = false, name = "is_active")
     private boolean active;

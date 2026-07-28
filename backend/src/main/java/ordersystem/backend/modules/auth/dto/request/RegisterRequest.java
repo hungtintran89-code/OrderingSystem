@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
-import ordersystem.backend.modules.auth.enums.RoleEnum;
+import ordersystem.backend.modules.auth.enums.UserRole;
 
 @Getter @Setter
 public class RegisterRequest {
@@ -29,6 +29,6 @@ public class RegisterRequest {
     private String phone;
 
     @NotNull(message = "The role cannot be left blank.")
-    private RoleEnum role;
+    private UserRole role;
 
 }

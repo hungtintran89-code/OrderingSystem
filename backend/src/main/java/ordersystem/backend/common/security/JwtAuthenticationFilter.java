@@ -1,5 +1,6 @@
 package ordersystem.backend.common.security;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,29 +41,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String token = authHeader.substring(7);
 
-            String userId = jwtTokenProvider.getUserIdFromToken(token);
-            String roleStr = jwtTokenProvider.getRoleFromToken(token);
-
-            List<SimpleGrantedAuthority> authorities = (roleStr != null && !roleStr.isBlank())
-                    ? List.of(new SimpleGrantedAuthority("ROLE_" + roleStr))
-                    : Collections.emptyList();
+            Claims claims = jwtTokenProvider.getClaimsFromToken(token);
+            if( claims != null ) {
+                String userId = claims.getSubject();
+                String roleStr = claims.get("role", String.class);
 
 
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(
-                            userId,
-                            null,
-                            authorities
-                    );
+                List<SimpleGrantedAuthority> authorities = (roleStr != null && !roleStr.isBlank())
+                        ? List.of(new SimpleGrantedAuthority("ROLE_" + roleStr))
+                        : Collections.emptyList();
 
-            authentication.setDetails(
-                    new WebAuthenticationDetailsSource().buildDetails(request)
-            );
 
-            SecurityContextHolder
-                    .getContext()
-                    .setAuthentication(authentication);
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userId,
+                                null,
+                                authorities
+                        );
 
+                authentication.setDetails(
+                        new WebAuthenticationDetailsSource().buildDetails(request)
+                );
+
+                SecurityContextHolder
+                        .getContext()
+                        .setAuthentication(authentication);
+            }
         } catch (Exception e) {
             SecurityContextHolder.clearContext();
         }
