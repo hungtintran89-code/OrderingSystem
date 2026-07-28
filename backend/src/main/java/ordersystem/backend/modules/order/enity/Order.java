@@ -2,13 +2,16 @@ package ordersystem.backend.modules.order.enity;
 
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import ordersystem.backend.modules.order.enums.OrderStatus;
-import org.springframework.data.annotation.Id;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+
+@Getter @Setter
 @Entity
 @Table( name = "orders")
 public class Order {

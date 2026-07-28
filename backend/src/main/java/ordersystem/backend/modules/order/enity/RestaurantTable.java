@@ -1,6 +1,8 @@
 package ordersystem.backend.modules.order.enity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import ordersystem.backend.modules.order.enums.TableStatus;
 
 import java.time.LocalDateTime;
@@ -22,4 +24,6 @@ public class RestaurantTable {
     private String qrToken; // Token dán trên bàn
     private LocalDateTime createdAt = LocalDateTime.now();
     // Getters, Setters & Constructors
+
+
 }

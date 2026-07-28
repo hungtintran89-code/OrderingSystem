@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import ordersystem.backend.modules.order.enums.SessionStatus;
-import org.springframework.data.annotation.Id;
+import ordersystem.backend.modules.table.entity.RestaurantTable;
 import ordersystem.backend.modules.table.* ;
 
 import java.time.LocalDateTime;

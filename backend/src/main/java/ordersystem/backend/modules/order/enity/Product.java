@@ -25,10 +25,10 @@ public class Product {
     private String name;
 
     @Column(nullable = false)
-    private BigDecimal price;
+    private Long  price;
 
     private String imageUrl;
-
+    private String description ;
     @Column(nullable = false)
     private Boolean isAvailable = true;
 
