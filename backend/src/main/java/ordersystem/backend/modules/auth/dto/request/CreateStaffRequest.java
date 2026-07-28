@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
-import ordersystem.backend.modules.auth.enums.RoleEnum;
+import ordersystem.backend.modules.auth.enums.UserRole;
 
 
 @Setter @Getter
@@ -24,5 +24,5 @@ public class CreateStaffRequest {
     private String password;
 
     @NotNull(message = "Role cannot be null")
-    private RoleEnum role;
+    private UserRole role;
 }

@@ -1,6 +1,7 @@
 package ordersystem.backend.modules.auth.service.run;
 
 import lombok.RequiredArgsConstructor;
+import ordersystem.backend.common.exception.ResourceNotFoundException;
 import ordersystem.backend.common.security.JwtTokenProvider;
 import ordersystem.backend.modules.auth.dto.request.LoginRequest;
 import ordersystem.backend.modules.auth.dto.response.AuthResponse;
@@ -47,7 +48,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public UserProfileResponse getCurrentUserProfile(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId)) ;
         return UserProfileResponse.builder()
                 .userId(user.getUserId())
                 .fullName(user.getFullName())
