@@ -24,4 +24,6 @@ public class RestaurantTable {
     private String qrToken; // Token dán trên bàn
     private LocalDateTime createdAt = LocalDateTime.now();
     // Getters, Setters & Constructors
+
+
 }

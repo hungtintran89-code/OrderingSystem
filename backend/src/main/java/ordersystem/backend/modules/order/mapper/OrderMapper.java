@@ -9,7 +9,7 @@ import ordersystem.backend.modules.order.enity.ProductOption;
 
 import java.util.ArrayList;
 import java.util.List;
-
+@Component
 public class OrderMapper {
 
     // 1. Chuyển từ OrderItem Entity sang OrderItemResponse DTO
@@ -34,12 +34,18 @@ public class OrderMapper {
 
     // 3. Chuyển sang MasterTableOrderResponse (Cho NHÂN VIÊN xem TAB CHUNG CẢ BÀN)
     public MasterTableOrderResponse toMasterResponse( Order order, List<OrderItemResponse> allItems ){
+        Long total = allItems.stream()
+                .map(OrderItemResponse::getPrice_total)
+                .reduce(0L , Long::sum) ;
         return new MasterTableOrderResponse(
                 order.getId() ,
-                order.getStatus(),
-
-
-        )
+                order.getTableSession().getTable().getTableName(),
+                order.getTableSession().getTable().getTableId() ,
+                order.getStatus().name() ,
+                total ,
+                order.getTableSession().getOpenedAt(),
+                allItems
+        ) ;
     }
 
 }
