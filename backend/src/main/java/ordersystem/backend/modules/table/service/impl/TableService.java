@@ -2,8 +2,10 @@ package ordersystem.backend.modules.table.service.impl;
 
 import ordersystem.backend.modules.table.dto.request.CreateTableRequest;
 import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
+import ordersystem.backend.modules.table.dto.response.QRCodeExportResponse;
 import ordersystem.backend.modules.table.dto.response.QRResolveResponse;
 import ordersystem.backend.modules.table.dto.response.TableResponse;
+import ordersystem.backend.modules.table.enums.QRFormat;
 
 import java.util.List;
 
@@ -12,5 +14,5 @@ public interface TableService {
     public QRResolveResponse resolveQrtoken(String qrToken);
     List<FloorMapResponse> getLiveFloorMap();
     byte[] generateTableQrCode(Long tableId);
-    QRCodeExport
+    QRCodeExportResponse exportTableQrCode(Long tableId, QRFormat qrFormat);
 }

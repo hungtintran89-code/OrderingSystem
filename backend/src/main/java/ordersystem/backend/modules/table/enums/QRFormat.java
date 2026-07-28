@@ -6,7 +6,7 @@ import org.springframework.http.MediaType;
 
 @Getter
 @RequiredArgsConstructor
-public enum QrFormat {
+public enum QRFormat {
     PDF("pdf", MediaType.APPLICATION_PDF, ".pdf"),
     PNG("png", MediaType.IMAGE_PNG, ".png");
 
@@ -14,11 +14,11 @@ public enum QrFormat {
     private final MediaType mediaType;
     private final String fileExtension;
 
-    public static QrFormat fromString(String format) {
+    public static QRFormat fromString(String format) {
         if (format == null) {
             return PDF;
         }
-        for (QrFormat f : QrFormat.values()) {
+        for (QRFormat f : QRFormat.values()) {
             if (f.value.equalsIgnoreCase(format)) {
                 return f;
             }
