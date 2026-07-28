@@ -11,5 +11,5 @@ public class FloorMapResponse {
     private Long tableId;
     private String tableName;
     private TableStatus status;
-    private Double tempTotalAmout; //Tien tong tam tinh
+    private Double tempTotalAmount; //Tien tong tam tinh
 }
