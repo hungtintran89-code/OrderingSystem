@@ -9,6 +9,8 @@ import lombok.Setter;
 import org.springframework.data.annotation.Id;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 
 @Setter @Getter
@@ -18,26 +20,54 @@ import java.math.BigDecimal;
 public class OrderItem {
 
     @Id
-    @GeneratedValue( strategy = GenerationType.IDENTITY)
-    private Long id ;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long order_item_id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id" , nullable = false )
-    private Order order ;
+    @JoinColumn(name = "order_id", nullable = false)
+    private Order order;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn( name = "product_id" , nullable = false )
-    private Product product ;
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
     @Column(nullable = false)
-    private Integer quantity;
+    private Long quantity;
 
     @Column(nullable = false)
-    private BigDecimal price;
+    private Long price;
+
+    @Column(nullable = false)
+    private Long item_price = 0L ;
+
+    @Column(nullable = false)
+    private Long total_price = 0L;
 
     private String note;
 
     @Column(nullable = false)
     private String createdByThread;
 
+    @ManyToMany
+    @JoinTable(
+            name = "order_item_id",
+            joinColumns = @JoinColumn(name = "order_id"),
+            inverseJoinColumns = @JoinColumn(name = "product_option_id")
+    )
+    private List<ProductOption> selectedOptions = new ArrayList<>();
+
+    public OrderItem(Long order_item_id, Order order, Product product, Long quantity, Long price, String note, String createdByThread, List<ProductOption> selectedOptions) {
+        for( ProductOption p : this.getSelectedOptions() ){
+            this.item_price += p.getExtraPrice() ;
+        }
+        this.order_item_id = order_item_id;
+        this.order = order;
+        this.product = product;
+        this.quantity = quantity;
+        this.price = price;
+        this.total_price = price * quantity + item_price;
+        this.note = note;
+        this.createdByThread = createdByThread;
+        this.selectedOptions = selectedOptions;
+    }
 }

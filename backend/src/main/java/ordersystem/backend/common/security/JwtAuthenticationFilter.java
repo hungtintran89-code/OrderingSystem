@@ -40,8 +40,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             String token = authHeader.substring(7);
-
             Claims claims = jwtTokenProvider.getClaimsFromToken(token);
+
             if( claims != null ) {
                 String userId = claims.getSubject();
                 String roleStr = claims.get("role", String.class);
