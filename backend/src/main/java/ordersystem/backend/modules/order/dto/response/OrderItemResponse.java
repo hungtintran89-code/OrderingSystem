@@ -15,8 +15,8 @@ public class OrderItemResponse {
     private Long productId;
     private String productName;
     private Long quantity;
-    private BigDecimal priceProduct;
-    private BigDecimal priceTotal;
+    private Long priceProduct;
+    private Long priceTotal;
     private String note;
-    private String threadId;
+    private Long threadId;
 }

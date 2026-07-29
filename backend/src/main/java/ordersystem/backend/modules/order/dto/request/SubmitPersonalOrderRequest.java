@@ -20,7 +20,7 @@ public class SubmitPersonalOrderRequest {
     private Long tableSessionId;
 
     @NotBlank(message = "The device thread ID must not be empty.")
-    private String threadId;
+    private Long threadId;
 
     private String note;
 

@@ -51,7 +51,7 @@ public class Order {
         this.createdAt = new Date() ;
         this.updatedAt = new Date() ;
         if (this.totalAmount == null) {
-            this.totalAmount = BigDecimal.ZERO;
+            this.totalAmount = 0L;
         }
     }
 
