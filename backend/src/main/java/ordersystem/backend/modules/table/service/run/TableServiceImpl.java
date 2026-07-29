@@ -8,6 +8,7 @@ import ordersystem.backend.modules.table.dto.response.TableResponse;
 import ordersystem.backend.modules.table.entity.RestaurantTable;
 import ordersystem.backend.modules.table.entity.TableSession;
 import ordersystem.backend.modules.table.mapper.RestaurantTableMapper;
+import ordersystem.backend.modules.table.mapper.TableSessionMapper;
 import ordersystem.backend.modules.table.repository.TableRepository;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
 import ordersystem.backend.modules.table.service.genetor.QRCodeGeneratorService;
@@ -25,6 +26,7 @@ public class TableServiceImpl implements TableService {
     private final TableSessionService tableSessionService;
     private final QRCodeGeneratorService qrCodeGeneratorService;
     private final RestaurantTableMapper restaurantTableMapper;
+    private final TableSessionMapper tableSessionMapper;
 
     @Override
     @Transactional
@@ -60,5 +62,9 @@ public class TableServiceImpl implements TableService {
         //Bước 2: Lấy Session đang ACTIVE hoặc khởi tạo Session mới nếu bàn trống
         TableSession tableSession = tableSessionService.getOrCreatActiveSession(tableInfo.getTableId());
 
+        //Đóng gói dữ liệu trả về cho controller
+        return tableSessionMapper.toQRResolveResponse(tableSession, tableInfo);
     }
+
+
 }

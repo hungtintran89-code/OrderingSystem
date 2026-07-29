@@ -19,6 +19,9 @@ public class TableSession {
     @Column(nullable = false, name = "table_session_id")
     private Long tableSessionId;
 
+    @Column(nullable = false, name = "table_name")
+    private String tableName;
+
     @Column(nullable = false, name = "session_token")
     private String sessionToken;
 

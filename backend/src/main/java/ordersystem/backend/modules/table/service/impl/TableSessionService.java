@@ -1,6 +1,6 @@
 package ordersystem.backend.modules.table.service.impl;
 
-import ordersystem.backend.modules.order.entity.TableSession;
+import ordersystem.backend.modules.table.entity.TableSession;
 
 public interface TableSessionService {
     public TableSession getOrCreatActiveSession(Long tableId);
