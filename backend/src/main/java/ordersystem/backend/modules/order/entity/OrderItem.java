@@ -39,7 +39,7 @@ public class OrderItem {
     private String note;
 
     @Column(nullable = false)
-    private String createdByThread;
+    private Long createdByThread;
 
     public void calculatePrice() {
         Long unitPrice = (this.price != null) ? this.price : 0L;

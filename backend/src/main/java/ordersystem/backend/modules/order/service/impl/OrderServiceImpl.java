@@ -22,6 +22,7 @@ import ordersystem.backend.modules.order.service.run.OrderService;
 import ordersystem.backend.modules.order.websocket.WebSocketPublisher;
 import ordersystem.backend.modules.table.entity.TableSession;
 import ordersystem.backend.modules.table.enums.SessionStatus;
+import org.hibernate.mapping.Collection;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -33,15 +34,12 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
-
     final private TableSessionRepository tableSessionRepository ;
     final private OrderRepository orderRepository ;
     final private ProductRepository productRepository ;
     final private WebSocketPublisher webSocketPublisher ;
     final private OrderMapper orderMapper ;
     final private OrderItemRepository orderItemRepository ;
-    final private TableSessionRepository tableSessionRepository ;
-
 
     // 1. Xử lý khi Khách hàng bấm Gửi đơn đặt món
     @Override
@@ -50,7 +48,6 @@ public class OrderServiceImpl implements OrderService {
 
         TableSession tableSession = tableSessionRepository.findByTableSessionId(request.getTableSessionId())
                 .orElseThrow(()-> new OrderException("Version does not exist with ID:" + request.getTableSessionId()));
-
 
         if( tableSession.getStatus() != SessionStatus.ACTIVE ){
             throw new OrderException("The session for this table has been closed!") ;
@@ -71,7 +68,7 @@ public class OrderServiceImpl implements OrderService {
 
         for(OrderItemRequest itemRequest : request.getList()){
             Product product = productRepository.findById(itemRequest.getProductId())
-                    .orElseThrow(()->new OrderException("Product with ID : "+itemRequest.getProductId() +" not found"))
+                    .orElseThrow(()->new OrderException("Product with ID : "+itemRequest.getProductId() +" not found")) ;
 
             OrderItem orderItem = OrderItem.builder()
                     .order(order)
@@ -100,8 +97,6 @@ public class OrderServiceImpl implements OrderService {
 
     }
 
-
-
     // 2. Lấy danh sách món do chính điện thoại của khách đã đặt
     @Override
     @Transactional
@@ -124,10 +119,29 @@ public class OrderServiceImpl implements OrderService {
 
         List<Order> orders = orderRepository.findByTableSessionTableSessionId(tableSessionId) ;
         if ( orders.isEmpty() ){
-            throw new OrderException("No items have been ordered for this table yet!")
+            throw new OrderException("No items have been ordered for this table yet!");
         }
+        Order mainOrder = orders.get(0) ;
 
+        List<OrderItem> orderItemList = orderItemRepository.findOrderedItemSummaryBySession(tableSessionId) ;
+
+        List<OrderItemResponse> orderItemResponseList = orderItemList.stream()
+                .map(orderMapper::toItemResponse)
+                .collect(Collectors.toList()) ;
+
+        return orderMapper.toMasterResponse( mainOrder , orderItemResponseList  );
     }
 
+    //4: BẾP / NHÂN VIÊN CẬP NHẬT TRẠNG THÁI MÓN
+    @Override
+    @Transactional
+    public void updateOrderStatus ( Long orderId , OrderStatus status ){
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(()-> new OrderException("Order with ID " + orderId +" not found"));
 
+        order.setStatus( status );
+        orderRepository.save(order) ;
+
+        webSocketPublisher.notifyClientOrderStatusUpdate(order.getTableSession().getSessionToken(), status.name() );
+    }
 }

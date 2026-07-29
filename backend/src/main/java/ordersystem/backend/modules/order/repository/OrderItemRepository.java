@@ -22,5 +22,5 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
             "WHERE i.order.tableSession.tableSessionId = :tableSessionId " +
             "AND i.order.status != 'CANCELLED' " +
             "GROUP BY i.product.id")
-    List<Object[]> findOrderedItemSummaryBySession(@Param("tableSessionId") Long tableSessionId);
+    List<OrderItem> findOrderedItemSummaryBySession(@Param("tableSessionId") Long tableSessionId);
 }
