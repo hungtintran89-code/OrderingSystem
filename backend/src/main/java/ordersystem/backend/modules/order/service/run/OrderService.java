@@ -11,7 +11,7 @@ public interface OrderService {
     PersonalOrderResponse submitPersonalOrder(SubmitPersonalOrderRequest request);
 
     // 2. Lấy danh sách món do chính điện thoại của khách đã đặt
-    PersonalOrderResponse getPersonalOrder(Long tableSessionId, String threadId);
+    PersonalOrderResponse getPersonalOrder(Long tableSessionId, Long threadId);
 
     // 3. Lấy tổng hợp danh sách món của cả bàn (TAB CHUNG)
     MasterTableOrderResponse getMasterTableOrder(Long tableSessionId);
@@ -19,4 +19,6 @@ public interface OrderService {
     // 4. Bếp/Nhân viên cập nhật trạng thái đơn hàng (PENDING -> PREPARING -> SERVED)
     void updateOrderStatus(Long orderId, OrderStatus status);
 
+    // 5. Bếp/Nhân viên cập nhật trạng thái món ăn (isAvailable -> no_isAvailable)
+    void updateProductAvailability(Long productId, Boolean isAvailable);
 }

@@ -2,8 +2,7 @@ package ordersystem.backend.modules.order.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.math.BigDecimal;
+import ordersystem.backend.modules.catalog.entity.Product;
 
 @Getter
 @Setter
@@ -39,7 +38,7 @@ public class OrderItem {
     private String note;
 
     @Column(nullable = false)
-    private String createdByThread;
+    private Long createdByThread;
 
     public void calculatePrice() {
         Long unitPrice = (this.price != null) ? this.price : 0L;

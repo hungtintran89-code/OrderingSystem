@@ -13,7 +13,7 @@ public class ProductMenuResponse {
 
     private Long productId;
     private String productName;
-    private BigDecimal price;
+    private Long price;
     private String imageUrl;
     private Boolean isOrdered = false;
     private String description;
