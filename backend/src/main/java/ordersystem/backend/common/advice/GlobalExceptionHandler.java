@@ -46,7 +46,6 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage(), 404));
     }
 
-
     // 4. Lỗi 400: Validate DTO thất bại (@NotBlank, @NotNull...)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {

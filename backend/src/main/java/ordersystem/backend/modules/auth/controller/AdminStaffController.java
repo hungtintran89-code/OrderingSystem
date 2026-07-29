@@ -5,7 +5,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import ordersystem.backend.common.payload.ApiResponse;
-import ordersystem.backend.common.payload.PageResponse;
+import ordersystem.backend.modules.auth.dto.response.PageResponse;
 import ordersystem.backend.modules.auth.dto.request.CreateStaffRequest;
 import ordersystem.backend.modules.auth.dto.response.StaffResponse;
 import ordersystem.backend.modules.auth.service.impl.StaffService;

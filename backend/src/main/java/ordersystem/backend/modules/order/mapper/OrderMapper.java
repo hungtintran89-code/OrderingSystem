@@ -6,6 +6,7 @@ import ordersystem.backend.modules.order.dto.response.PersonalOrderResponse;
 import ordersystem.backend.modules.order.enity.Order;
 import ordersystem.backend.modules.order.enity.OrderItem;
 import ordersystem.backend.modules.order.enity.ProductOption;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
