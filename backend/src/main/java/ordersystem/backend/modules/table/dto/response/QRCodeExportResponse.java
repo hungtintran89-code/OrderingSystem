@@ -10,7 +10,7 @@ import org.springframework.http.MediaType;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class QrCodeExportResponse {
+public class QRCodeExportResponse {
     private byte[] data;
     private String fileName;
     private MediaType mediaType;
