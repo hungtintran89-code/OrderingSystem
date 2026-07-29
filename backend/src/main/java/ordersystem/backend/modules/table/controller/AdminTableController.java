@@ -65,7 +65,5 @@ public class AdminTableController {
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + qrCodeExportResponse.getFileName() + "\"")
                 .body(apiResponse);
-
-
     }
 }
