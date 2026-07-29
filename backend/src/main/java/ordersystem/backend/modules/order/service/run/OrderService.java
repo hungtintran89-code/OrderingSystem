@@ -11,7 +11,7 @@ public interface OrderService {
     PersonalOrderResponse submitPersonalOrder(SubmitPersonalOrderRequest request);
 
     // 2. Lấy danh sách món do chính điện thoại của khách đã đặt
-    PersonalOrderResponse getPersonalOrder(Long tableSessionId, String threadId);
+    PersonalOrderResponse getPersonalOrder(Long tableSessionId, Long threadId);
 
     // 3. Lấy tổng hợp danh sách món của cả bàn (TAB CHUNG)
     MasterTableOrderResponse getMasterTableOrder(Long tableSessionId);

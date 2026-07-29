@@ -1,5 +1,6 @@
 package ordersystem.backend.modules.order.service.impl;
 
+import jakarta.persistence.Table;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.modules.order.dto.request.OrderItemRequest;
@@ -22,7 +23,6 @@ import ordersystem.backend.modules.order.websocket.WebSocketPublisher;
 import ordersystem.backend.modules.table.entity.TableSession;
 import ordersystem.backend.modules.table.enums.SessionStatus;
 import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +40,7 @@ public class OrderServiceImpl implements OrderService {
     final private WebSocketPublisher webSocketPublisher ;
     final private OrderMapper orderMapper ;
     final private OrderItemRepository orderItemRepository ;
+    final private TableSessionRepository tableSessionRepository ;
 
 
     // 1. Xử lý khi Khách hàng bấm Gửi đơn đặt món
@@ -103,11 +104,30 @@ public class OrderServiceImpl implements OrderService {
 
     // 2. Lấy danh sách món do chính điện thoại của khách đã đặt
     @Override
+    @Transactional
     public PersonalOrderResponse getPersonalOrder(Long tableSessionId, Long threadId){
-        List<OrderItem> myItems = orderItemRepository.findByOrderTableSessionTableSessionId(tableSessionId , threadId);
-        return null ;
+        List<OrderItem> myItems = orderItemRepository.findByOrderTableSessionTableSessionIdAndCreatedByThread(tableSessionId , threadId);
+
+        List<OrderItemResponse> itemResponses = myItems.stream()
+                .map(orderMapper::toItemResponse)
+                .collect(Collectors.toList());
+
+        TableSession tableSession = tableSessionRepository.findByTableSessionId(tableSessionId)
+                .orElseThrow(()-> new OrderException("Table id does not exist")) ;
+        return orderMapper.toPersonalResponse(tableSession.getTableSessionId(), threadId, itemResponses);
     }
 
+    //3: XEM TỔNG QUAN TAB CHUNG CẢ BÀN (DÀNH CHO NHÂN VIÊN POS / BÀN CHUNG)
+    @Override
+    @Transactional
+    public MasterTableOrderResponse getMasterTableOrder(Long tableSessionId) {
+
+        List<Order> orders = orderRepository.findByTableSessionTableSessionId(tableSessionId) ;
+        if ( orders.isEmpty() ){
+            throw new OrderException("No items have been ordered for this table yet!")
+        }
+
+    }
 
 
 }

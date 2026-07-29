@@ -26,7 +26,7 @@ public class OrderMapper {
                 .build();
     }
 
-    public PersonalOrderResponse toPersonalResponse(Long tableSessionId, String threadId, List<OrderItemResponse> myItems) {
+    public PersonalOrderResponse toPersonalResponse(Long tableSessionId, Long threadId, List<OrderItemResponse> myItems) {
         PersonalOrderResponse response = PersonalOrderResponse.builder()
                 .tableSessionId(tableSessionId)
                 .threadId(threadId)

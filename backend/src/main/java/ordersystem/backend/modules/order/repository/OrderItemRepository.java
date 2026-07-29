@@ -12,7 +12,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 
     List<OrderItem> findByOrderTableSessionTableSessionId(Long tableSessionId);
 
-    List<OrderItem> findByOrderTableSessionTableSessionIdAndCreatedByThread(Long tableSessionId, String createdByThread);
+    List<OrderItem> findByOrderTableSessionTableSessionIdAndCreatedByThread(Long tableSessionId, Long createdByThread);
 
     @Query("SELECT i FROM OrderItem i WHERE i.order.status = :status")
     List<OrderItem> findByOrderStatus(@Param("status") OrderStatus status);

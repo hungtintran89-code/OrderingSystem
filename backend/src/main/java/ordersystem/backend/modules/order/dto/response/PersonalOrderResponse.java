@@ -14,7 +14,7 @@ import java.util.List;
 public class PersonalOrderResponse {
 
     private Long tableSessionId;
-    private String threadId;
+    private Long threadId;
     private BigDecimal myTotal;
 
     @Builder.Default
