@@ -5,6 +5,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 @Getter
@@ -18,8 +19,8 @@ public class MasterTableOrderResponse {
     private String tableName;
     private Long tableSessionId;
     private String sessionStatus;
-    private BigDecimal totalPrice;
-    private LocalDateTime openedAt;
+    private Long totalPrice;
+    private Date openedAt;
 
     @Builder.Default
     private List<OrderItemResponse> allTableItems = new ArrayList<>();

@@ -3,7 +3,6 @@ package ordersystem.backend.modules.auth.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import ordersystem.backend.modules.auth.enums.UserRole;
-
 import java.util.Date;
 
 @Entity

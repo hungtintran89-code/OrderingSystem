@@ -15,7 +15,7 @@ public class PersonalOrderResponse {
 
     private Long tableSessionId;
     private Long threadId;
-    private BigDecimal myTotal;
+    private Long myTotal;
 
     @Builder.Default
     private List<OrderItemResponse> myItems = new ArrayList<>();
@@ -23,10 +23,10 @@ public class PersonalOrderResponse {
     public void recalculateMyTotal() {
         if (myItems != null && !myItems.isEmpty()) {
             this.myTotal = myItems.stream()
-                    .map(item -> item.getPriceTotal() != null ? item.getPriceTotal() : BigDecimal.ZERO)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    .map(item -> item.getPriceTotal() != null ? item.getPriceTotal() : 0L)
+                    .reduce(0L ,Long::sum) ;
         } else {
-            this.myTotal = BigDecimal.ZERO;
+            this.myTotal = 0L;
         }
     }
 }

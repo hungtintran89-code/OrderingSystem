@@ -37,9 +37,9 @@ public class OrderMapper {
     }
 
     public MasterTableOrderResponse toMasterResponse(Order order, List<OrderItemResponse> allItems) {
-        BigDecimal total = allItems.stream()
-                .map(item -> item.getPriceTotal() != null ? item.getPriceTotal() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        Long total = allItems.stream()
+                .map(item -> item.getPriceTotal() != null ? item.getPriceTotal() : 0L)
+                .reduce(0L , Long::sum);
 
         return MasterTableOrderResponse.builder()
                 .tableId(order.getTableSession().getTable().getTableId())

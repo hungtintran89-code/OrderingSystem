@@ -19,4 +19,6 @@ public interface OrderService {
     // 4. Bếp/Nhân viên cập nhật trạng thái đơn hàng (PENDING -> PREPARING -> SERVED)
     void updateOrderStatus(Long orderId, OrderStatus status);
 
+    // 5. Bếp/Nhân viên cập nhật trạng thái món ăn (isAvailable -> no_isAvailable)
+    void updateProductAvailability(Long productId, Boolean isAvailable);
 }
