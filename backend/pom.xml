@@ -112,6 +112,27 @@
 		<artifactId>spring-boot-starter-websocket</artifactId>
 	</dependency>
 
+	<!-- Thư viện lõi xử lý logic tạo QR -->
+	<dependency>
+		<groupId>com.google.zxing</groupId>
+		<artifactId>core</artifactId>
+		<version>3.5.3</version>
+	</dependency>
+
+	<!-- Thư viện hỗ trợ chuyển đổi BitMatrix thành hình ảnh (PNG/JPEG) -->
+	<dependency>
+		<groupId>com.google.zxing</groupId>
+		<artifactId>javase</artifactId>
+		<version>3.5.3</version>
+	</dependency>
+
+	<!-- Thư viện openFDF-->
+	<dependency>
+		<groupId>com.github.librepdf</groupId>
+		<artifactId>openpdf</artifactId>
+		<version>1.3.30</version>
+	</dependency>
+
 	</dependencies>
 
 	<build>
