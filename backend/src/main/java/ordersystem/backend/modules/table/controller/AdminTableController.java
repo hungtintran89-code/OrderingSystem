@@ -8,7 +8,7 @@ import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
 import ordersystem.backend.modules.table.dto.response.QRCodeExportResponse;
 import ordersystem.backend.modules.table.dto.response.TableResponse;
 import ordersystem.backend.modules.table.enums.QRFormat;
-import ordersystem.backend.modules.table.service.impl.QRCodeGeneratorService;
+import ordersystem.backend.modules.table.service.genetor.QRCodeGeneratorService;
 import ordersystem.backend.modules.table.service.impl.TableService;
 import ordersystem.backend.modules.table.service.impl.TableSessionService;
 import org.springframework.http.HttpHeaders;
@@ -65,7 +65,5 @@ public class AdminTableController {
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + qrCodeExportResponse.getFileName() + "\"")
                 .body(apiResponse);
-
-
     }
 }
