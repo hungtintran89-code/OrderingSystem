@@ -1,6 +1,6 @@
 package ordersystem.backend.modules.order.repository;
 
-import ordersystem.backend.modules.order.enity.RestaurantTable;
+import ordersystem.backend.modules.order.entity.RestaurantTable;
 import ordersystem.backend.modules.order.enums.TableStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 

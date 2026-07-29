@@ -1,23 +1,21 @@
 package ordersystem.backend.modules.order.mapper;
 
 import ordersystem.backend.modules.order.dto.response.ProductMenuResponse;
-import ordersystem.backend.modules.order.enity.Product;
+import ordersystem.backend.modules.order.entity.Product;
 import org.springframework.stereotype.Component;
 
 @Component
 public class ProductMapper {
 
-    public ProductMenuResponse toMenuResponse(Product product , Boolean is_ordered_by_thread ){
-        return new ProductMenuResponse(
-                product.getId(),
-                product.getName() ,
-                product.getPrice(),
-                product.getImageUrl() ,
-                is_ordered_by_thread ,
-                product.getDescription() ,
-                product.getIsAvailable()
-                ) ;
-
+    public ProductMenuResponse toMenuResponse(Product product, Boolean isOrderedByThread) {
+        return ProductMenuResponse.builder()
+                .productId(product.getId())
+                .productName(product.getName())
+                .price(product.getPrice())
+                .imageUrl(product.getImageUrl())
+                .isOrdered(isOrderedByThread)
+                .description(product.getDescription())
+                .isAvailable(product.getIsAvailable())
+                .build();
     }
-
 }

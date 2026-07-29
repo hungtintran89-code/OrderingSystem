@@ -1,21 +1,21 @@
 package ordersystem.backend.modules.order.dto.response;
 
+import lombok.*;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import java.math.BigDecimal;
 
-@Setter @Getter
-@NoArgsConstructor @AllArgsConstructor
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ProductMenuResponse {
 
-    private Long product_id ;
-    private String product_name ;
-    private Long price ;
-    private String img_url ;
-    private Boolean is_ordered = false ;
-    private String description ;
-    private Boolean is_available ;
-
+    private Long productId;
+    private String productName;
+    private BigDecimal price;
+    private String imageUrl;
+    private Boolean isOrdered = false;
+    private String description;
+    private Boolean isAvailable;
 }

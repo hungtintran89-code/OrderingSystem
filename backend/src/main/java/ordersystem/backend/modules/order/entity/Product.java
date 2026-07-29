@@ -1,18 +1,16 @@
-package ordersystem.backend.modules.order.enity;
+package ordersystem.backend.modules.order.entity;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import ordersystem.backend.modules.catalog.entity.* ;
 import jakarta.persistence.*;
+import lombok.*;
+import ordersystem.backend.modules.catalog.entity.Category;
 
 import java.math.BigDecimal;
 
-
-
-@Setter @Getter
-@NoArgsConstructor @AllArgsConstructor
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "products")
 public class Product {
@@ -25,11 +23,13 @@ public class Product {
     private String name;
 
     @Column(nullable = false)
-    private Long  price;
+    private Long price;
 
     private String imageUrl;
-    private String description ;
+    private String description;
+
     @Column(nullable = false)
+    @Builder.Default
     private Boolean isAvailable = true;
 
     @ManyToOne(fetch = FetchType.LAZY)
