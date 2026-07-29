@@ -1,39 +1,32 @@
 package ordersystem.backend.modules.order.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import ordersystem.backend.modules.order.enity.OrderItem;
+import lombok.*;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-
-@Setter @Getter
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class PersonalOrderResponse {
 
-    private Long table_session_id ;
-    private Long thread_id ;
-    private Long my_total ;
-    private List<OrderItemResponse> my_items = new ArrayList<>() ;
+    private Long tableSessionId;
+    private String threadId;
+    private BigDecimal myTotal;
 
-    public PersonalOrderResponse(Long tableSessionId, Long threadId, List<OrderItemResponse> myItems) {
-        this.table_session_id = tableSessionId;
-        this.thread_id = threadId;
-        this.my_items = myItems;
-        recalculateMyTotal();
-    }
+    @Builder.Default
+    private List<OrderItemResponse> myItems = new ArrayList<>();
 
-
-    public void recalculateMyTotal(){
-        if( my_items != null && !my_items.isEmpty()) {
-            this.my_total = my_items.stream()
-                    .map(OrderItemResponse :: getPrice_item )
-                    .reduce(0L, Long::sum);
-            return ;
+    public void recalculateMyTotal() {
+        if (myItems != null && !myItems.isEmpty()) {
+            this.myTotal = myItems.stream()
+                    .map(item -> item.getPriceTotal() != null ? item.getPriceTotal() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        } else {
+            this.myTotal = BigDecimal.ZERO;
         }
-        this.my_total = 0L ;
     }
-
 }

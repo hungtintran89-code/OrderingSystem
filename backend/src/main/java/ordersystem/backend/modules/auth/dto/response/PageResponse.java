@@ -1,4 +1,4 @@
-package ordersystem.backend.common.payload;
+package ordersystem.backend.modules.auth.dto.response;
 
 import lombok.*;
 
