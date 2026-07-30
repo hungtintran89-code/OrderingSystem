@@ -2,6 +2,7 @@ package ordersystem.backend.modules.order.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,10 +17,10 @@ import java.util.List;
 @AllArgsConstructor
 public class SubmitPersonalOrderRequest {
 
-    @NotBlank(message = "The Session Code/Desk Code cannot be left blank.")
+    @NotNull(message = "The Session Code/Desk Code cannot be left blank.")
     private Long tableSessionId;
 
-    @NotBlank(message = "The device thread ID must not be empty.")
+    @NotNull(message = "The device thread ID must not be empty.")
     private Long threadId;
 
     private String note;

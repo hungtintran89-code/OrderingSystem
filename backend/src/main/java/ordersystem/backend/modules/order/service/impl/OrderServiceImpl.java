@@ -8,6 +8,7 @@ import ordersystem.backend.modules.order.dto.request.SubmitPersonalOrderRequest;
 import ordersystem.backend.modules.order.dto.response.MasterTableOrderResponse;
 import ordersystem.backend.modules.order.dto.response.OrderItemResponse;
 import ordersystem.backend.modules.order.dto.response.PersonalOrderResponse;
+import ordersystem.backend.modules.order.dto.response.TableInvoiceResponse;
 import ordersystem.backend.modules.order.entity.OrderEntity;
 import ordersystem.backend.modules.order.entity.OrderItemEntity;
 import ordersystem.backend.modules.catalog.entity.Product;
@@ -26,7 +27,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -147,6 +150,7 @@ public class OrderServiceImpl implements OrderService {
         webSocketPublisher.notifyClientOrderStatusUpdate(orderEntity.getTableSession().getSessionToken(), status.name() );
     }
 
+    //4: BẾP / NHÂN VIÊN CẬP NHẬT TRẠNG THÁI MÓN
     @Override
     public PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, Pageable pageable) {
 
@@ -176,5 +180,30 @@ public class OrderServiceImpl implements OrderService {
 
     }
 
+    public TableInvoiceResponse exportTableInvoice(Long tableId) {
+        TableSessionEntity tableSession = tableSessionRepository.findByTableTableIdAndStatus(tableId , SessionStatus.ACTIVE)
+                .orElseThrow(()-> new OrderException("No ACTIVE session found for table ID: " + tableId)) ;
 
-}
+        List<OrderItemEntity> orderItemResponseList = orderItemRepository.findByOrderTableSessionTableSessionId(tableSession.getTableSessionId()) ;
+
+        if( orderItemResponseList.isEmpty()){
+            throw new OrderException("Cannot export invoice: No items ordered for this table yet.") ;
+        }
+
+        // 3. Map sang OrderItemResponse
+        List<OrderItemResponse> responseList = orderItemResponseList.stream()
+                .map(orderMapper::toItemResponse)
+                .collect(Collectors.toList()) ;
+
+        String dateStr = new SimpleDateFormat("yyyyMMdd").format(new Date());
+        // Tạo mã số dạng Long dựa trên miligiây hiện tại (VD: 1785456789012L)
+        Long invoiceCode = System.currentTimeMillis();
+
+        return orderMapper.toTableInvoiceResponse( invoiceCode , tableSession , responseList , 0L , 0L  ) ;
+
+
+    }
+
+
+
+    }
