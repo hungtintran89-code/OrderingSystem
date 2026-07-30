@@ -3,10 +3,8 @@ package ordersystem.backend.modules.order.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import ordersystem.backend.modules.order.enums.OrderStatus;
-import ordersystem.backend.modules.table.entity.TableSession;
+import ordersystem.backend.modules.table.entity.TableSessionEntity;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -29,7 +27,7 @@ public class Order {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "table_session_id", nullable = false)
-    private TableSession tableSession;
+    private TableSessionEntity tableSessionEntity;
 
     @Column(nullable = false)
     private Long totalAmount;

@@ -18,7 +18,7 @@ import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.catalog.repository.ProductRepository;
 import ordersystem.backend.modules.order.service.run.OrderService;
 import ordersystem.backend.modules.order.websocket.WebSocketPublisher;
-import ordersystem.backend.modules.table.entity.TableSession;
+import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
 import org.springframework.stereotype.Service;
@@ -44,19 +44,19 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public PersonalOrderResponse submitPersonalOrder(SubmitPersonalOrderRequest request){
 
-        TableSession tableSession = tableSessionRepository.findByTableSessionId(request.getTableSessionId())
+        TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableSessionId(request.getTableSessionId())
                 .orElseThrow(()-> new OrderException("Table session does not exist with ID:" + request.getTableSessionId()));
 
-        if( tableSession.getStatus() != SessionStatus.ACTIVE ){
+        if( tableSessionEntity.getStatus() != SessionStatus.ACTIVE ){
             throw new OrderException("The session for this table has been closed!") ;
         }
 
-        Order order = orderRepository.findByTableSessionTableSessionId(tableSession.getTableSessionId())
+        Order order = orderRepository.findByTableSessionTableSessionId(tableSessionEntity.getTableSessionId())
                 .stream().findFirst()
                 .orElseGet(()->{
                     return orderRepository.save(Order.builder()
                                     .orderCode("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                                    .tableSession(tableSession)
+                                    .tableSessionEntity(tableSessionEntity)
                                     .status(OrderStatus.PENDING)
                                     .totalAmount(0L)
                                     .build()) ;
@@ -86,13 +86,13 @@ public class OrderServiceImpl implements OrderService {
 
         Order savedOrder = orderRepository.save(order);
         webSocketPublisher.notifyKitchenNewOrder( newOrderItem );
-        webSocketPublisher.notifyAdminTableUpdate(tableSession.getTableSessionId(), savedOrder.getId());
+        webSocketPublisher.notifyAdminTableUpdate(tableSessionEntity.getTableSessionId(), savedOrder.getId());
 
         List<OrderItemResponse> newItemsResponses = newOrderItem.stream()
                 .map(orderMapper::toItemResponse)
                 .collect(Collectors.toList());
 
-        return orderMapper.toPersonalResponse(tableSession.getTableSessionId(), request.getThreadId() , newItemsResponses);
+        return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), request.getThreadId() , newItemsResponses);
 
     }
 
@@ -106,9 +106,9 @@ public class OrderServiceImpl implements OrderService {
                 .map(orderMapper::toItemResponse)
                 .collect(Collectors.toList());
 
-        TableSession tableSession = tableSessionRepository.findByTableSessionId(tableSessionId)
+        TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableSessionId(tableSessionId)
                 .orElseThrow(()-> new OrderException("Table id does not exist")) ;
-        return orderMapper.toPersonalResponse(tableSession.getTableSessionId(), threadId, itemResponses);
+        return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), threadId, itemResponses);
     }
 
     //3: XEM TỔNG QUAN TAB CHUNG CẢ BÀN (DÀNH CHO NHÂN VIÊN POS / BÀN CHUNG)
@@ -141,7 +141,7 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus( status );
         orderRepository.save(order) ;
 
-        webSocketPublisher.notifyClientOrderStatusUpdate(order.getTableSession().getSessionToken(), status.name() );
+        webSocketPublisher.notifyClientOrderStatusUpdate(order.getTableSessionEntity().getSessionToken(), status.name() );
     }
 
     //5 BẾP / QUẢN LÝ CẬP NHẬT TRẠNG THÁI MÓN CÒN HÀNG HOẶC HẾT HÀNG

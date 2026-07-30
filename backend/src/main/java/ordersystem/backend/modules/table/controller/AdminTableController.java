@@ -8,7 +8,8 @@ import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
 import ordersystem.backend.modules.table.dto.response.QRCodeExportResponse;
 import ordersystem.backend.modules.table.dto.response.TableResponse;
 import ordersystem.backend.modules.table.enums.QRFormat;
-import ordersystem.backend.modules.table.service.genetor.QRCodeGeneratorService;
+import ordersystem.backend.modules.table.service.generator.QRCodeGeneratorService;
+import ordersystem.backend.modules.table.service.impl.LiveFloorMapService;
 import ordersystem.backend.modules.table.service.impl.TableService;
 import ordersystem.backend.modules.table.service.impl.TableSessionService;
 import org.springframework.http.HttpHeaders;
@@ -26,6 +27,7 @@ public class AdminTableController {
     private final TableService tableService;
     private final TableSessionService tableSessionService;
     private final QRCodeGeneratorService qrCodeGeneratorService;
+    private final LiveFloorMapService liveFloorMapService;
 
     @PostMapping
     @PreAuthorize("hasRole('MANAGER')")
@@ -34,10 +36,10 @@ public class AdminTableController {
         return ResponseEntity.ok(ApiResponse.success("Create Table is success", tableResponse));
     }
 
-    @PreAuthorize("hasRole('MANEGER') or hasRole('STAFF')")
+    @PreAuthorize("hasRole('MANAGER') or hasRole('STAFF')")
     @GetMapping("/floor-map")
     ResponseEntity<ApiResponse<List<FloorMapResponse>>> getFloorMap(){
-        List<FloorMapResponse> listFloorMapResponse = tableService.getLiveFloorMap();
+        List<FloorMapResponse> listFloorMapResponse = liveFloorMapService.getLiveFloorMap();
         return ResponseEntity.ok(ApiResponse.success("Get Floor Map is succes", listFloorMapResponse));
     }
 
