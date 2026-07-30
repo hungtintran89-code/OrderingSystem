@@ -12,7 +12,6 @@ import java.util.List;
 public interface TableService {
     public TableResponse createTable(CreateTableRequest request);
     public QRResolveResponse resolveQrtoken(String qrToken);
-    public List<FloorMapResponse> getLiveFloorMap();
 //    public byte[] generateTableQrCode(Long tableId);
     public QRCodeExportResponse exportTableQrCode(Long tableId, QRFormat qrFormat);
 }

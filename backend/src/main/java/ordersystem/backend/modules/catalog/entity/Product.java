@@ -1,10 +1,7 @@
-package ordersystem.backend.modules.order.entity;
+package ordersystem.backend.modules.catalog.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import ordersystem.backend.modules.catalog.entity.Category;
-
-import java.math.BigDecimal;
 
 @Getter
 @Setter

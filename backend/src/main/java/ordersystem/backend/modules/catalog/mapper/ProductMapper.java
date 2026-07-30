@@ -1,6 +1,6 @@
-package ordersystem.backend.modules.order.mapper;
+package ordersystem.backend.modules.catalog.mapper;
 
-import ordersystem.backend.modules.order.dto.response.ProductMenuResponse;
+import ordersystem.backend.modules.catalog.dto.response.ProductMenuResponse;
 import ordersystem.backend.modules.catalog.entity.Product;
 import org.springframework.stereotype.Component;
 

@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import ordersystem.backend.modules.table.enums.SessionStatus;
 
-import java.time.LocalDateTime;
 import java.util.Date;
 
 @Entity
@@ -12,7 +11,7 @@ import java.util.Date;
 @NoArgsConstructor @AllArgsConstructor
 @Builder
 @Table(name = "table_sessions")
-public class TableSession {
+public class TableSessionEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,7 +27,7 @@ public class TableSession {
     // Biểu diễn Khóa ngoại (Foreign Key) liên kết tới RestaurantTable
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "table_id", nullable = false)
-    private RestaurantTable table;
+    private RestaurantTableEntity table;
 
     // Map Enum dạng Chuỗi (String) vào Database
     @Enumerated(EnumType.STRING)

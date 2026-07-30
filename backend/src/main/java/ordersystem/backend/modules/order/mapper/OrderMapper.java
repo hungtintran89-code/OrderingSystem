@@ -7,7 +7,6 @@ import ordersystem.backend.modules.order.entity.Order;
 import ordersystem.backend.modules.order.entity.OrderItem;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Component
@@ -42,10 +41,10 @@ public class OrderMapper {
                 .reduce(0L , Long::sum);
 
         return MasterTableOrderResponse.builder()
-                .tableId(order.getTableSession().getTable().getTableId())
-                .tableName(order.getTableSession().getTable().getTableName())
-                .tableSessionId(order.getTableSession().getTableSessionId())
-                .sessionStatus(order.getTableSession().getStatus().name())
+                .tableId(order.getTableSessionEntity().getTable().getTableId())
+                .tableName(order.getTableSessionEntity().getTable().getTableName())
+                .tableSessionId(order.getTableSessionEntity().getTableSessionId())
+                .sessionStatus(order.getTableSessionEntity().getStatus().name())
                 .totalPrice(total)
                 .allTableItems(allItems)
                 .build();
