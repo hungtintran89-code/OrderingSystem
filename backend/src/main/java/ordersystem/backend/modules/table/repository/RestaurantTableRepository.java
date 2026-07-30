@@ -25,5 +25,6 @@ public interface RestaurantTableRepository extends JpaRepository<RestaurantTable
 
     Optional<RestaurantTableEntity> findByTableName(String tableName);
 
-    List<RestaurantTableEntity> findByStatus(TableStatus status);
+    List<RestaurantTableEntity> findByTableStatus(TableStatus status);
+
 }

@@ -6,10 +6,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface ServiceRequestRepository extends JpaRepository<Long, ServiceRequestEntity> {
+public interface ServiceRequestRepository extends JpaRepository<ServiceRequestEntity , Long> {
 
     //Lấy các yêu cầu đang pending
-    List<ServiceRequestEntity> findAllByStatus(RequestStatus requestStatus);
-
+    List<ServiceRequestEntity> findAllByRequestStatus(RequestStatus status);
     //
 }

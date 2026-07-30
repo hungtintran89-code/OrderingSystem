@@ -43,9 +43,9 @@ CREATE TABLE IF NOT EXISTS product_option (
     );
 
 -- ============================================================
--- 4. BẢNG HÓA ĐƠN TỔNG (orders)
+-- 4. BẢNG HÓA ĐƠN TỔNG (orderEntities)
 -- ============================================================
-CREATE TABLE IF NOT EXISTS orders (
+CREATE TABLE IF NOT EXISTS orderEntities (
                                       id BIGINT AUTO_INCREMENT PRIMARY KEY,
                                       order_code VARCHAR(255) NOT NULL,
     table_session_id BIGINT NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS order_item (
                                           total_price BIGINT NOT NULL DEFAULT 0,
                                           note VARCHAR(500),
     created_by_thread VARCHAR(255) NOT NULL,
-    CONSTRAINT fk_item_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    CONSTRAINT fk_item_order FOREIGN KEY (order_id) REFERENCES orderEntities(id) ON DELETE CASCADE,
     CONSTRAINT fk_item_product FOREIGN KEY (product_id) REFERENCES products(id)
     );
 
