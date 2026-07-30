@@ -1,8 +1,6 @@
-package ordersystem.backend.modules.order.dto.response;
+package ordersystem.backend.modules.catalog.dto.response;
 
 import lombok.*;
-
-import java.math.BigDecimal;
 
 @Getter
 @Setter

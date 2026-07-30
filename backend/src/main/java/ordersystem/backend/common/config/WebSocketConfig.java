@@ -1,4 +1,4 @@
-package ordersystem.backend.modules.order.config;
+package ordersystem.backend.common.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;

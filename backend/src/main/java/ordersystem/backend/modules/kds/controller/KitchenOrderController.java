@@ -1,4 +1,4 @@
-package ordersystem.backend.modules.order.controller;
+package ordersystem.backend.modules.kds.controller;
 
 
 import lombok.RequiredArgsConstructor;
