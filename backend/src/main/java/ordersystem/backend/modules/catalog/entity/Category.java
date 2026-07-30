@@ -1,23 +1,30 @@
 package ordersystem.backend.modules.catalog.entity;
 
 import jakarta.persistence.*;
+import lombok.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "categories")
 public class Category {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long category_id;
+    @Column(name = "category_id")
+    private Long id;
 
+    @Column(nullable = false, unique = true)
     private String name; // "Món Chính", "Đồ Uống", "Khai Vị"
 
-    // Một danh mục có chứa Danh sách nhiều Món ăn
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
+    // Một danh mục chứa nhiều Món ăn
+    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<Product> products = new ArrayList<>();
-
-
-}
+}

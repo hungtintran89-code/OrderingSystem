@@ -2,13 +2,14 @@ package ordersystem.backend.modules.order.service.impl;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import ordersystem.backend.common.payload.PageResponse;
 import ordersystem.backend.modules.order.dto.request.OrderItemRequest;
 import ordersystem.backend.modules.order.dto.request.SubmitPersonalOrderRequest;
 import ordersystem.backend.modules.order.dto.response.MasterTableOrderResponse;
 import ordersystem.backend.modules.order.dto.response.OrderItemResponse;
 import ordersystem.backend.modules.order.dto.response.PersonalOrderResponse;
-import ordersystem.backend.modules.order.entity.Order;
-import ordersystem.backend.modules.order.entity.OrderItem;
+import ordersystem.backend.modules.order.entity.OrderEntity;
+import ordersystem.backend.modules.order.entity.OrderItemEntity;
 import ordersystem.backend.modules.catalog.entity.Product;
 import ordersystem.backend.modules.order.enums.OrderStatus;
 import ordersystem.backend.modules.order.exception.OrderException;
@@ -21,6 +22,8 @@ import ordersystem.backend.modules.order.websocket.WebSocketPublisher;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -51,44 +54,44 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderException("The session for this table has been closed!") ;
         }
 
-        Order order = orderRepository.findByTableSessionTableSessionId(tableSessionEntity.getTableSessionId())
+        OrderEntity orderEntity = orderRepository.findByTableSessionTableSessionId(tableSessionEntity.getTableSessionId())
                 .stream().findFirst()
                 .orElseGet(()->{
-                    return orderRepository.save(Order.builder()
+                    return orderRepository.save(OrderEntity.builder()
                                     .orderCode("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                                    .tableSessionEntity(tableSessionEntity)
+                                    .tableSession(tableSessionEntity)
                                     .status(OrderStatus.PENDING)
                                     .totalAmount(0L)
                                     .build()) ;
                 });
         Long additonalTotal = 0L ;
-        List<OrderItem> newOrderItem = new ArrayList<>() ;
+        List<OrderItemEntity> newOrderItemEntity = new ArrayList<>() ;
 
         for(OrderItemRequest itemRequest : request.getList()){
             Product product = productRepository.findById(itemRequest.getProductId())
                     .orElseThrow(()->new OrderException("Product with ID : "+itemRequest.getProductId() +" not found")) ;
 
-            OrderItem orderItem = OrderItem.builder()
-                    .order(order)
+            OrderItemEntity orderItemEntity = OrderItemEntity.builder()
+                    .order(orderEntity)
                     .product(product)
                     .quantity(itemRequest.getQuantity())
                     .price(product.getPrice())
                     .note((itemRequest.getNote()))
-                    .createdByThread( request.getThreadId() )
+                    .createdByThread(request.getThreadId())
                     .build();
-            orderItem.calculatePrice();
-            additonalTotal += orderItem.getTotalPrice() ;
-            Long currentTotal = (order.getTotalAmount() != null) ? order.getTotalAmount() : 0L;
-            order.setTotalAmount( order.getTotalAmount() + additonalTotal );
+            orderItemEntity.calculatePrice();
+            newOrderItemEntity.add(orderItemEntity);
+            additonalTotal += orderItemEntity.getTotalPrice();
         }
-        order.setTotalAmount( additonalTotal);
-        order.getItems().addAll(newOrderItem);
+        Long currentTotal = (orderEntity.getTotalAmount() != null) ? orderEntity.getTotalAmount() : 0L;
+        orderEntity.setTotalAmount(currentTotal + additonalTotal);
+        orderEntity.getItems().addAll(newOrderItemEntity);
 
-        Order savedOrder = orderRepository.save(order);
-        webSocketPublisher.notifyKitchenNewOrder( newOrderItem );
-        webSocketPublisher.notifyAdminTableUpdate(tableSessionEntity.getTableSessionId(), savedOrder.getId());
+        OrderEntity savedOrderEntity = orderRepository.save(orderEntity);
+        webSocketPublisher.notifyKitchenNewOrder(newOrderItemEntity);
+        webSocketPublisher.notifyAdminTableUpdate(tableSessionEntity.getTableSessionId(), savedOrderEntity.getId());
 
-        List<OrderItemResponse> newItemsResponses = newOrderItem.stream()
+        List<OrderItemResponse> newItemsResponses = newOrderItemEntity.stream()
                 .map(orderMapper::toItemResponse)
                 .collect(Collectors.toList());
 
@@ -100,7 +103,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public PersonalOrderResponse getPersonalOrder(Long tableSessionId, Long threadId){
-        List<OrderItem> myItems = orderItemRepository.findByOrderTableSessionTableSessionIdAndCreatedByThread(tableSessionId , threadId);
+        List<OrderItemEntity> myItems = orderItemRepository.findByOrderTableSessionTableSessionIdAndCreatedByThread(tableSessionId , threadId);
 
         List<OrderItemResponse> itemResponses = myItems.stream()
                 .map(orderMapper::toItemResponse)
@@ -116,44 +119,62 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public MasterTableOrderResponse getMasterTableOrder(Long tableSessionId) {
 
-        List<Order> orders = orderRepository.findByTableSessionTableSessionId(tableSessionId) ;
-        if ( orders.isEmpty() ){
+        List<OrderEntity> orderEntities = orderRepository.findByTableSessionTableSessionId(tableSessionId) ;
+        if ( orderEntities.isEmpty() ){
             throw new OrderException("No items have been ordered for this table yet!");
         }
-        Order mainOrder = orders.get(0) ;
+        OrderEntity mainOrderEntity = orderEntities.get(0) ;
 
-        List<OrderItem> orderItemList = orderItemRepository.findByOrderTableSessionTableSessionId(tableSessionId) ;
+        List<OrderItemEntity> orderItemEntityList = orderItemRepository.findByOrderTableSessionTableSessionId(tableSessionId) ;
 
-        List<OrderItemResponse> orderItemResponseList = orderItemList.stream()
+        List<OrderItemResponse> orderItemResponseList = orderItemEntityList.stream()
                 .map(orderMapper::toItemResponse)
                 .collect(Collectors.toList()) ;
 
-        return orderMapper.toMasterResponse( mainOrder , orderItemResponseList  );
+        return orderMapper.toMasterResponse(mainOrderEntity, orderItemResponseList  );
     }
 
     //4: BẾP / NHÂN VIÊN CẬP NHẬT TRẠNG THÁI MÓN
     @Override
     @Transactional
     public void updateOrderStatus ( Long orderId , OrderStatus status ){
-        Order order = orderRepository.findById(orderId)
+        OrderEntity orderEntity = orderRepository.findById(orderId)
                 .orElseThrow(()-> new OrderException("Order with ID " + orderId +" not found"));
 
-        order.setStatus( status );
-        orderRepository.save(order) ;
+        orderEntity.setStatus( status );
+        orderRepository.save(orderEntity) ;
 
-        webSocketPublisher.notifyClientOrderStatusUpdate(order.getTableSessionEntity().getSessionToken(), status.name() );
+        webSocketPublisher.notifyClientOrderStatusUpdate(orderEntity.getTableSession().getSessionToken(), status.name() );
     }
 
-    //5 BẾP / QUẢN LÝ CẬP NHẬT TRẠNG THÁI MÓN CÒN HÀNG HOẶC HẾT HÀNG
     @Override
-    @Transactional
-    public void updateProductAvailability ( Long productId , Boolean isAvailable ){
-        Product product = productRepository.findById(productId)
-                .orElseThrow(()-> new OrderException("Dish with ID " + productId +" not found:")) ;
+    public PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, Pageable pageable) {
 
-        product.setIsAvailable(isAvailable);
-        productRepository.save(product) ;
+        Page<OrderEntity> orderPage ;
+        if (status != null) {
+            orderPage = orderRepository.findByStatus(status, pageable);
+        } else {
+            orderPage = orderRepository.findAll(pageable);
+        }
 
-        webSocketPublisher.notifyClientOrderStatusUpdate("MENU_UPDATE", "PRODUCT_" + productId + "_" + isAvailable);
+        List<MasterTableOrderResponse> responses = orderPage.getContent().stream()
+                .map(orderEntity ->{
+                    List<OrderItemResponse> itemResponses = orderEntity.getItems().stream()
+                            .map(orderMapper::toItemResponse)
+                            .collect(Collectors.toList());
+                    return orderMapper.toMasterResponse(orderEntity, itemResponses);
+                })
+                .collect(Collectors.toList());
+
+        return PageResponse.<MasterTableOrderResponse>builder()
+                .content(responses)
+                .page(orderPage.getNumber() + 1 )
+                .size(orderPage.getSize() )
+                .totalPages(orderPage.getTotalPages())
+                .totalElements(orderPage.getTotalElements())
+                .build() ;
+
     }
+
+
 }

@@ -16,7 +16,7 @@ import java.util.List;
 @Builder
 @Entity
 @Table(name = "orders")
-public class Order {
+public class OrderEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,7 +27,7 @@ public class Order {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "table_session_id", nullable = false)
-    private TableSessionEntity tableSessionEntity;
+    private TableSessionEntity tableSession;
 
     @Column(nullable = false)
     private Long totalAmount;
@@ -39,15 +39,15 @@ public class Order {
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private List<OrderItem> items = new ArrayList<>();
+    private List<OrderItemEntity> items = new ArrayList<>();
 
     private Date createdAt;
     private Date updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = new Date() ;
-        this.updatedAt = new Date() ;
+        this.createdAt = new Date();
+        this.updatedAt = new Date();
         if (this.totalAmount == null) {
             this.totalAmount = 0L;
         }
@@ -55,6 +55,7 @@ public class Order {
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = new Date() ;
+        this.updatedAt = new Date();
     }
 }
+

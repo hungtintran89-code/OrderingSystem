@@ -2,6 +2,7 @@ package ordersystem.backend.modules.table.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import ordersystem.backend.modules.table.enums.TableStatus;
 
 import java.util.Date;
 
@@ -28,6 +29,9 @@ public class RestaurantTableEntity {
 
     @Column(nullable = false, name = "is_active")
     private Boolean isActive;
+
+    @Column(nullable = false , name = "table_status")
+    private TableStatus tableStatus ;
 
     @Column(nullable = false, name = "creat_at")
     private Date createdAt;

@@ -1,9 +1,11 @@
 package ordersystem.backend.modules.order.service.run;
 
+import ordersystem.backend.common.payload.PageResponse;
 import ordersystem.backend.modules.order.dto.request.SubmitPersonalOrderRequest;
 import ordersystem.backend.modules.order.dto.response.MasterTableOrderResponse;
 import ordersystem.backend.modules.order.dto.response.PersonalOrderResponse;
 import ordersystem.backend.modules.order.enums.OrderStatus;
+import org.springframework.data.domain.Pageable;
 
 public interface OrderService {
 
@@ -19,6 +21,5 @@ public interface OrderService {
     // 4. Bếp/Nhân viên cập nhật trạng thái đơn hàng (PENDING -> PREPARING -> SERVED)
     void updateOrderStatus(Long orderId, OrderStatus status);
 
-    // 5. Bếp/Nhân viên cập nhật trạng thái món ăn (isAvailable -> no_isAvailable)
-    void updateProductAvailability(Long productId, Boolean isAvailable);
+    public PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, Pageable pageable) ;
 }

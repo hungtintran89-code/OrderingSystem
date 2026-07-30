@@ -11,7 +11,7 @@ import ordersystem.backend.modules.catalog.entity.Product;
 @Builder
 @Entity
 @Table(name = "order_items")
-public class OrderItem {
+public class OrderItemEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,7 +20,7 @@ public class OrderItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
-    private Order order;
+    private OrderEntity order;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
@@ -43,6 +43,13 @@ public class OrderItem {
     public void calculatePrice() {
         Long unitPrice = (this.price != null) ? this.price : 0L;
         long qty = (this.quantity != null) ? this.quantity : 1L;
-        this.totalPrice = unitPrice * qty  ;
+        this.totalPrice = unitPrice * qty;
+    }
+
+    @PrePersist
+    @PreUpdate
+    protected void onSave() {
+        calculatePrice();
     }
 }
+

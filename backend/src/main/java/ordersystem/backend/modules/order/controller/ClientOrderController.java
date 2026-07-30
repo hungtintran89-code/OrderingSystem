@@ -20,7 +20,7 @@ public class ClientOrderController {
 
     // API 1: Khách hàng tại bàn bấm "Gửi Đơn" gọi món
     // URL: POST /api/v1/orders/submit
-    @PostMapping("/submit")
+    @PostMapping
     public ResponseEntity<PersonalOrderResponse> submitOrder (@Valid @RequestBody SubmitPersonalOrderRequest request){
         PersonalOrderResponse response = orderService.submitPersonalOrder(request) ;
         return ResponseEntity.ok(response) ;
@@ -38,9 +38,9 @@ public class ClientOrderController {
 
     // API 3: Xem tổng quan danh sách tất cả các món đã gọi của CẢ BÀN (TAB CHUNG)
     // URL: GET /api/v1/orders/table-summary?tableSessionId=1001
-    @GetMapping("table-summary")
-    public ResponseEntity<MasterTableOrderResponse> getMasterTableOrder ( @RequestParam Long tableSessionId ){
-        MasterTableOrderResponse response = orderService.getMasterTableOrder(tableSessionId) ;
+    @GetMapping("/table/{tableId}")
+    public ResponseEntity<MasterTableOrderResponse> getMasterTableOrder ( @RequestParam Long tableId ){
+        MasterTableOrderResponse response = orderService.getMasterTableOrder(tableId) ;
         return ResponseEntity.ok(response) ;
     }
 
