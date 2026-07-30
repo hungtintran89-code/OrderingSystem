@@ -1,13 +1,13 @@
 package ordersystem.backend.modules.table.mapper;
 
 import ordersystem.backend.modules.table.dto.response.TableResponse;
-import ordersystem.backend.modules.table.entity.RestaurantTable;
+import ordersystem.backend.modules.table.entity.RestaurantTableEntity;
 import org.springframework.stereotype.Component;
 
 @Component
 public class RestaurantTableMapper {
 
-    public TableResponse toTableResponse(RestaurantTable tableInfo){
+    public TableResponse toTableResponse(RestaurantTableEntity tableInfo){
         if (tableInfo == null){
             return null;
         }

@@ -1,6 +1,6 @@
 package ordersystem.backend.modules.table.service.run;
 
-import ordersystem.backend.modules.table.entity.TableSession;
+import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.service.impl.TableSessionService;
 import org.springframework.stereotype.Service;
 
@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 public class TableSessionServiceImpl implements TableSessionService {
 
     @Override
-    public TableSession getOrCreatActiveSession(Long tableId){
+    public TableSessionEntity getOrCreatActiveSession(Long tableId){
         return null;
     }
 

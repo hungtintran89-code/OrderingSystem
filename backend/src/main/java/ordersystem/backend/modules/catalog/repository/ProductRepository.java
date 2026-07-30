@@ -1,6 +1,6 @@
-package ordersystem.backend.modules.order.repository;
+package ordersystem.backend.modules.catalog.repository;
 
-import ordersystem.backend.modules.order.entity.Product;
+import ordersystem.backend.modules.catalog.entity.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

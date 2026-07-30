@@ -1,7 +1,6 @@
 package ordersystem.backend.modules.catalog.entity;
 
 import jakarta.persistence.*;
-import ordersystem.backend.modules.order.entity.Product;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,4 +1,4 @@
-package ordersystem.backend.modules.table.service.genetor;
+package ordersystem.backend.modules.table.service.generator;
 
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
