@@ -12,4 +12,5 @@ public class CreateCategoryRequest {
     @NotBlank(message = "The category name cannot be left blank.")
     private String categoryName  ;
 
+    public Long getCategoryId ;
 }

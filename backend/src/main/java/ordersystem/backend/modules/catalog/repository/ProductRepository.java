@@ -10,15 +10,10 @@ import java.util.Optional;
 @Repository
 public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
 
-    List<ProductEntity> findByCategoryIdAndIsAvailableTrue(Long categoryId);
-
-    List<ProductEntity> findByIsAvailableTrue();
-
     List<ProductEntity> findAll () ;
-
     Optional<ProductEntity> findByProductId (Long productId ) ;
+    Optional<ProductEntity> findByProductName (String productName ) ;
 
-    Optional<ProductEntity> findByProductIdAndCategoryId( Long productId , String categoryName );
 
 }
 

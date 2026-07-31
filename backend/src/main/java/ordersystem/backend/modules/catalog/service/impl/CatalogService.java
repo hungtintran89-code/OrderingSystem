@@ -1,6 +1,7 @@
 package ordersystem.backend.modules.catalog.service.impl;
 
 import ordersystem.backend.modules.catalog.dto.request.CreateCategoryRequest;
+import ordersystem.backend.modules.catalog.dto.request.CreateProductRequest;
 import ordersystem.backend.modules.catalog.dto.request.ToggleAvailabilityRequest;
 import ordersystem.backend.modules.catalog.dto.response.CategoryMenuResponse;
 import ordersystem.backend.modules.catalog.dto.response.ProductMenuResponse;
@@ -26,5 +27,5 @@ public interface CatalogService {
     ProductResponse toggleProductAvailability (Long productId , ToggleAvailabilityRequest toggleAvailabilityRequest) ;
 
     // Admin thêm món vào catalog
-    ProductResponse addProductIntoCategory (ProductEntity product , Long categoryId  );
+    ProductResponse addProductIntoCategory(CreateProductRequest createProductRequest);
 }

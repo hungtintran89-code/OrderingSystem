@@ -18,8 +18,8 @@ public class OrderMapper {
     public OrderItemResponse toItemResponse(OrderItemEntity orderItemEntity) {
         return OrderItemResponse.builder()
                 .orderItemId(orderItemEntity.getOrderItemId())
-                .productId(orderItemEntity.getProductEntity().getId())
-                .productName(orderItemEntity.getProductEntity().getName())
+                .productId(orderItemEntity.getProduct().getProductId())
+                .productName(orderItemEntity.getProduct().getProductName())
                 .quantity(orderItemEntity.getQuantity())
                 .priceProduct(orderItemEntity.getPrice())
                 .priceTotal(orderItemEntity.getTotalPrice())

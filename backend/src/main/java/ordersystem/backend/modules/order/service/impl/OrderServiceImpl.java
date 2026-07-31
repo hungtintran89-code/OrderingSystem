@@ -76,9 +76,9 @@ public class OrderServiceImpl implements OrderService {
 
             OrderItemEntity orderItemEntity = OrderItemEntity.builder()
                     .order(masterOrderEntity)
-                    .productEntity(productEntity)
+                    .product(productEntity)
                     .quantity(itemRequest.getQuantity())
-                    .price(productEntity.getPrice())
+                    .price(productEntity.getProductPrice())
                     .note((itemRequest.getNote()))
                     .createdByThread(request.getThreadId())
                     .build();

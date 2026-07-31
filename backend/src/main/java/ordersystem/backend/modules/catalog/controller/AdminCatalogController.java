@@ -46,26 +46,18 @@ public class AdminCatalogController {
         List<CategoryMenuResponse> categories = catalogService.getAllCategories();
         return ResponseEntity.ok(ApiResponse.success("Categories retrieved successfully", categories));
     }
+
+
     // 3. Admin tạo Món ăn mới vào Thực đơn
     // URL: POST /api/v1/admin/products
     @PostMapping("/products")
     @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<ApiResponse<ProductResponse>> createProduct(@Valid @RequestBody CreateProductRequest request) {
-
-        CategoryEntity categoryEntity = categoryRepository.findByCategoryName(request.getCategoryName())
-                                .orElseThrow( ()-> new CatalogException("The category not exsit")) ;
-
-        ProductEntity productEntity = ProductEntity.builder()
-                .productName( request.getProductName())
-                .productPrice( request.getProductPrice())
-                .productIsAvailable( request.getIsAvailbale())
-                .productDescription( request.getDescription())
-                .productImageUrl( request.getImageUrl())
-                .categoryEntity( categoryEntity )
-                .build();
-        ProductResponse product = catalogService.addProductIntoCategory( productEntity , categoryEntity.getCategoryId() ) ;
+        ProductResponse product = catalogService.addProductIntoCategory( request ) ;
         return ResponseEntity.ok(ApiResponse.success("Product created successfully", product));
     }
+
+
     // 4. Admin / Nhân viên Bật/Tắt công tắc "Tạm hết món"
     // URL: PATCH /api/v1/admin/products/5/toggle-availability
     @PatchMapping("/products/{id}/toggle-availability")
