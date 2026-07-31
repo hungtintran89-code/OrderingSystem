@@ -25,8 +25,6 @@ import java.util.List;
 @RequestMapping("/api/v1/admin/tables")
 public class AdminTableController {
     private final TableService tableService;
-    private final TableSessionService tableSessionService;
-    private final QRCodeGeneratorService qrCodeGeneratorService;
     private final LiveFloorMapService liveFloorMapService;
 
     @PostMapping
@@ -37,7 +35,7 @@ public class AdminTableController {
     }
 
     @PreAuthorize("hasRole('MANAGER') or hasRole('STAFF')")
-    @GetMapping("/floor-map")
+    @GetMapping("/floor-map"    )
     ResponseEntity<ApiResponse<List<FloorMapResponse>>> getFloorMap(){
         List<FloorMapResponse> listFloorMapResponse = liveFloorMapService.getLiveFloorMap();
         return ResponseEntity.ok(ApiResponse.success("Get Floor Map is succes", listFloorMapResponse));

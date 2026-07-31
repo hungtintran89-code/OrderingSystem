@@ -1,7 +1,7 @@
-package ordersystem.backend.modules.table.mapper;
+package ordersystem.backend.modules.servicerequest.mapper;
 
-import ordersystem.backend.modules.table.dto.response.ServiceRequestResponse;
-import ordersystem.backend.modules.table.entity.ServiceRequestEntity;
+import ordersystem.backend.modules.servicerequest.dto.response.ServiceRequestResponse;
+import ordersystem.backend.modules.servicerequest.entity.ServiceRequestEntity;
 import org.springframework.stereotype.Component;
 
 @Component

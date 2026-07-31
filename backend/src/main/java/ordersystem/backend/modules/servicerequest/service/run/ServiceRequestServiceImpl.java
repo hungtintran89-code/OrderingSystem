@@ -1,17 +1,16 @@
-package ordersystem.backend.modules.table.service.run;
+package ordersystem.backend.modules.servicerequest.service.run;
 
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.exception.ResourceNotFoundException;
-import ordersystem.backend.modules.table.dto.request.CreateServiceRequestDto;
-import ordersystem.backend.modules.table.dto.response.ServiceRequestResponse;
-import ordersystem.backend.modules.table.entity.ServiceRequestEntity;
+import ordersystem.backend.modules.servicerequest.dto.request.CreateServiceRequestDto;
+import ordersystem.backend.modules.servicerequest.dto.response.ServiceRequestResponse;
+import ordersystem.backend.modules.servicerequest.entity.ServiceRequestEntity;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
-import ordersystem.backend.modules.table.enums.RequestStatus;
-import ordersystem.backend.modules.table.mapper.ServiceRequestMapper;
-import ordersystem.backend.modules.table.repository.RestaurantTableRepository;
-import ordersystem.backend.modules.table.repository.ServiceRequestRepository;
+import ordersystem.backend.modules.servicerequest.enums.RequestStatus;
+import ordersystem.backend.modules.servicerequest.mapper.ServiceRequestMapper;
+import ordersystem.backend.modules.servicerequest.repository.ServiceRequestRepository;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
-import ordersystem.backend.modules.table.service.impl.ServiceRequestService;
+import ordersystem.backend.modules.servicerequest.service.impl.ServiceRequestService;
 import ordersystem.backend.modules.table.service.impl.TableSessionService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;

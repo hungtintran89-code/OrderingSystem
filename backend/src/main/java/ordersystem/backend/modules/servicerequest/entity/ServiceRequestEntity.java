@@ -1,9 +1,9 @@
-package ordersystem.backend.modules.table.entity;
+package ordersystem.backend.modules.servicerequest.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import ordersystem.backend.modules.table.enums.RequestStatus;
-import ordersystem.backend.modules.table.enums.RequestType;
+import ordersystem.backend.modules.servicerequest.enums.RequestStatus;
+import ordersystem.backend.modules.servicerequest.enums.RequestType;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.util.Date;

@@ -1,10 +1,9 @@
-package ordersystem.backend.modules.table.dto.response;
+package ordersystem.backend.modules.servicerequest.dto.response;
 
 import lombok.*;
-import ordersystem.backend.modules.table.enums.RequestStatus;
-import ordersystem.backend.modules.table.enums.RequestType;
+import ordersystem.backend.modules.servicerequest.enums.RequestStatus;
+import ordersystem.backend.modules.servicerequest.enums.RequestType;
 
-import java.time.LocalDateTime;
 import java.util.Date;
 
 @Setter @Getter

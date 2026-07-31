@@ -1,8 +1,7 @@
-package ordersystem.backend.modules.table.repository;
+package ordersystem.backend.modules.servicerequest.repository;
 
-import ordersystem.backend.modules.table.dto.response.ServiceRequestResponse;
-import ordersystem.backend.modules.table.entity.ServiceRequestEntity;
-import ordersystem.backend.modules.table.enums.RequestStatus;
+import ordersystem.backend.modules.servicerequest.entity.ServiceRequestEntity;
+import ordersystem.backend.modules.servicerequest.enums.RequestStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

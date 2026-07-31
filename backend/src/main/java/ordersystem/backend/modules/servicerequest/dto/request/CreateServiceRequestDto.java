@@ -1,8 +1,8 @@
-package ordersystem.backend.modules.table.dto.request;
+package ordersystem.backend.modules.servicerequest.dto.request;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
-import ordersystem.backend.modules.table.enums.RequestType;
+import ordersystem.backend.modules.servicerequest.enums.RequestType;
 
 
 @Builder

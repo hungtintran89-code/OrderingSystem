@@ -76,6 +76,7 @@ public class TableSessionServiceImpl implements TableSessionService {
         ));
     }
 
+    @Transactional
     private TableSessionEntity createNewSessionForTable(Long tableId){
         RestaurantTableEntity tableInfo = restaurantTableRepository.findByTableId(tableId)
                 .orElseThrow(() -> new RuntimeException("Table not found with id: " + tableId));
