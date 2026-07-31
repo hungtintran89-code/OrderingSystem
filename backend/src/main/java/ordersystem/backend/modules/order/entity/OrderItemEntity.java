@@ -2,7 +2,7 @@ package ordersystem.backend.modules.order.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import ordersystem.backend.modules.catalog.entity.Product;
+import ordersystem.backend.modules.catalog.entity.ProductEntity;
 
 @Getter
 @Setter
@@ -24,7 +24,7 @@ public class OrderItemEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    private ProductEntity product;
 
     @Column(nullable = false)
     private Long quantity;
