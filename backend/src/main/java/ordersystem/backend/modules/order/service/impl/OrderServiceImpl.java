@@ -8,7 +8,6 @@ import ordersystem.backend.modules.order.dto.request.SubmitPersonalOrderRequest;
 import ordersystem.backend.modules.order.dto.response.MasterTableOrderResponse;
 import ordersystem.backend.modules.order.dto.response.OrderItemResponse;
 import ordersystem.backend.modules.order.dto.response.PersonalOrderResponse;
-import ordersystem.backend.modules.order.dto.response.TableInvoiceResponse;
 import ordersystem.backend.modules.order.entity.OrderEntity;
 import ordersystem.backend.modules.order.entity.OrderItemEntity;
 import ordersystem.backend.modules.catalog.entity.ProductEntity;
@@ -48,15 +47,14 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public PersonalOrderResponse submitPersonalOrder(SubmitPersonalOrderRequest request){
 
-        // 1. Lấy Session bàn đang ACTIVE
         TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableSessionId(request.getTableSessionId())
-                .orElseThrow(() -> new OrderException("Table session does not exist"));
-        if( tableSessionEntity.getStatus() != SessionStatus.ACTIVE){
-            throw new OrderException("The session for this table has been closed!");
+                .orElseThrow(()-> new OrderException("Table session does not exist with ID:" + request.getTableSessionId()));
+
+        if( tableSessionEntity.getStatus() != SessionStatus.ACTIVE ){
+            throw new OrderException("The session for this table has been closed!") ;
         }
 
-        // 2. Tìm Master Order tổng của bàn (Nếu chưa có thì tự động tạo mới)
-        OrderEntity masterOrderEntity  = orderRepository.findByTableSessionTableSessionId(tableSessionEntity.getTableSessionId())
+        OrderEntity orderEntity = orderRepository.findByTableSessionTableSessionId(tableSessionEntity.getTableSessionId())
                 .stream().findFirst()
                 .orElseGet(()->{
                     return orderRepository.save(OrderEntity.builder()
@@ -69,16 +67,15 @@ public class OrderServiceImpl implements OrderService {
         Long additonalTotal = 0L ;
         List<OrderItemEntity> newOrderItemEntity = new ArrayList<>() ;
 
-        // 3. Tạo danh sách các món khách đợt này vừa đặt (Đính kèm threadId)
         for(OrderItemRequest itemRequest : request.getList()){
-            ProductEntity productEntity = productRepository.findById(itemRequest.getProductId())
+            ProductEntity product = productRepository.findById(itemRequest.getProductId())
                     .orElseThrow(()->new OrderException("Product with ID : "+itemRequest.getProductId() +" not found")) ;
 
             OrderItemEntity orderItemEntity = OrderItemEntity.builder()
-                    .order(masterOrderEntity)
-                    .product(productEntity)
+                    .order(orderEntity)
+                    .product(product)
                     .quantity(itemRequest.getQuantity())
-                    .price(productEntity.getProductPrice())
+                    .price(product.getPrice())
                     .note((itemRequest.getNote()))
                     .createdByThread(request.getThreadId())
                     .build();
@@ -86,17 +83,14 @@ public class OrderServiceImpl implements OrderService {
             newOrderItemEntity.add(orderItemEntity);
             additonalTotal += orderItemEntity.getTotalPrice();
         }
-        // 4. Cộng dồn số tiền vào Master Order chung của cả bàn
-        Long currentTotal = (masterOrderEntity.getTotalAmount() != null) ? masterOrderEntity.getTotalAmount() : 0L;
-        masterOrderEntity.setTotalAmount(currentTotal + additonalTotal);
-        masterOrderEntity.getItems().addAll(newOrderItemEntity);
-        OrderEntity savedOrderEntity = orderRepository.save(masterOrderEntity);
+        Long currentTotal = (orderEntity.getTotalAmount() != null) ? orderEntity.getTotalAmount() : 0L;
+        orderEntity.setTotalAmount(currentTotal + additonalTotal);
+        orderEntity.getItems().addAll(newOrderItemEntity);
 
-        // 5. Bắn thông báo Real-time cho Bếp (Chỉ bắn các món MỚI ĐẶT)
+        OrderEntity savedOrderEntity = orderRepository.save(orderEntity);
         webSocketPublisher.notifyKitchenNewOrder(newOrderItemEntity);
         webSocketPublisher.notifyAdminTableUpdate(tableSessionEntity.getTableSessionId(), savedOrderEntity.getId());
 
-        // 6. Trả về cho thiết bị khách danh sách các món điện thoại này vừa đặt thành công
         List<OrderItemResponse> newItemsResponses = newOrderItemEntity.stream()
                 .map(orderMapper::toItemResponse)
                 .collect(Collectors.toList());
@@ -105,42 +99,33 @@ public class OrderServiceImpl implements OrderService {
 
     }
 
-
-    // 2. Khách mở điện thoại cá nhân lên xem -> CHỈ HIỂN THỊ MÓN DO THREAD ĐÓ ĐẶT
+    // 2. Lấy danh sách món do chính điện thoại của khách đã đặt
     @Override
     @Transactional
     public PersonalOrderResponse getPersonalOrder(Long tableSessionId, Long threadId){
+        List<OrderItemEntity> myItems = orderItemRepository.findByOrderTableSessionTableSessionIdAndCreatedByThread(tableSessionId , threadId);
 
-        List<OrderItemEntity> orderItemResponseList = orderItemRepository.findByOrderTableSessionTableSessionIdAndCreatedByThread(tableSessionId , threadId);
-
-        List<OrderItemResponse> responseList = orderItemResponseList.stream()
+        List<OrderItemResponse> itemResponses = myItems.stream()
                 .map(orderMapper::toItemResponse)
-                .collect(Collectors.toList()) ;
+                .collect(Collectors.toList());
 
         TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableSessionId(tableSessionId)
-                .orElseThrow(()->new OrderException("Table Session ID does not exist: " + tableSessionId));
-
-        return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), threadId, responseList);
+                .orElseThrow(()-> new OrderException("Table id does not exist")) ;
+        return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), threadId, itemResponses);
     }
 
-    // 3. XEM TỔNG BÀN (Lấy Master Order chứa tất cả các món của mọi Thread gom lại)
+    //3: XEM TỔNG QUAN TAB CHUNG CẢ BÀN (DÀNH CHO NHÂN VIÊN POS / BÀN CHUNG)
     @Override
     @Transactional
-    public MasterTableOrderResponse getMasterTableOrder(Long tableId ) {
+    public MasterTableOrderResponse getMasterTableOrder(Long tableSessionId) {
 
-        // Bước 1: Tìm Session đang ACTIVE của bàn đó
-        TableSessionEntity tableSession = tableSessionRepository.findByTableTableIdAndStatus(tableId , SessionStatus.ACTIVE)
-                .orElseThrow(()-> new OrderException("No active session found for table ID: " + tableId)) ;
-
-        // Bước 2: Tìm danh sách Order dựa trên tableSessionId vừa tìm được
-        List<OrderEntity> orderEntities = orderRepository.findByTableSessionTableSessionId( tableSession.getTableSessionId()) ;
+        List<OrderEntity> orderEntities = orderRepository.findByTableSessionTableSessionId(tableSessionId) ;
         if ( orderEntities.isEmpty() ){
             throw new OrderException("No items have been ordered for this table yet!");
         }
         OrderEntity mainOrderEntity = orderEntities.get(0) ;
 
-        // Bước 3: Lấy danh sách món ăn thuộc session này
-        List<OrderItemEntity> orderItemEntityList = orderItemRepository.findByOrderTableSessionTableSessionId( tableSession.getTableSessionId()) ;
+        List<OrderItemEntity> orderItemEntityList = orderItemRepository.findByOrderTableSessionTableSessionId(tableSessionId) ;
 
         List<OrderItemResponse> orderItemResponseList = orderItemEntityList.stream()
                 .map(orderMapper::toItemResponse)
@@ -162,7 +147,6 @@ public class OrderServiceImpl implements OrderService {
         webSocketPublisher.notifyClientOrderStatusUpdate(orderEntity.getTableSession().getSessionToken(), status.name() );
     }
 
-    // 5. Xem lịch sử Đơn hàng
     @Override
     public PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, Pageable pageable) {
 
@@ -192,26 +176,5 @@ public class OrderServiceImpl implements OrderService {
 
     }
 
-    public TableInvoiceResponse exportTableInvoice(Long tableId) {
-        TableSessionEntity tableSession = tableSessionRepository.findByTableTableIdAndStatus(tableId , SessionStatus.ACTIVE)
-                .orElseThrow(()-> new OrderException("No ACTIVE session found for table ID: " + tableId)) ;
 
-        List<OrderItemEntity> orderItemResponseList = orderItemRepository.findByOrderTableSessionTableSessionId(tableSession.getTableSessionId()) ;
-
-        if( orderItemResponseList.isEmpty()){
-            throw new OrderException("Cannot export invoice: No items ordered for this table yet.") ;
-        }
-
-        // 3. Map sang OrderItemResponse
-        List<OrderItemResponse> responseList = orderItemResponseList.stream()
-                .map(orderMapper::toItemResponse)
-                .collect(Collectors.toList()) ;
-
-        // Tạo mã số dạng Long dựa trên miligiây hiện tại (VD: 1785456789012L)
-        Long invoiceCode = System.currentTimeMillis();
-
-        return orderMapper.toTableInvoiceResponse( invoiceCode , tableSession , responseList , 0L , 0L  ) ;
-
-
-    }
 }

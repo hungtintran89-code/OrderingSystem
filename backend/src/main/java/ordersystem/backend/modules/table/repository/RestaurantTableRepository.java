@@ -11,7 +11,7 @@ import java.util.Optional;
 public interface RestaurantTableRepository extends JpaRepository<RestaurantTableEntity, Long> {
 
     //Tìm bàn theo Id
-    Optional<RestaurantTableEntity> findById(Long tableId);
+    Optional<RestaurantTableEntity> findByTableId(Long tableId);
 
     //Tìm bàn theo mã băm QR.
     Optional<RestaurantTableEntity> findByQrToken(String qrToken);

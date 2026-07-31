@@ -1,8 +1,7 @@
-package ordersystem.backend.modules.table.service.impl;
+package ordersystem.backend.modules.servicerequest.service.impl;
 
-import ordersystem.backend.modules.table.dto.request.CreateServiceRequestDto;
-import ordersystem.backend.modules.table.dto.response.ServiceRequestResponse;
-import ordersystem.backend.modules.table.entity.ServiceRequestEntity;
+import ordersystem.backend.modules.servicerequest.dto.request.CreateServiceRequestDto;
+import ordersystem.backend.modules.servicerequest.dto.response.ServiceRequestResponse;
 
 import java.util.List;
 

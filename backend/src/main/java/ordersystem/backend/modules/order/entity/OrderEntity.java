@@ -58,4 +58,3 @@ public class OrderEntity {
         this.updatedAt = new Date();
     }
 }
-

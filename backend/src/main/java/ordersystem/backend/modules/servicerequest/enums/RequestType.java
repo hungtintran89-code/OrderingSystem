@@ -1,4 +1,4 @@
-package ordersystem.backend.modules.table.enums;
+package ordersystem.backend.modules.servicerequest.enums;
 
 public enum RequestType {
     CALL_STAFF,

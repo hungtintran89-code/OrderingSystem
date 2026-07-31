@@ -30,6 +30,7 @@ public class RestaurantTableEntity {
     @Column(nullable = false, name = "is_active")
     private Boolean isActive;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false , name = "table_status")
     private TableStatus tableStatus ;
 
@@ -40,5 +41,8 @@ public class RestaurantTableEntity {
     protected void onCreate() {
         this.createdAt = new Date();
         this.isActive = true;
+        if (this.tableStatus == null) {
+            this.tableStatus = TableStatus.EMPTY;
+        }
     }
 }

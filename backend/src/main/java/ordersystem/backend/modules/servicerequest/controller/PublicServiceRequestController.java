@@ -1,11 +1,11 @@
-package ordersystem.backend.modules.table.controller;
+package ordersystem.backend.modules.servicerequest.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.payload.ApiResponse;
-import ordersystem.backend.modules.table.dto.request.CreateServiceRequestDto;
-import ordersystem.backend.modules.table.dto.response.ServiceRequestResponse;
-import ordersystem.backend.modules.table.service.impl.ServiceRequestService;
+import ordersystem.backend.modules.servicerequest.dto.request.CreateServiceRequestDto;
+import ordersystem.backend.modules.servicerequest.dto.response.ServiceRequestResponse;
+import ordersystem.backend.modules.servicerequest.service.impl.ServiceRequestService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
