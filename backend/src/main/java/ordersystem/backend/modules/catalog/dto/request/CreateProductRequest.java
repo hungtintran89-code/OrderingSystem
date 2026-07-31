@@ -19,11 +19,11 @@ public class CreateProductRequest {
     private Long productPrice ;
 
     @NotNull( message = "The category id cannot be left blank." )
-    private Long categoryId ;
+    private String categoryName ;
 
     private String imageUrl;
     private String description ;
-
+    private Boolean isAvailbale;
 
 
 }

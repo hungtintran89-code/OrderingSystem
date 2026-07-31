@@ -11,7 +11,7 @@ import ordersystem.backend.modules.order.dto.response.PersonalOrderResponse;
 import ordersystem.backend.modules.order.dto.response.TableInvoiceResponse;
 import ordersystem.backend.modules.order.entity.OrderEntity;
 import ordersystem.backend.modules.order.entity.OrderItemEntity;
-import ordersystem.backend.modules.catalog.entity.Product;
+import ordersystem.backend.modules.catalog.entity.ProductEntity;
 import ordersystem.backend.modules.order.enums.OrderStatus;
 import ordersystem.backend.modules.order.exception.OrderException;
 import ordersystem.backend.modules.order.mapper.OrderMapper;
@@ -27,9 +27,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -73,14 +71,14 @@ public class OrderServiceImpl implements OrderService {
 
         // 3. Tạo danh sách các món khách đợt này vừa đặt (Đính kèm threadId)
         for(OrderItemRequest itemRequest : request.getList()){
-            Product product = productRepository.findById(itemRequest.getProductId())
+            ProductEntity productEntity = productRepository.findById(itemRequest.getProductId())
                     .orElseThrow(()->new OrderException("Product with ID : "+itemRequest.getProductId() +" not found")) ;
 
             OrderItemEntity orderItemEntity = OrderItemEntity.builder()
                     .order(masterOrderEntity)
-                    .product(product)
+                    .productEntity(productEntity)
                     .quantity(itemRequest.getQuantity())
-                    .price(product.getPrice())
+                    .price(productEntity.getPrice())
                     .note((itemRequest.getNote()))
                     .createdByThread(request.getThreadId())
                     .build();
