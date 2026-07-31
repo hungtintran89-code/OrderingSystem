@@ -10,40 +10,27 @@ import lombok.*;
 @Builder
 @Entity
 @Table(name = "products")
-public class Product {
+public class ProductEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "product_id")
-    private Long id;
+    private Long productId;
 
     @Column(nullable = false, name = "product_name")
-    private String name;
+    private String productName;
 
     @Column(nullable = false, name = "product_price")
-    private Long price;
+    private Long productPrice;
 
-    private String imageUrl;
-    private String description;
+    private String productImageUrl;
+    private String productDescription;
 
     @Column(nullable = false)
     @Builder.Default
-    private Boolean isAvailable = true;
+    private Boolean productIsAvailable = true;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
-    private Category category;
-
-    // Convenience alias getters to support both productId/name/price naming conventions
-    public Long getProductId() {
-        return this.id;
-    }
-
-    public String getProductName() {
-        return this.name;
-    }
-
-    public Long getProductPrice() {
-        return this.price;
-    }
+    private CategoryEntity category;
 }

@@ -10,7 +10,7 @@ import ordersystem.backend.modules.order.dto.response.OrderItemResponse;
 import ordersystem.backend.modules.order.dto.response.PersonalOrderResponse;
 import ordersystem.backend.modules.order.entity.OrderEntity;
 import ordersystem.backend.modules.order.entity.OrderItemEntity;
-import ordersystem.backend.modules.catalog.entity.Product;
+import ordersystem.backend.modules.catalog.entity.ProductEntity;
 import ordersystem.backend.modules.order.enums.OrderStatus;
 import ordersystem.backend.modules.order.exception.OrderException;
 import ordersystem.backend.modules.order.mapper.OrderMapper;
@@ -68,7 +68,7 @@ public class OrderServiceImpl implements OrderService {
         List<OrderItemEntity> newOrderItemEntity = new ArrayList<>() ;
 
         for(OrderItemRequest itemRequest : request.getList()){
-            Product product = productRepository.findById(itemRequest.getProductId())
+            ProductEntity product = productRepository.findById(itemRequest.getProductId())
                     .orElseThrow(()->new OrderException("Product with ID : "+itemRequest.getProductId() +" not found")) ;
 
             OrderItemEntity orderItemEntity = OrderItemEntity.builder()

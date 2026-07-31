@@ -1,16 +1,16 @@
 package ordersystem.backend.modules.catalog.repository;
 
-import ordersystem.backend.modules.catalog.entity.Product;
+import ordersystem.backend.modules.catalog.entity.ProductEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 @Repository
-public interface ProductRepository extends JpaRepository<Product, Long> {
+public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
 
-    List<Product> findByCategoryIdAndIsAvailableTrue(Long categoryId);
+    List<ProductEntity> findByCategoryIdAndIsAvailableTrue(Long categoryId);
 
-    List<Product> findByIsAvailableTrue();
+    List<ProductEntity> findByIsAvailableTrue();
 }
 
