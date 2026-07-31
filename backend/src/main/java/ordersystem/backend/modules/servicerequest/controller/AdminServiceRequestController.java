@@ -1,9 +1,9 @@
-package ordersystem.backend.modules.table.controller;
+package ordersystem.backend.modules.servicerequest.controller;
 
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.payload.ApiResponse;
-import ordersystem.backend.modules.table.dto.response.ServiceRequestResponse;
-import ordersystem.backend.modules.table.service.impl.ServiceRequestService;
+import ordersystem.backend.modules.servicerequest.dto.response.ServiceRequestResponse;
+import ordersystem.backend.modules.servicerequest.service.impl.ServiceRequestService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -35,3 +35,5 @@ public class AdminServiceRequestController {
         return ResponseEntity.ok(ApiResponse.success("success", response));
     }
 }
+
+

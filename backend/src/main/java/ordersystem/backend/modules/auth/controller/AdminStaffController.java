@@ -43,6 +43,4 @@ public class AdminStaffController {
         PageResponse<StaffResponse> response = staffService.getStaffs(page, size);
         return ResponseEntity.ok(ApiResponse.success("Get list staff successfull", response));
     }
-
-
 }
