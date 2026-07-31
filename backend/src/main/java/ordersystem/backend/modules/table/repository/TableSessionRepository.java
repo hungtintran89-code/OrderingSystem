@@ -17,7 +17,7 @@ public interface TableSessionRepository extends JpaRepository<TableSessionEntity
     Optional<TableSessionEntity> findBySessionToken(String sessionToken);
 
     //Tìm tất cả các session có trạng thái active
-    Optional<TableSessionEntity> findAllByStatus(SessionStatus status);
+    List<TableSessionEntity> findAllByStatus(SessionStatus status);
 
     //Tìm các Session rác quá hạn để dọn dẹp
     List<TableSessionEntity> findAllByStatusAndStartedAtBefore(SessionStatus status, Date startedAt);

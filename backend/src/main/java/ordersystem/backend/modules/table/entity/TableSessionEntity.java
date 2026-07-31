@@ -39,4 +39,9 @@ public class TableSessionEntity {
 
     @Column(name = "ended_at")
     private Date endedAt;
+
+    public void close() {
+        this.status = SessionStatus.CLOSED;
+        this.endedAt = new Date();
+    }
 }

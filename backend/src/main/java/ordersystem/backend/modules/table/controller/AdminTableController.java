@@ -45,27 +45,20 @@ public class AdminTableController {
 
     @PreAuthorize("hasRole('MANAGER')")
     @GetMapping("/{tableId}/qr-code")
-    public ResponseEntity<ApiResponse<byte[]>> downloadQRCode(
+    public ResponseEntity<byte[]> downloadQRCode(
             @PathVariable Long tableId,
             @RequestParam(defaultValue = "pdf") String format
-    ){
-        //1. Chuyển tham số đầu vào thành QRFormat
+    ) {
+        // 1. Chuyển tham số đầu vào thành QRFormat (PDF / PNG)
         QRFormat qrFormat = QRFormat.fromString(format);
 
-        //2. Gọi service xử lí nghiệp vụ cho download
-        QRCodeExportResponse qrCodeExportResponse = tableService.exportTableQrCode(tableId, qrFormat);
+        // 2. Gọi service xử lý nghiệp vụ xuất mã QR
+        QRCodeExportResponse exportResponse = tableService.exportTableQrCode(tableId, qrFormat);
 
-        // 3. Đóng gói dữ liệu byte[] vào trong ApiResponse
-        ApiResponse<byte[]> apiResponse = ApiResponse.<byte[]>builder()
-                .code(200)
-                .message("Xuất mã QR thành công")
-                .data(qrCodeExportResponse.getData()) // Nếu field =! data => Dùng .result(...)
-                .build();
-
-        // 4. Trả về HTTP Response dạng JSON
+        // 3. 💡 SỬA: Trả về mảng byte[] trực tiếp kèm MediaType chuẩn (image/png hoặc application/pdf)
         return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + qrCodeExportResponse.getFileName() + "\"")
-                .body(apiResponse);
+                .contentType(MediaType.parseMediaType(exportResponse.getContentType())) // Trả về image/png hoặc application/pdf
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + exportResponse.getFileName() + "\"")
+                .body(exportResponse.getData()); // Trả trực tiếp byte[] không bọc JSON
     }
 }
