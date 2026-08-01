@@ -13,6 +13,7 @@ import ordersystem.backend.modules.order.entity.OrderEntity;
 import ordersystem.backend.modules.order.entity.OrderItemEntity;
 import ordersystem.backend.modules.catalog.entity.ProductEntity;
 import ordersystem.backend.modules.order.enums.OrderStatus;
+import ordersystem.backend.modules.order.event.OrderSubmittedEvent;
 import ordersystem.backend.modules.order.exception.OrderException;
 import ordersystem.backend.modules.order.mapper.OrderMapper;
 import ordersystem.backend.modules.order.repository.OrderItemRepository;
@@ -23,6 +24,7 @@ import ordersystem.backend.modules.order.websocket.WebSocketPublisher;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -42,6 +44,7 @@ public class OrderServiceImpl implements OrderService {
     final private WebSocketPublisher webSocketPublisher ;
     final private OrderMapper orderMapper ;
     final private OrderItemRepository orderItemRepository ;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 1. Xử lý khi Khách hàng bấm Gửi đơn đặt món
     @Override
@@ -101,6 +104,23 @@ public class OrderServiceImpl implements OrderService {
                 .map(orderMapper::toItemResponse)
                 .collect(Collectors.toList());
 
+        List<OrderSubmittedEvent.OrderItemInfo> itemInfos = newOrderItemEntity.stream()
+                .map(item -> new OrderSubmittedEvent.OrderItemInfo(
+                        item.getOrderItemId(),
+                        item.getProduct().getProductId(),
+                        item.getProduct().getProductName(),
+                        item.getQuantity().intValue(),
+                        item.getNote()
+                ))
+                .toList();
+        OrderSubmittedEvent event = new OrderSubmittedEvent(
+                savedOrderEntity.getId(),
+                tableSessionEntity.getTable().getTableName(),
+                "Tầng 1", // Hoặc thông tin khu vực bàn
+                itemInfos
+        );
+// Bắn sự kiện phát vé cho KDS
+        eventPublisher.publishEvent(event);
         return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), request.getThreadId() , newItemsResponses);
 
     }

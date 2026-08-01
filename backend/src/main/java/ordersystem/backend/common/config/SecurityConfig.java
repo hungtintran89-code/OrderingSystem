@@ -37,6 +37,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(customAccessDeniedHandler))
                         .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/login").permitAll()
+                        .requestMatchers("/ws/**").permitAll() // 📌 CHÍNH LÀ ĐÒNG CẦN BỔ SUNG!
                         .anyRequest().authenticated()
                 );
 
