@@ -20,7 +20,6 @@ public class KitchenTicketMapper {
                 .productName(entity.getProductName())
                 .quantity(entity.getQuantity())
                 .note(entity.getNote())
-                .station(entity.getStation())
                 .status(entity.getStatus())
                 .assignedCookId(entity.getAssignedCookId())
                 .assignedCookName(entity.getAssignedCookName())

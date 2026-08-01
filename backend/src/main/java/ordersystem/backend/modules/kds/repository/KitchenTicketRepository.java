@@ -1,10 +1,13 @@
 package ordersystem.backend.modules.kds.repository;
 
+import jakarta.persistence.LockModeType;
 import ordersystem.backend.modules.kds.entity.KitchenTicketEntity;
 import ordersystem.backend.modules.kds.enums.KitchenItemStatus;
 import ordersystem.backend.modules.kds.enums.KitchenStation;
 import ordersystem.backend.modules.order.enums.OrderStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.RepositoryDefinition;
 import org.springframework.data.repository.query.Param;
@@ -16,19 +19,24 @@ import java.util.Optional;
 @Repository
 public interface KitchenTicketRepository extends JpaRepository<KitchenTicketEntity , Long> {
 
-    // 📌 CÔNG DỤNG: Tìm vé KDS dựa theo ID dòng món ăn (Dùng để kiểm tra trạng thái món khi khách bấm hủy)
-    Optional<KitchenTicketEntity> findByOrderItemId(Long orderItemId);
 
-    // 📌 CÔNG DỤNG: Truy vấn lấy món để thực hiện gom/gộp món theo trạm
-    List<KitchenTicketEntity> findByStationAndStatusIn(KitchenStation station, List<KitchenItemStatus> statuses);
+    // 📌 API MÀN HÌNH CHUNG: Chỉ lấy các món CHƯA AI NHẬN (PENDING)
+    List<KitchenTicketEntity> findByStatus( KitchenItemStatus status );
 
-    // 📌 CÔNG DỤNG: Lấy danh sách tất cả vé KDS của 1 Order
-    List<KitchenTicketEntity> findByOrderId(Long orderId);
-
-    // 📌 CÔNG DỤNG: Chỉ tải các món CHƯA NẤU HOẶC ĐANG NẤU. Món COMPLETED bị ẩn đi!
-    @Query("SELECT k FROM KitchenTicketEntity k WHERE k.status IN :statuses ORDER BY k.receivedAt ASC")
-    List<KitchenTicketEntity> findAllStatusOrStatus( KitchenItemStatus status1 , KitchenItemStatus status2);
+    // 📌 API MÀN HÌNH CÁ NHÂN: Chỉ lấy các món ĐANG NẤU do CHÍNH ĐẦU BẾP ĐÓ nhận làm
+    @Query("SELECT k FROM KitchenTicketEntity k WHERE k.status = 'COOKING' AND k.assignedCookId = :cookId")
+    List<KitchenTicketEntity> findMyCookingTickets(@Param("cookId") Long cookId);
 
     // Truy vấn lịch sử các món đã làm xong của 1 Đầu bếp
-    List<KitchenTicketEntity> findByAssignedCookIdAndStatusOrderByCompletedAtDesc(Long cookId, KitchenItemStatus status);
+    List<KitchenTicketEntity> findByAssignedCookIdAndStatus(Long cookId, KitchenItemStatus status);
+
+    //Truy vấn Lịch sử Hoàn thành Chung của TẤT CẢ đầu bếp (Món nào xong mới nhất lên đầu)
+    @Query("SELECT k FROM KitchenTicketEntity k WHERE k.status = 'COMPLETED'")
+    List<KitchenTicketEntity> findSharedCompletedHistory(Pageable pageable);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT k FROM KitchenTicketEntity k WHERE k.kitchenTicketId = :id")
+    Optional<KitchenTicketEntity> findByIdWithLock(@Param("id") Long id);
+
+
 }

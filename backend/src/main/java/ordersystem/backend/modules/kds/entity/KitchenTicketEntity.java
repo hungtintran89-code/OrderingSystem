@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import ordersystem.backend.modules.kds.enums.KitchenItemStatus;
 import ordersystem.backend.modules.kds.enums.KitchenStation;
-import org.springframework.data.annotation.Id;
 
 import java.time.ZonedDateTime;
 import java.util.Date;

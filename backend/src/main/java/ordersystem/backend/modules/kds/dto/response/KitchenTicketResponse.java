@@ -21,7 +21,6 @@ public class KitchenTicketResponse {
     private String productName;
     private Integer quantity;
     private String note;
-    private KitchenStation station;
     private KitchenItemStatus status;
     private Long assignedCookId;
     private String assignedCookName;

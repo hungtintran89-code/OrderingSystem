@@ -24,6 +24,7 @@ public class OrderSubmittedEventListener {
 
     // 📌 CÔNG DỤNG: Tự động chạy HỨNG SỰ KIỆN CHỈ SAU KHỊ Order Module đã lưu DB thành công (AFTER_COMMIT)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void handleOrderSubmitted (OrderSubmittedEvent orderSubmittedEvent ){
         for ( OrderSubmittedEvent.OrderItemInfo item : orderSubmittedEvent.getItems() ){
             // 📌 CÔNG DỤNG: Tự động phân loại trạm bếp dựa vào Danh mục món
@@ -42,7 +43,7 @@ public class OrderSubmittedEventListener {
             KitchenTicketEntity saved = kitchenTicketRepository.save(ticket) ;
             KitchenTicketResponse kitchenTicketResponse = kitchenTicketMapper.toResponse(saved) ;
 
-            kitchenWebSocketPublisher.broadcastToAllKitchenScreens(kitchenTicketResponse);
+            kitchenWebSocketPublisher.broadcastKitchenEvent(kitchenTicketResponse);
         }
     }
 }

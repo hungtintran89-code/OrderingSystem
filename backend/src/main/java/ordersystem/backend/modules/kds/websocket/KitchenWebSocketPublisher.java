@@ -15,8 +15,14 @@ public class KitchenWebSocketPublisher {
 
 
     @Async
-    public void broadcastToAllKitchenScreens( KitchenTicketResponse kitchenTicketResponse ){
+    public void broadcastKitchenEvent( KitchenTicketResponse kitchenTicketResponse ){
         messagingTemplate.convertAndSend("/topic/kitchen/orders", kitchenTicketResponse);
+    }
+
+    //Broadcast Real-time sang Tab Lịch Sử Hoàn Thành Chung
+    @Async
+    public void broadcastToSharedCompletedHistory(KitchenTicketResponse ticket) {
+        messagingTemplate.convertAndSend("/topic/kitchen/completed-history", ticket);
     }
 
 }
