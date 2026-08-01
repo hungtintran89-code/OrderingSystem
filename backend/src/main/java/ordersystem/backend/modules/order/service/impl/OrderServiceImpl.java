@@ -30,6 +30,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -156,6 +157,14 @@ public class OrderServiceImpl implements OrderService {
         List<OrderEntity> orderEntities = orderRepository.findByTableSessionTableSessionId( tableSession.getTableSessionId()) ;
         if ( orderEntities.isEmpty() ){
             throw new OrderException("No items have been ordered for this table yet!");
+        }
+        if (orderEntities.isEmpty()) {
+            return MasterTableOrderResponse.builder()
+                    .tableSessionId(tableSession.getTableSessionId())
+                    .tableName(tableSession.getTableName())
+                    .totalPrice(0L)
+                    .allTableItems(Collections.emptyList())
+                    .build();
         }
         OrderEntity mainOrderEntity = orderEntities.get(0) ;
 

@@ -70,8 +70,20 @@ public class TableServiceImpl implements TableService {
         //Bước 2: Lấy Session đang ACTIVE hoặc khởi tạo Session mới nếu bàn trống
         TableSessionEntity tableSessionEntity = tableSessionService.getOrCreateActiveSession(tableInfo.getTableId());
 
+
+        //---
+        Long clientThreadId = System.currentTimeMillis() % 1000000L + (long)(Math.random() * 1000);
+        return QRResolveResponse.builder()
+                .tableId(tableInfo.getTableId())
+                .tableName(tableInfo.getTableName())
+                .sessionId(tableSessionEntity.getTableSessionId())
+                .sessionStatus(SessionStatus.ACTIVE.name())
+                .generatedThreadId(clientThreadId) //
+                .build();
+        //---
+
         //Đóng gói dữ liệu trả về cho controller
-        return tableSessionMapper.toQRResolveResponse(tableSessionEntity, tableInfo);
+        //return tableSessionMapper.toQRResolveResponse(tableSessionEntity, tableInfo);
     }
 
 

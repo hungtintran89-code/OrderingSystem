@@ -7,6 +7,7 @@ import ordersystem.backend.modules.table.dto.request.CreateTableRequest;
 import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
 import ordersystem.backend.modules.table.dto.response.QRCodeExportResponse;
 import ordersystem.backend.modules.table.dto.response.TableResponse;
+import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.QRFormat;
 import ordersystem.backend.modules.table.service.generator.QRCodeGeneratorService;
 import ordersystem.backend.modules.table.service.impl.LiveFloorMapService;
@@ -25,6 +26,7 @@ import java.util.List;
 @RequestMapping("/api/v1/admin/tables")
 public class AdminTableController {
     private final TableService tableService;
+    private final TableSessionService tableSessionService ;
     private final LiveFloorMapService liveFloorMapService;
 
     @PostMapping
@@ -59,4 +61,27 @@ public class AdminTableController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + exportResponse.getFileName() + "\"")
                 .body(exportResponse.getData()); // Trả trực tiếp byte[] không bọc JSON
     }
+
+
+
+
+    // THEM TINH NANG :::
+    // 1. API cho Nhân viên chủ động bấm Mở Bàn khi xếp khách vào
+    @PostMapping("/{tableId}/open-session")
+    @PreAuthorize("hasRole('MANAGER') or hasRole('STAFF')")
+    public ResponseEntity<ApiResponse<TableSessionEntity>> openTableSession(@PathVariable Long tableId) {
+        TableSessionEntity session = tableSessionService.getOrCreateActiveSession(tableId);
+        return ResponseEntity.ok(ApiResponse.success("Opened table successfull", session));
+    }
+
+    // 2. API cho Nhân viên bấm Đóng Bàn & Thanh toán
+    @PostMapping("/sessions/{sessionId}/close")
+    @PreAuthorize("hasRole('MANAGER') or hasRole('STAFF')")
+    public ResponseEntity<ApiResponse<Void>> closeTableSession(@PathVariable String sessionId) {
+        tableSessionService.closeSession(sessionId);
+        return ResponseEntity.ok(ApiResponse.success("Closed table successfull", null));
+    }
+
+
+
 }
