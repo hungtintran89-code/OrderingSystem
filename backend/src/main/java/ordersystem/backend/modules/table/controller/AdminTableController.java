@@ -35,7 +35,7 @@ public class AdminTableController {
     }
 
     @PreAuthorize("hasRole('MANAGER') or hasRole('STAFF')")
-    @GetMapping("/floor-map"    )
+    @GetMapping("/floor-map")
     ResponseEntity<ApiResponse<List<FloorMapResponse>>> getFloorMap(){
         List<FloorMapResponse> listFloorMapResponse = liveFloorMapService.getLiveFloorMap();
         return ResponseEntity.ok(ApiResponse.success("Get Floor Map is succes", listFloorMapResponse));
