@@ -62,7 +62,8 @@ public class TableServiceImpl implements TableService {
 
     @Override
     @Transactional
-    public QRResolveResponse resolveQrtoken(String qrToken){
+    public QRResolveResponse resolveQrtoken(String qrToken , Long clientThreadId ){
+
         // Bước 1: Tra cứu bàn trong DB theo qrToken
         RestaurantTableEntity tableInfo = restaurantTableRepository.findByQrToken(qrToken)
         .orElseThrow( () -> new TableException("QR Code not valid or not exist"));
@@ -70,20 +71,19 @@ public class TableServiceImpl implements TableService {
         //Bước 2: Lấy Session đang ACTIVE hoặc khởi tạo Session mới nếu bàn trống
         TableSessionEntity tableSessionEntity = tableSessionService.getOrCreateActiveSession(tableInfo.getTableId());
 
+        // 📌 SỬA: Nếu Client đã có threadId cũ gửi lên thì giữ nguyên, nếu chưa có mới tự sinh
+        Long finalThreadId = (clientThreadId != null)
+                ? clientThreadId
+                : (System.currentTimeMillis() % 1000000L + (long)(Math.random() * 1000));
 
-        //---
-        Long clientThreadId = System.currentTimeMillis() % 1000000L + (long)(Math.random() * 1000);
+
         return QRResolveResponse.builder()
                 .tableId(tableInfo.getTableId())
                 .tableName(tableInfo.getTableName())
                 .sessionId(tableSessionEntity.getTableSessionId())
                 .sessionStatus(SessionStatus.ACTIVE.name())
-                .generatedThreadId(clientThreadId) //
+                .generatedThreadId(finalThreadId) //
                 .build();
-        //---
-
-        //Đóng gói dữ liệu trả về cho controller
-        //return tableSessionMapper.toQRResolveResponse(tableSessionEntity, tableInfo);
     }
 
 

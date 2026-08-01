@@ -21,12 +21,15 @@ import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.catalog.repository.ProductRepository;
 import ordersystem.backend.modules.order.service.run.OrderService;
 import ordersystem.backend.modules.order.websocket.WebSocketPublisher;
+import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
+import ordersystem.backend.modules.table.enums.TableStatus;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -46,6 +49,7 @@ public class OrderServiceImpl implements OrderService {
     final private OrderMapper orderMapper ;
     final private OrderItemRepository orderItemRepository ;
     private final ApplicationEventPublisher eventPublisher;
+    private final SimpMessagingTemplate messagingTemplate ;
 
     // 1. Xử lý khi Khách hàng bấm Gửi đơn đặt món
     @Override
@@ -96,6 +100,15 @@ public class OrderServiceImpl implements OrderService {
         masterOrderEntity.getItems().addAll(newOrderItemEntity);
         OrderEntity savedOrderEntity = orderRepository.save(masterOrderEntity);
 
+        // Bắn thông báo cập nhật Sơ đồ bàn Real-time cho Nhân viên
+        FloorMapResponse updatedTableMap = FloorMapResponse.builder()
+                .tableId(tableSessionEntity.getTable().getTableId())
+                .tableName(tableSessionEntity.getTableName())
+                .status(TableStatus.OCCUPIED)
+                .tempTotalAmount(masterOrderEntity.getTotalAmount().doubleValue())
+                .build();
+        messagingTemplate.convertAndSend("/topic/tables/floor-map", updatedTableMap);
+
         // 5. Bắn thông báo Real-time cho Bếp (Chỉ bắn các món MỚI ĐẶT)
         webSocketPublisher.notifyKitchenNewOrder(newOrderItemEntity);
         webSocketPublisher.notifyAdminTableUpdate(tableSessionEntity.getTableSessionId(), savedOrderEntity.getId());
@@ -117,10 +130,10 @@ public class OrderServiceImpl implements OrderService {
         OrderSubmittedEvent event = new OrderSubmittedEvent(
                 savedOrderEntity.getId(),
                 tableSessionEntity.getTable().getTableName(),
-                "Tầng 1", // Hoặc thông tin khu vực bàn
+                "Tầng 1",
                 itemInfos
         );
-// Bắn sự kiện phát vé cho KDS
+        // Bắn sự kiện phát vé cho KDS
         eventPublisher.publishEvent(event);
         return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), request.getThreadId() , newItemsResponses);
 
@@ -240,7 +253,5 @@ public class OrderServiceImpl implements OrderService {
         Long invoiceCode = System.currentTimeMillis();
 
         return orderMapper.toTableInvoiceResponse( invoiceCode , tableSession , responseList , 0L , 0L  ) ;
-
-
     }
 }

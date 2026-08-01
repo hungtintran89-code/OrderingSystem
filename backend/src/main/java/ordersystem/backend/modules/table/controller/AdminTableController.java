@@ -3,6 +3,7 @@ package ordersystem.backend.modules.table.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.payload.ApiResponse;
+import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.table.dto.request.CreateTableRequest;
 import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
 import ordersystem.backend.modules.table.dto.response.QRCodeExportResponse;
@@ -28,6 +29,7 @@ public class AdminTableController {
     private final TableService tableService;
     private final TableSessionService tableSessionService ;
     private final LiveFloorMapService liveFloorMapService;
+    private final OrderRepository orderRepository;
 
     @PostMapping
     @PreAuthorize("hasRole('MANAGER')")
@@ -37,7 +39,7 @@ public class AdminTableController {
     }
 
     @PreAuthorize("hasRole('MANAGER') or hasRole('STAFF')")
-    @GetMapping("/floor-map"    )
+    @GetMapping("/floor-map")
     ResponseEntity<ApiResponse<List<FloorMapResponse>>> getFloorMap(){
         List<FloorMapResponse> listFloorMapResponse = liveFloorMapService.getLiveFloorMap();
         return ResponseEntity.ok(ApiResponse.success("Get Floor Map is succes", listFloorMapResponse));
@@ -48,7 +50,7 @@ public class AdminTableController {
     public ResponseEntity<byte[]> downloadQRCode(
             @PathVariable Long tableId,
             @RequestParam(defaultValue = "pdf") String format
-    ) {
+    ){
         // 1. Chuyển tham số đầu vào thành QRFormat (PDF / PNG)
         QRFormat qrFormat = QRFormat.fromString(format);
 
@@ -61,9 +63,6 @@ public class AdminTableController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + exportResponse.getFileName() + "\"")
                 .body(exportResponse.getData()); // Trả trực tiếp byte[] không bọc JSON
     }
-
-
-
 
     // THEM TINH NANG :::
     // 1. API cho Nhân viên chủ động bấm Mở Bàn khi xếp khách vào
