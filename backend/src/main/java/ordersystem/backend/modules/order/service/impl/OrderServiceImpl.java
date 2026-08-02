@@ -20,7 +20,7 @@ import ordersystem.backend.modules.order.repository.OrderItemRepository;
 import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.catalog.repository.ProductRepository;
 import ordersystem.backend.modules.order.service.run.OrderService;
-import ordersystem.backend.modules.order.websocket.WebSocketPublisher;
+import ordersystem.backend.common.advice.WebSocketPublisher;
 import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
