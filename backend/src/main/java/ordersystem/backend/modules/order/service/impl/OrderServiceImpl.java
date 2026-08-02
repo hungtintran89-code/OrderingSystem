@@ -168,8 +168,13 @@ public class OrderServiceImpl implements OrderService {
 
         // Bước 2: Tìm danh sách Order dựa trên tableSessionId vừa tìm được
         List<OrderEntity> orderEntities = orderRepository.findByTableSessionTableSessionId( tableSession.getTableSessionId()) ;
-        if ( orderEntities.isEmpty() ){
-            throw new OrderException("No items have been ordered for this table yet!");
+        if (orderEntities.isEmpty()) {
+            return MasterTableOrderResponse.builder()
+                    .tableSessionId(tableSession.getTableSessionId())
+                    .tableName(tableSession.getTableName())
+                    .totalPrice(0L)
+                    .allTableItems(Collections.emptyList())
+                    .build();
         }
         if (orderEntities.isEmpty()) {
             return MasterTableOrderResponse.builder()

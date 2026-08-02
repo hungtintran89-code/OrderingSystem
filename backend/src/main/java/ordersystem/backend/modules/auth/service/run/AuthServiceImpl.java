@@ -1,8 +1,10 @@
 package ordersystem.backend.modules.auth.service.run;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.exception.ResourceNotFoundException;
 import ordersystem.backend.common.security.JwtTokenProvider;
+import ordersystem.backend.modules.auth.dto.request.ChangePasswordRequest;
 import ordersystem.backend.modules.auth.dto.request.LoginRequest;
 import ordersystem.backend.modules.auth.dto.response.AuthResponse;
 import ordersystem.backend.modules.auth.dto.response.UserProfileResponse;
@@ -55,6 +57,29 @@ public class AuthServiceImpl implements AuthService {
                 .username(user.getUsername())
                 .role(user.getRole())
                 .build();
+    }
+
+
+    @Override
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        // 1. Tìm user đang đăng nhập trong DB
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        // 2. Kiểm tra mật khẩu hiện tại có đúng không
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new BadCredentialsException("Current password is incorrect");
+        }
+
+        // 3. Kiểm tra mật khẩu mới và xác nhận mật khẩu có khớp nhau không
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new BadCredentialsException("Confirm password does not match new password");
+        }
+
+        // 4. Mã hóa mật khẩu mới và lưu vào DB
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 }
 

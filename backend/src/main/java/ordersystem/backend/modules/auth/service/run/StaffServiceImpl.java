@@ -53,6 +53,7 @@ public class StaffServiceImpl implements StaffService {
 
     @Override
     public PageResponse<StaffResponse> getStaffs(int page, int size) {
+        int safePage = Math.max(1, page);
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
         Page<User> staffPage = userRepository.findAll(pageable);
         List<StaffResponse> content = staffPage.getContent().stream()
