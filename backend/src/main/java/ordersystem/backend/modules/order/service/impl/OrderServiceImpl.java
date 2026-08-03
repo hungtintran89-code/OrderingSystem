@@ -2,6 +2,7 @@ package ordersystem.backend.modules.order.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.payload.PageResponse;
+import ordersystem.backend.common.websocket.WebSocketPublisher;
 import ordersystem.backend.modules.order.dto.request.OrderItemRequest;
 import ordersystem.backend.modules.order.dto.request.SubmitPersonalOrderRequest;
 import ordersystem.backend.modules.order.dto.response.MasterTableOrderResponse;
@@ -19,7 +20,6 @@ import ordersystem.backend.modules.order.repository.OrderItemRepository;
 import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.catalog.repository.ProductRepository;
 import ordersystem.backend.modules.order.service.run.OrderService;
-import ordersystem.backend.common.advice.WebSocketPublisher;
 import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
@@ -32,10 +32,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -108,11 +105,9 @@ public class OrderServiceImpl implements OrderService {
                 .status(TableStatus.OCCUPIED)
                 .tempTotalAmount(masterOrderEntity.getTotalAmount().doubleValue())
                 .build();
-        messagingTemplate.convertAndSend("/topic/tables/floor-map", updatedTableMap);
+        webSocketPublisher.notifyFloorMapUpdate(updatedTableMap);
 
         // 5. Bắn thông báo Real-time cho Bếp (Chỉ bắn các món MỚI ĐẶT)
-        webSocketPublisher.notifyKitchenNewOrder(newOrderItemEntity);
-        webSocketPublisher.notifyAdminTableUpdate(tableSessionEntity.getTableSessionId(), savedOrderEntity.getId());
 
         // 6. Trả về cho thiết bị khách danh sách các món điện thoại này vừa đặt thành công
         List<OrderItemResponse> newItemsResponses = newOrderItemEntity.stream()
@@ -153,7 +148,6 @@ public class OrderServiceImpl implements OrderService {
 
         TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableSessionId(tableSessionId)
                 .orElseThrow(()->new OrderException("Table Session ID does not exist: " + tableSessionId));
-
         return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), threadId, responseList);
     }
 
@@ -197,7 +191,13 @@ public class OrderServiceImpl implements OrderService {
         orderEntity.setStatus( status );
         orderRepository.save(orderEntity) ;
 
-        webSocketPublisher.notifyClientOrderStatusUpdate(orderEntity.getTableSession().getSessionToken(), status.name() );
+        Map<String, Object> payload = Map.of(
+                "orderId", orderId,
+                "orderCode", orderEntity.getOrderCode(),
+                "status", status.name(),
+                "updatedAt", System.currentTimeMillis()
+        );
+        webSocketPublisher.notifyClientOrderStatus(orderEntity.getTableSession().getSessionToken(), payload);
     }
 
     // 5. Xem lịch sử Đơn hàng

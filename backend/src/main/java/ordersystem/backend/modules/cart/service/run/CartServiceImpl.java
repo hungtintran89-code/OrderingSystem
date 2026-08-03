@@ -1,7 +1,7 @@
 package ordersystem.backend.modules.cart.service.run;
 
 import lombok.RequiredArgsConstructor;
-import ordersystem.backend.common.advice.WebSocketPublisher;
+import ordersystem.backend.common.websocket.WebSocketPublisher;
 import ordersystem.backend.modules.cart.domain.Cart;
 import ordersystem.backend.modules.cart.domain.CartItem;
 import ordersystem.backend.modules.cart.dto.request.AddToCartRequest;
@@ -16,7 +16,6 @@ import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Map;

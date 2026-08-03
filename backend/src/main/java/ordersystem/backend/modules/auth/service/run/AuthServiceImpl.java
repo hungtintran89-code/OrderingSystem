@@ -9,7 +9,6 @@ import ordersystem.backend.modules.auth.dto.response.AuthResponse;
 import ordersystem.backend.modules.auth.dto.response.UserProfileResponse;
 import ordersystem.backend.modules.auth.entity.User;
 import ordersystem.backend.modules.auth.exception.BadCredentialsException;
-import ordersystem.backend.modules.auth.mapper.UserMapper;
 import ordersystem.backend.modules.auth.repository.UserRepository;
 import ordersystem.backend.modules.auth.service.impl.AuthService;
 import org.springframework.security.crypto.password.PasswordEncoder;
