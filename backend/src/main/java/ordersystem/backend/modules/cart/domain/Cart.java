@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Getter
 @Setter
@@ -16,7 +17,9 @@ public class Cart {
     private Long threadId;
 
     @Builder.Default
-    private List<CartItem> items = new ArrayList<>();
+    private List<CartItem> items = new CopyOnWriteArrayList<>();
+
+
     // Hàm tính tổng tiền cả giỏ hàng
     public Long getTotalAmount() {
         return items.stream()

@@ -88,6 +88,7 @@ public class TableServiceImpl implements TableService {
 
 
     @Override
+    @Transactional( readOnly = true )
     public QRCodeExportResponse exportTableQrCode(Long tableId, QRFormat qrFormat){
         //Tìm kiếm bàn theo id
         RestaurantTableEntity tableInfo = restaurantTableRepository.findById(tableId)

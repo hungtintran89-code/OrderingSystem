@@ -1,6 +1,5 @@
 package ordersystem.backend.modules.order.service.impl;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.payload.PageResponse;
 import ordersystem.backend.modules.order.dto.request.OrderItemRequest;
@@ -31,6 +30,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional( readOnly = true)
 public class OrderServiceImpl implements OrderService {
     final private TableSessionRepository tableSessionRepository ;
     final private OrderRepository orderRepository ;
@@ -142,7 +143,6 @@ public class OrderServiceImpl implements OrderService {
 
     // 2. Khách mở điện thoại cá nhân lên xem -> CHỈ HIỂN THỊ MÓN DO THREAD ĐÓ ĐẶT
     @Override
-    @Transactional
     public PersonalOrderResponse getPersonalOrder(Long tableSessionId, Long threadId){
 
         List<OrderItemEntity> orderItemResponseList = orderItemRepository.findByOrderTableSessionTableSessionIdAndCreatedByThread(tableSessionId , threadId);
@@ -159,7 +159,6 @@ public class OrderServiceImpl implements OrderService {
 
     // 3. XEM TỔNG BÀN (Lấy Master Order chứa tất cả các món của mọi Thread gom lại)
     @Override
-    @Transactional
     public MasterTableOrderResponse getMasterTableOrder(Long tableId ) {
 
         // Bước 1: Tìm Session đang ACTIVE của bàn đó
@@ -168,14 +167,6 @@ public class OrderServiceImpl implements OrderService {
 
         // Bước 2: Tìm danh sách Order dựa trên tableSessionId vừa tìm được
         List<OrderEntity> orderEntities = orderRepository.findByTableSessionTableSessionId( tableSession.getTableSessionId()) ;
-        if (orderEntities.isEmpty()) {
-            return MasterTableOrderResponse.builder()
-                    .tableSessionId(tableSession.getTableSessionId())
-                    .tableName(tableSession.getTableName())
-                    .totalPrice(0L)
-                    .allTableItems(Collections.emptyList())
-                    .build();
-        }
         if (orderEntities.isEmpty()) {
             return MasterTableOrderResponse.builder()
                     .tableSessionId(tableSession.getTableSessionId())
@@ -239,6 +230,7 @@ public class OrderServiceImpl implements OrderService {
 
     }
 
+    @Override
     public TableInvoiceResponse exportTableInvoice(Long tableId) {
         TableSessionEntity tableSession = tableSessionRepository.findByTableTableIdAndStatus(tableId , SessionStatus.ACTIVE)
                 .orElseThrow(()-> new OrderException("No ACTIVE session found for table ID: " + tableId)) ;

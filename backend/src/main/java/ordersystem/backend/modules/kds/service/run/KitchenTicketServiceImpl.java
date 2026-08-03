@@ -22,6 +22,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class KitchenTicketServiceImpl implements KitchenTicketService {
 
     final private KitchenTicketRepository kitchenTicketRepository ;
@@ -32,7 +33,6 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
 
     // 📌 1. Lấy danh sách Màn hình chung (Chỉ chứa món PENDING chưa ai nhận)
     @Override
-    @Transactional
     public List<KitchenTicketResponse> getPendingTickets() {
         List<KitchenTicketEntity> kitchenTicketEntityList = kitchenTicketRepository.findByStatus(KitchenItemStatus.PENDING ) ;
         return kitchenTicketEntityList.stream()
@@ -42,7 +42,6 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
 
     // 📌 2. Lấy danh sách Màn hình cá nhân (Chỉ chứa món COOKING của chính Đầu bếp này)
     @Override
-    @Transactional( readOnly = true )
     public List<KitchenTicketResponse> getMyCookingTickets(Long cookUserId) {
         List<KitchenTicketEntity> tickets = kitchenTicketRepository.findMyCookingTickets(cookUserId);
         return tickets.stream()
@@ -98,7 +97,6 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
 
     // 5 : Lấy Lịch sử Hoàn thành Chung của TẤT CẢ các đầu bếp
     @Override
-    @Transactional(readOnly = true)
     public List<KitchenTicketResponse> getSharedCompletedHistory(int limit) {
         int pageSize = limit > 0 ? limit : 50; // Mặc định lấy 50 món mới nhất
         List<KitchenTicketEntity> tickets = kitchenTicketRepository.findSharedCompletedHistory(PageRequest.of(0, pageSize));
@@ -107,7 +105,6 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
 
     //// 6 : Lấy Lịch sử Hoàn thành từng các đầu bếp
     @Override
-    @Transactional(readOnly = true)
     public ChefWorkHistoryResponse getCookWorkHistory(Long cookUserId) {
 
         List<KitchenTicketEntity> kitchenTicketEntityList = kitchenTicketRepository.findByAssignedCookIdAndStatus(cookUserId , KitchenItemStatus.COMPLETED);;

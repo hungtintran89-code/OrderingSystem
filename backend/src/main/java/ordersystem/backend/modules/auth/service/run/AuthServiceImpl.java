@@ -1,6 +1,5 @@
 package ordersystem.backend.modules.auth.service.run;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.exception.ResourceNotFoundException;
 import ordersystem.backend.common.security.JwtTokenProvider;
@@ -15,9 +14,11 @@ import ordersystem.backend.modules.auth.repository.UserRepository;
 import ordersystem.backend.modules.auth.service.impl.AuthService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional( readOnly = true )
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;

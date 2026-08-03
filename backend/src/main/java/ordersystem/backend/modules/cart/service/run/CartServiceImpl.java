@@ -33,7 +33,7 @@ public class CartServiceImpl implements CartService {
     private final WebSocketPublisher webSocketPublisher ;
 
     // Sử dụng ConcurrentHashMap để lưu trữ giỏ hàng In-Memory an toàn trong môi trường Đa Luồng (Multi-threading).
-    // Key của Map dạng: "tableSessionId:threadId" (VD: "10:1001")
+    // Key của Map dạng: "tableSessionId:threadId" (VD: "10:1001")x
     private final Map<String, Cart> cartStore = new ConcurrentHashMap<>();
 
     private String buildCartKey(Long tableSessionId, Long threadId) {
@@ -168,10 +168,7 @@ public class CartServiceImpl implements CartService {
                     .totalAmount(0L)
                     .build();
         }
-        CartResponse response = cartMapper.mapToCartResponse(cart);
-        // BẮN THÔNG BÁO REAL-TIME
-        webSocketPublisher.notifyCartUpdate(tableSessionId, response);
-        return response;
+        return cartMapper.mapToCartResponse(cart);
     }
 
     // 5. Xoá sạch giỏ hàng

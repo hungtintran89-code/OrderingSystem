@@ -15,7 +15,7 @@ public class CreateProductRequest {
     private String productName ;
 
     @Min(value = 0 , message = "The price of the dish must be greater than or equal to 0.")
-    @NotBlank(message = "The dish price cannot be left blank.")
+    @NotNull(message = "The dish price cannot be left blank.")
     private Long productPrice ;
 
     @NotNull( message = "The category id cannot be left blank." )
