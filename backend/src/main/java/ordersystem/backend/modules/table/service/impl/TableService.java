@@ -11,6 +11,6 @@ import java.util.List;
 
 public interface TableService {
     public TableResponse createTable(CreateTableRequest request);
-    public QRResolveResponse resolveQrtoken(String qrToken);
+    public QRResolveResponse resolveQrtoken(String qrToken , Long threadId );
     public QRCodeExportResponse exportTableQrCode(Long tableId, QRFormat qrFormat);
 }

@@ -112,6 +112,7 @@
 		<artifactId>spring-boot-starter-websocket</artifactId>
 	</dependency>
 
+
 	<!-- Thư viện lõi xử lý logic tạo QR -->
 	<dependency>
 		<groupId>com.google.zxing</groupId>

@@ -11,4 +11,6 @@ public class QRResolveResponse {
     private String tableName;
     private Long sessionId;
     private String sessionStatus;
+
+    private Long generatedThreadId;
 }

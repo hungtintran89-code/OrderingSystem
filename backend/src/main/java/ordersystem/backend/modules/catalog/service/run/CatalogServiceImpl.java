@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CatalogServiceImpl implements CatalogService {
 
     final private CategoryRepository categoryRepository ;
@@ -44,6 +45,7 @@ public class CatalogServiceImpl implements CatalogService {
 
     // 2. Admin tạo Danh mục mới
     @Override
+    @Transactional
     public CategoryMenuResponse createCategory(CreateCategoryRequest createCategoryRequest ){
 
         if( categoryRepository.findByCategoryName(createCategoryRequest.getCategoryName()).isPresent()){
@@ -59,10 +61,9 @@ public class CatalogServiceImpl implements CatalogService {
 
     // Admin lấy tất cả danh mục
     @Override
-    @Transactional( readOnly = true )
     public List<CategoryMenuResponse> getAllCategories (){
 
-        List<CategoryEntity> categoryEntities = categoryRepository.findAll() ;
+        List<CategoryEntity> categoryEntities = categoryRepository.findAllWithProducts() ;
 
         return categoryEntities.stream()
                 .map( catalogMapper::toCategoryMenuResponse)
@@ -83,6 +84,7 @@ public class CatalogServiceImpl implements CatalogService {
 
     // Admin thêm món vào catalog
     @Override
+    @Transactional
     public ProductResponse addProductIntoCategory (CreateProductRequest request ){
 
         CategoryEntity categoryEntity = categoryRepository.findByCategoryName( request.getCategoryName())

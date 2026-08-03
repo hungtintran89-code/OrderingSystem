@@ -64,7 +64,8 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     //Nhân viên xác nhận xử lí xong yêu cầu
     public ServiceRequestResponse completedRequest(Long requestId){
         //Lấy request đang gửi đến chuyển thành completed
-        ServiceRequestEntity currentRequest = serviceRequestRepository.findByRequestId(requestId);
+        ServiceRequestEntity currentRequest = serviceRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Service request not found with id: " + requestId));
 
         //Chuyển yêu cầu thành completed
         currentRequest.setRequestStatus(RequestStatus.COMPLETED);

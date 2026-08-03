@@ -5,10 +5,7 @@ import ordersystem.backend.common.payload.ApiResponse;
 import ordersystem.backend.modules.table.dto.response.QRResolveResponse;
 import ordersystem.backend.modules.table.service.impl.TableService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("api/v1/qr")
@@ -18,8 +15,9 @@ public class QRResolveController {
     private final TableService tableService;
 
     @GetMapping("/resolve/{qr_token}")
-    ResponseEntity<ApiResponse<QRResolveResponse>> getQRResolve(@PathVariable String qr_token){
-        QRResolveResponse qrResolveResponse = tableService.resolveQrtoken(qr_token);
+    ResponseEntity<ApiResponse<QRResolveResponse>> getQRResolve(@PathVariable String qr_token,
+                                                                @RequestParam(required = false) Long threadId){
+        QRResolveResponse qrResolveResponse = tableService.resolveQrtoken(qr_token , threadId);
         return ResponseEntity.ok(ApiResponse.success("QR Resolve is success", qrResolveResponse));
     }
 }

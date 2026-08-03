@@ -39,6 +39,11 @@ public class TableSessionServiceImpl implements TableSessionService {
                 .orElseGet(() -> {
                     TableSessionEntity newSession = createNewSessionForTable(tableId);
 
+                    // 📌 BỔ SUNG: Cập nhật trạng thái bàn vật lý trong DB thành OCCUPIED
+                    RestaurantTableEntity table = newSession.getTable();
+                    table.setTableStatus(TableStatus.OCCUPIED);
+                    restaurantTableRepository.save(table); // Lưu lại DB
+
                     //Thông báo Bàn vừa chuyển sang OCCUPIED
                     eventPublisher.publishEvent(new TableStateChangeEvent(
                             this,
@@ -57,8 +62,11 @@ public class TableSessionServiceImpl implements TableSessionService {
     public void closeSession(String sessionToken) {
         TableSessionEntity session = tableSessionRepository.findBySessionToken(sessionToken)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionToken));
+
         closeSessionEntity(session); // Gọi hàm cốt lõi
     }
+
+
     // 2. ⭐ HÀM CỐT LÕI ĐÓNG SESSION DUY NHẤT TRONG TOÀN HỆ THỐNG
     @Override
     @Transactional
@@ -67,6 +75,11 @@ public class TableSessionServiceImpl implements TableSessionService {
         session.setStatus(SessionStatus.CLOSED);
         session.setEndedAt(new Date());
         tableSessionRepository.save(session);
+
+        // 📌 BỔ SUNG: Cập nhật trạng thái bàn vật lý trong DB về EMPTY
+        RestaurantTableEntity table = session.getTable();
+        table.setTableStatus(TableStatus.EMPTY);
+
         // 🚀 BẮN EVENT: Giải phóng bàn về 🟢 EMPTY
         eventPublisher.publishEvent(new TableStateChangeEvent(
                 this,

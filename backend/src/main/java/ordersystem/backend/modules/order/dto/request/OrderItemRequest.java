@@ -11,7 +11,8 @@ import lombok.Setter;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderItemRequest {
+public class
+OrderItemRequest {
 
     @NotNull(message = "Product ID cannot be left blank.")
     private Long productId;

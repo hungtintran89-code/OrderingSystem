@@ -15,18 +15,21 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional( readOnly = true )
 public class StaffServiceImpl implements StaffService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
+    @Transactional
     public StaffResponse createStaff(CreateStaffRequest request) {
         log.debug("Checking if username exists: {}", request.getUsername());
         if (userRepository.existsByUsername(request.getUsername())) {
@@ -53,6 +56,7 @@ public class StaffServiceImpl implements StaffService {
 
     @Override
     public PageResponse<StaffResponse> getStaffs(int page, int size) {
+        int safePage = Math.max(1, page);
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
         Page<User> staffPage = userRepository.findAll(pageable);
         List<StaffResponse> content = staffPage.getContent().stream()

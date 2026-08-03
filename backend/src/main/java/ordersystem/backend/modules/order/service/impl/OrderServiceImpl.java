@@ -1,6 +1,5 @@
 package ordersystem.backend.modules.order.service.impl;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.payload.PageResponse;
 import ordersystem.backend.modules.order.dto.request.OrderItemRequest;
@@ -13,21 +12,28 @@ import ordersystem.backend.modules.order.entity.OrderEntity;
 import ordersystem.backend.modules.order.entity.OrderItemEntity;
 import ordersystem.backend.modules.catalog.entity.ProductEntity;
 import ordersystem.backend.modules.order.enums.OrderStatus;
+import ordersystem.backend.modules.order.event.OrderSubmittedEvent;
 import ordersystem.backend.modules.order.exception.OrderException;
 import ordersystem.backend.modules.order.mapper.OrderMapper;
 import ordersystem.backend.modules.order.repository.OrderItemRepository;
 import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.catalog.repository.ProductRepository;
 import ordersystem.backend.modules.order.service.run.OrderService;
-import ordersystem.backend.modules.order.websocket.WebSocketPublisher;
+import ordersystem.backend.common.advice.WebSocketPublisher;
+import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
+import ordersystem.backend.modules.table.enums.TableStatus;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -35,6 +41,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional( readOnly = true)
 public class OrderServiceImpl implements OrderService {
     final private TableSessionRepository tableSessionRepository ;
     final private OrderRepository orderRepository ;
@@ -42,6 +49,8 @@ public class OrderServiceImpl implements OrderService {
     final private WebSocketPublisher webSocketPublisher ;
     final private OrderMapper orderMapper ;
     final private OrderItemRepository orderItemRepository ;
+    private final ApplicationEventPublisher eventPublisher;
+    private final SimpMessagingTemplate messagingTemplate ;
 
     // 1. Xử lý khi Khách hàng bấm Gửi đơn đặt món
     @Override
@@ -92,6 +101,15 @@ public class OrderServiceImpl implements OrderService {
         masterOrderEntity.getItems().addAll(newOrderItemEntity);
         OrderEntity savedOrderEntity = orderRepository.save(masterOrderEntity);
 
+        // Bắn thông báo cập nhật Sơ đồ bàn Real-time cho Nhân viên
+        FloorMapResponse updatedTableMap = FloorMapResponse.builder()
+                .tableId(tableSessionEntity.getTable().getTableId())
+                .tableName(tableSessionEntity.getTableName())
+                .status(TableStatus.OCCUPIED)
+                .tempTotalAmount(masterOrderEntity.getTotalAmount().doubleValue())
+                .build();
+        messagingTemplate.convertAndSend("/topic/tables/floor-map", updatedTableMap);
+
         // 5. Bắn thông báo Real-time cho Bếp (Chỉ bắn các món MỚI ĐẶT)
         webSocketPublisher.notifyKitchenNewOrder(newOrderItemEntity);
         webSocketPublisher.notifyAdminTableUpdate(tableSessionEntity.getTableSessionId(), savedOrderEntity.getId());
@@ -101,6 +119,23 @@ public class OrderServiceImpl implements OrderService {
                 .map(orderMapper::toItemResponse)
                 .collect(Collectors.toList());
 
+        List<OrderSubmittedEvent.OrderItemInfo> itemInfos = newOrderItemEntity.stream()
+                .map(item -> new OrderSubmittedEvent.OrderItemInfo(
+                        item.getOrderItemId(),
+                        item.getProduct().getProductId(),
+                        item.getProduct().getProductName(),
+                        item.getQuantity().intValue(),
+                        item.getNote()
+                ))
+                .toList();
+        OrderSubmittedEvent event = new OrderSubmittedEvent(
+                savedOrderEntity.getId(),
+                tableSessionEntity.getTable().getTableName(),
+                "Tầng 1",
+                itemInfos
+        );
+        // Bắn sự kiện phát vé cho KDS
+        eventPublisher.publishEvent(event);
         return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), request.getThreadId() , newItemsResponses);
 
     }
@@ -108,7 +143,6 @@ public class OrderServiceImpl implements OrderService {
 
     // 2. Khách mở điện thoại cá nhân lên xem -> CHỈ HIỂN THỊ MÓN DO THREAD ĐÓ ĐẶT
     @Override
-    @Transactional
     public PersonalOrderResponse getPersonalOrder(Long tableSessionId, Long threadId){
 
         List<OrderItemEntity> orderItemResponseList = orderItemRepository.findByOrderTableSessionTableSessionIdAndCreatedByThread(tableSessionId , threadId);
@@ -125,7 +159,6 @@ public class OrderServiceImpl implements OrderService {
 
     // 3. XEM TỔNG BÀN (Lấy Master Order chứa tất cả các món của mọi Thread gom lại)
     @Override
-    @Transactional
     public MasterTableOrderResponse getMasterTableOrder(Long tableId ) {
 
         // Bước 1: Tìm Session đang ACTIVE của bàn đó
@@ -134,8 +167,13 @@ public class OrderServiceImpl implements OrderService {
 
         // Bước 2: Tìm danh sách Order dựa trên tableSessionId vừa tìm được
         List<OrderEntity> orderEntities = orderRepository.findByTableSessionTableSessionId( tableSession.getTableSessionId()) ;
-        if ( orderEntities.isEmpty() ){
-            throw new OrderException("No items have been ordered for this table yet!");
+        if (orderEntities.isEmpty()) {
+            return MasterTableOrderResponse.builder()
+                    .tableSessionId(tableSession.getTableSessionId())
+                    .tableName(tableSession.getTableName())
+                    .totalPrice(0L)
+                    .allTableItems(Collections.emptyList())
+                    .build();
         }
         OrderEntity mainOrderEntity = orderEntities.get(0) ;
 
@@ -192,6 +230,7 @@ public class OrderServiceImpl implements OrderService {
 
     }
 
+    @Override
     public TableInvoiceResponse exportTableInvoice(Long tableId) {
         TableSessionEntity tableSession = tableSessionRepository.findByTableTableIdAndStatus(tableId , SessionStatus.ACTIVE)
                 .orElseThrow(()-> new OrderException("No ACTIVE session found for table ID: " + tableId)) ;
@@ -211,7 +250,5 @@ public class OrderServiceImpl implements OrderService {
         Long invoiceCode = System.currentTimeMillis();
 
         return orderMapper.toTableInvoiceResponse( invoiceCode , tableSession , responseList , 0L , 0L  ) ;
-
-
     }
 }
