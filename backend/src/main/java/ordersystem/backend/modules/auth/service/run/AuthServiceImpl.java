@@ -80,7 +80,6 @@ public class AuthServiceImpl implements AuthService {
 
         // 4. Mã hóa mật khẩu mới và lưu vào DB
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
-        userRepository.save(user);
     }
 }
 
