@@ -1,6 +1,7 @@
 package ordersystem.backend.modules.kds.service.run;
 
 import lombok.RequiredArgsConstructor;
+import ordersystem.backend.common.websocket.WebSocketPublisher;
 import ordersystem.backend.modules.auth.repository.UserRepository;
 import ordersystem.backend.modules.kds.dto.response.ChefWorkHistoryResponse;
 import ordersystem.backend.modules.kds.dto.response.KitchenTicketResponse;
@@ -10,14 +11,11 @@ import ordersystem.backend.modules.kds.exception.KdsException;
 import ordersystem.backend.modules.kds.mapper.KitchenTicketMapper;
 import ordersystem.backend.modules.kds.repository.KitchenTicketRepository;
 import ordersystem.backend.modules.kds.service.impl.KitchenTicketService;
-import ordersystem.backend.modules.kds.websocket.KitchenWebSocketPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.RequestBody;
 
 import java.security.Principal;
-import java.time.ZonedDateTime;
 import java.util.List;
 
 @Service
@@ -27,7 +25,7 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
 
     final private KitchenTicketRepository kitchenTicketRepository ;
     final private KitchenTicketMapper kitchenTicketMapper ;
-    final private KitchenWebSocketPublisher webSocketPublisher ;
+    final private WebSocketPublisher webSocketPublisher ;
     final private UserRepository userRepository ;
 
 
@@ -67,7 +65,7 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
         kitchenTicketEntity.setAssignedCookName(userName);
 
         KitchenTicketResponse response = kitchenTicketMapper.toResponse(kitchenTicketEntity);
-        webSocketPublisher.broadcastKitchenEvent(response);
+        webSocketPublisher.notifyKitchenOrders(response);
         return response ;
     }
 
@@ -90,8 +88,8 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
 
         kitchenTicketEntity.setStatus(KitchenItemStatus.COMPLETED);
         KitchenTicketResponse response = kitchenTicketMapper.toResponse(kitchenTicketEntity) ;
-        webSocketPublisher.broadcastToSharedCompletedHistory(response);
-        webSocketPublisher.broadcastKitchenEvent(response);
+        webSocketPublisher.notifyKitchenCompletedHistory(response);
+        webSocketPublisher.notifyKitchenOrders(response);
         return response ;
     }
 

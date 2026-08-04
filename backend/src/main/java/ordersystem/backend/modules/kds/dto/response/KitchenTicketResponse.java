@@ -19,7 +19,7 @@ public class KitchenTicketResponse {
     private String areaName;
     private Long productId;
     private String productName;
-    private Integer quantity;
+    private Long quantity;
     private String note;
     private KitchenItemStatus status;
     private Long assignedCookId;

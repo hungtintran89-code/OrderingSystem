@@ -22,6 +22,6 @@ public interface CartService {
     CartResponse getCart(Long tableSessionId, Long threadId);
 
     // Xoá sạch giỏ hàng (khi đặt món thành công hoặc huỷ giỏ)
-    void clearCart(Long tableSessionId, Long threadId);
+    CartResponse clearCart(Long tableSessionId, Long threadId);
 
 }

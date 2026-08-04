@@ -1,7 +1,7 @@
 package ordersystem.backend.modules.cart.service.run;
 
 import lombok.RequiredArgsConstructor;
-import ordersystem.backend.common.advice.WebSocketPublisher;
+import ordersystem.backend.common.websocket.WebSocketPublisher;
 import ordersystem.backend.modules.cart.domain.Cart;
 import ordersystem.backend.modules.cart.domain.CartItem;
 import ordersystem.backend.modules.cart.dto.request.AddToCartRequest;
@@ -16,7 +16,6 @@ import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -98,8 +97,7 @@ public class CartServiceImpl implements CartService {
         }
 
         CartResponse response = cartMapper.mapToCartResponse(cart);
-        // BẮN THÔNG BÁO REAL-TIME: Gửi giỏ hàng mới cho tất cả điện thoại thuộc bàn này
-        webSocketPublisher.notifyCartUpdate(request.getTableSessionId(), response);
+
         return response;
     }
 
@@ -118,19 +116,16 @@ public class CartServiceImpl implements CartService {
         // Nếu số lượng = 0 thì tiến hành xoá món khỏi giỏ
         if( request.getQuantity() <= 0 ){
             cart.getItems().removeIf( item -> item.getProductId().equals(productId) ) ;
-        }else{
+        }else {
             // Ngược lại cập nhật số lượng và ghi chú
             CartItem cartItem = cart.getItems().stream()
-                    .filter( item -> item.getProductId().equals(productId))
+                    .filter(item -> item.getProductId().equals(productId))
                     .findFirst()
-                    .orElseThrow(() -> new CartException("Item not found in cart!")) ;
+                    .orElseThrow(() -> new CartException("Item not found in cart!"));
             cartItem.setQuantity(request.getQuantity());
             cartItem.setNote(request.getNote());
         }
-        CartResponse response = cartMapper.mapToCartResponse(cart);
-        // BẮN THÔNG BÁO REAL-TIME: Cập nhật giỏ hàng Real-time cho cả bàn
-        webSocketPublisher.notifyCartUpdate(tableSessionId, response);
-        return response;
+        return cartMapper.mapToCartResponse(cart) ;
     }
 
 
@@ -173,20 +168,16 @@ public class CartServiceImpl implements CartService {
 
     // 5. Xoá sạch giỏ hàng
     @Override
-    public void clearCart(Long tableSessionId, Long threadId) {
+    public CartResponse clearCart(Long tableSessionId, Long threadId) {
         String cartKey = buildCartKey(tableSessionId, threadId);
         cartStore.remove(cartKey);
         // BẮN THÔNG BÁO REAL-TIME: Báo giỏ hàng đã bị làm rỗng cho các máy cùng bàn
-        CartResponse emptyCart = CartResponse.builder()
+        return CartResponse.builder()
                 .tableSessionId(tableSessionId)
                 .threadId(threadId)
                 .items(new ArrayList<>())
                 .totalItems(0L)
                 .totalAmount(0L)
                 .build();
-        webSocketPublisher.notifyCartUpdate(tableSessionId, emptyCart);
     }
-
-
-
 }

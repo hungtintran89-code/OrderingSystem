@@ -19,7 +19,7 @@ public class OrderSubmittedEvent {
         private final Long orderItemId;
         private final Long productId;
         private final String productName;
-        private final Integer quantity;
+        private final Long quantity;
         private final String note;
     }
 }

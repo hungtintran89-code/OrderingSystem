@@ -8,7 +8,7 @@ import ordersystem.backend.modules.order.dto.request.SubmitPersonalOrderRequest;
 import ordersystem.backend.modules.order.dto.response.MasterTableOrderResponse;
 import ordersystem.backend.modules.order.dto.response.PersonalOrderResponse;
 import ordersystem.backend.modules.order.dto.response.TableInvoiceResponse;
-import ordersystem.backend.modules.order.service.run.OrderService;
+import ordersystem.backend.modules.order.service.impl.OrderService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

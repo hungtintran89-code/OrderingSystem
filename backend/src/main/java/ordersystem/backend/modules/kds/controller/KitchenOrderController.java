@@ -3,15 +3,11 @@ package ordersystem.backend.modules.kds.controller;
 
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.payload.ApiResponse;
-import ordersystem.backend.modules.auth.entity.User;
 import ordersystem.backend.modules.kds.dto.response.ChefWorkHistoryResponse;
 import ordersystem.backend.modules.kds.dto.response.KitchenTicketResponse;
 import ordersystem.backend.modules.kds.service.impl.KitchenTicketService;
-import ordersystem.backend.modules.order.enums.OrderStatus;
-import ordersystem.backend.modules.order.service.run.OrderService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
