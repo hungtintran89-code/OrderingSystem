@@ -13,7 +13,7 @@ import java.util.Date;
 @AllArgsConstructor @NoArgsConstructor
 @Builder
 @Table(name = "payment_transactions")
-public class PaymentTracsactionEntity {
+public class PaymentTransactionEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(nullable = false, name = "payment_id")
@@ -30,7 +30,7 @@ public class PaymentTracsactionEntity {
     private Long totalAmount;
 
     @Column(name = "receive_amount", nullable = false)
-    private Long receiveAmount;
+    private Long receivedAmount;
 
     @Column(name = "change_amount", nullable = true)
     private Long changeAmount;
