@@ -69,13 +69,13 @@ public class OrderServiceImpl implements OrderService {
                 .stream().findFirst()
                 .orElseGet(()->{
                     return orderRepository.save(OrderEntity.builder()
-                                    .orderCode("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                                    .orderCode("ORD_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                                     .tableSession(tableSessionEntity)
                                     .status(OrderStatus.PENDING)
                                     .totalAmount(0L)
                                     .build()) ;
                 });
-        Long additonalTotal = 0L ;
+        Long additionalTotal = 0L ;
         List<OrderItemEntity> newOrderItemEntity = new ArrayList<>() ;
 
         // 3. Tạo danh sách các món khách đợt này vừa đặt (Đính kèm threadId)
@@ -93,11 +93,11 @@ public class OrderServiceImpl implements OrderService {
                     .build();
             orderItemEntity.calculatePrice();
             newOrderItemEntity.add(orderItemEntity);
-            additonalTotal += orderItemEntity.getTotalPrice();
+            additionalTotal += orderItemEntity.getTotalPrice();
         }
         // 4. Cộng dồn số tiền vào Master Order chung của cả bàn
         Long currentTotal = (masterOrderEntity.getTotalAmount() != null) ? masterOrderEntity.getTotalAmount() : 0L;
-        masterOrderEntity.setTotalAmount(currentTotal + additonalTotal);
+        masterOrderEntity.setTotalAmount(currentTotal + additionalTotal);
         masterOrderEntity.getItems().addAll(newOrderItemEntity);
         OrderEntity savedOrderEntity = orderRepository.save(masterOrderEntity);
 
@@ -182,7 +182,7 @@ public class OrderServiceImpl implements OrderService {
 
         List<OrderItemResponse> orderItemResponseList = orderItemEntityList.stream()
                 .map(orderMapper::toItemResponse)
-                .collect(Collectors.toList()) ;
+                .collect(Collectors.toList());
 
         return orderMapper.toMasterResponse(mainOrderEntity, orderItemResponseList  );
     }

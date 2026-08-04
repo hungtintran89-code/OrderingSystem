@@ -48,6 +48,4 @@ public class AdminOrderController {
         TableInvoiceResponse invoice = orderService.exportTableInvoice(tableId);
         return ResponseEntity.ok(ApiResponse.success("Invoice generated for table " + tableId, invoice));
     }
-
-
 }
