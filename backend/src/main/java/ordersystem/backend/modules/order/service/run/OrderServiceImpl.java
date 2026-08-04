@@ -1,8 +1,9 @@
-package ordersystem.backend.modules.order.service.impl;
+package ordersystem.backend.modules.order.service.run;
 
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.payload.PageResponse;
 import ordersystem.backend.common.websocket.WebSocketPublisher;
+import ordersystem.backend.modules.cart.service.impl.CartService;
 import ordersystem.backend.modules.order.dto.request.OrderItemRequest;
 import ordersystem.backend.modules.order.dto.request.SubmitPersonalOrderRequest;
 import ordersystem.backend.modules.order.dto.response.MasterTableOrderResponse;
@@ -19,7 +20,7 @@ import ordersystem.backend.modules.order.mapper.OrderMapper;
 import ordersystem.backend.modules.order.repository.OrderItemRepository;
 import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.catalog.repository.ProductRepository;
-import ordersystem.backend.modules.order.service.run.OrderService;
+import ordersystem.backend.modules.order.service.impl.OrderService;
 import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
@@ -46,8 +47,8 @@ public class OrderServiceImpl implements OrderService {
     final private WebSocketPublisher webSocketPublisher ;
     final private OrderMapper orderMapper ;
     final private OrderItemRepository orderItemRepository ;
-    private final ApplicationEventPublisher eventPublisher;
-    private final SimpMessagingTemplate messagingTemplate ;
+    final private ApplicationEventPublisher eventPublisher;
+    final private CartService cartService ;
 
     // 1. Xử lý khi Khách hàng bấm Gửi đơn đặt món
     @Override
@@ -105,9 +106,11 @@ public class OrderServiceImpl implements OrderService {
                 .status(TableStatus.OCCUPIED)
                 .tempTotalAmount(masterOrderEntity.getTotalAmount().doubleValue())
                 .build();
+
         webSocketPublisher.notifyFloorMapUpdate(updatedTableMap);
 
         // 5. Bắn thông báo Real-time cho Bếp (Chỉ bắn các món MỚI ĐẶT)
+        cartService.clearCart(request.getTableSessionId() , request.getThreadId()) ;
 
         // 6. Trả về cho thiết bị khách danh sách các món điện thoại này vừa đặt thành công
         List<OrderItemResponse> newItemsResponses = newOrderItemEntity.stream()
@@ -119,7 +122,7 @@ public class OrderServiceImpl implements OrderService {
                         item.getOrderItemId(),
                         item.getProduct().getProductId(),
                         item.getProduct().getProductName(),
-                        item.getQuantity().intValue(),
+                        item.getQuantity(),
                         item.getNote()
                 ))
                 .toList();

@@ -40,7 +40,7 @@ public class KitchenTicketEntity {
     private String productName;
 
     @Column(nullable = false)
-    private Integer quantity;
+    private Long quantity;
 
     private String note;
 

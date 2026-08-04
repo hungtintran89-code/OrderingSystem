@@ -20,7 +20,6 @@ public class TableEventListener {
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleTableStateChangeEvent(TableStateChangeEvent event) {
-
         FloorMapResponse response = FloorMapResponse.builder()
                 .tableId(event.getTableId())
                 .tableName(event.getTableName())
