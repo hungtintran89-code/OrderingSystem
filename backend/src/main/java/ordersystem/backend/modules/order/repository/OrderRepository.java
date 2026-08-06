@@ -4,6 +4,7 @@ import ordersystem.backend.modules.order.entity.OrderEntity;
 import ordersystem.backend.modules.order.enums.OrderStatus;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
+import org.aspectj.weaver.ast.Or;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,10 +16,8 @@ import java.util.Optional;
 @Repository
 public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
 
-        List<OrderEntity> findByTableSessionTableTableIdAndStatusNot(Long tableId, OrderStatus status);
-
         // Tìm danh sách Order thuộc về một TableSession
-        List<OrderEntity> findByTableSessionTableSessionId(Long tableSessionId);
+        Optional<OrderEntity> findByTableSessionTableSessionIdAndStatus(Long tableSessionId, OrderStatus status);
 
         // Lọc danh sách Order theo trạng thái kèm phân trang (Cho lịch sử đơn)
         Page<OrderEntity> findByStatus(OrderStatus status, Pageable pageable);

@@ -3,6 +3,8 @@ package ordersystem.backend.modules.payment.service.run;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import ordersystem.backend.modules.order.entity.OrderEntity;
+import ordersystem.backend.modules.order.enums.OrderStatus;
+import ordersystem.backend.modules.order.exception.OrderException;
 import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.payment.dto.request.CashConfirmRequest;
 import ordersystem.backend.modules.payment.dto.request.PayOSConfigSaveRequest;
@@ -40,7 +42,6 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentTransactionRepository transactionRepository;
     private final PaymentConfigRepository configRepository;
     private final TableSessionRepository tableSessionRepository;
-    private final RestaurantTableRepository tableRepository;
     private final OrderRepository orderRepository;
     private final PayOSService payOSService;
     private final SimpMessagingTemplate messagingTemplate;
@@ -52,8 +53,8 @@ public class PaymentServiceImpl implements PaymentService {
             .orElseThrow( () -> new TableException("Table Session not found"));
 
         //Lấy ra master order của session yêu cầu
-        OrderEntity masterOrder = orderRepository.findByTableSessionTableSessionId(request.getTableSessionId())
-                .orElseThrow( () -> OrderException("Master Order not found with table session " +  session.getTableSessionId()));
+        OrderEntity masterOrder = orderRepository.findByTableSessionTableSessionIdAndStatus(request.getTableSessionId(), OrderStatus.PENDING)
+                .orElseThrow( () -> new OrderException("Master Order not found with table session " +  session.getTableSessionId()));
 
         Long grandTotal = masterOrder.getTotalAmount();
 
@@ -91,7 +92,7 @@ public class PaymentServiceImpl implements PaymentService {
     public void processPayOSWebhook(Webhook webhookBody){
         WebhookData data = payOSService.verifyAndExtractWebhookData(webhookBody);
         Long payosOrderCode = data.getOrderCode();
-        String payosCode = data.getCode();
+        String payosCode = data.getCode(); //Ma trang thai cua thanh toan
 
         //Thông tin lần thanh toán hiện tại
         PaymentTransactionEntity currentTx = transactionRepository.findByPayosOrderCode(payosOrderCode)
@@ -116,7 +117,7 @@ public class PaymentServiceImpl implements PaymentService {
                 currentTx.setReceivedAmount(receivedAmount);
                 currentTx.setPaidAt(new Date());
                 // Đóng Session & Mở Bàn trống
-                List<OrderEntity> allOrders = orderRepository.findByTableSessionTableSessionId(session.getTableSessionId());
+                //List<OrderEntity> allOrders = orderRepository.findByTableSessionTableSessionId(session.getTableSessionId());
                 //completeSessionAndReleaseTable(session, allOrders);
                 log.info("Thanh toán thành công cho bàn {} qua Lượt giao dịch #{}", session.getTableName(), payosOrderCode);
             } else {
@@ -138,7 +139,6 @@ public class PaymentServiceImpl implements PaymentService {
         } else if ("24".equals(payosCode)) {
             // Chỉ đánh dấu LẦN THỬ NÀY bị CANCELLED
             currentTx.setPaymentStatus(PaymentStatus.CANCELLED);
-            transactionRepository.save(currentTx);
             // Bàn 05 VẪN ĐANG OCCUPIED, Session VẪN ACTIVE -> Thu ngân có thể bấm "Tạo lại mã QR" bất kỳ lúc nào!
             messagingTemplate.convertAndSend("/topic/admin/tables/alerts", Map.of(
                     "type", "PAYMENT_CANCELLED",

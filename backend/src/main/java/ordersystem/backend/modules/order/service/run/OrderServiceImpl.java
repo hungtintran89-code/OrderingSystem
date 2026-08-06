@@ -63,15 +63,14 @@ public class OrderServiceImpl implements OrderService {
         }
 
         // 2. Tìm Master Order tổng của bàn (Nếu chưa có thì tự động tạo mới)
-        OrderEntity masterOrderEntity  = orderRepository.findByTableSessionTableSessionId(tableSessionEntity.getTableSessionId())
-                .stream().findFirst()
+        OrderEntity masterOrderEntity  = orderRepository.findByTableSessionTableSessionIdAndStatus(tableSessionEntity.getTableSessionId(), OrderStatus.PENDING)
                 .orElseGet(()->{
                     return orderRepository.save(OrderEntity.builder()
                                     .orderCode("ORD_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                                     .tableSession(tableSessionEntity)
                                     .status(OrderStatus.PENDING)
                                     .totalAmount(0L)
-                                    .build()) ;
+                                    .build());
                 });
         Long additionalTotal = 0L ;
         List<OrderItemEntity> newOrderItemEntity = new ArrayList<>() ;
@@ -162,26 +161,18 @@ public class OrderServiceImpl implements OrderService {
         TableSessionEntity tableSession = tableSessionRepository.findByTableTableIdAndStatus(tableId , SessionStatus.ACTIVE)
                 .orElseThrow(()-> new OrderException("No active session found for table ID: " + tableId)) ;
 
-        // Bước 2: Tìm danh sách Order dựa trên tableSessionId vừa tìm được
-        List<OrderEntity> orderEntities = orderRepository.findByTableSessionTableSessionId( tableSession.getTableSessionId()) ;
-        if (orderEntities.isEmpty()) {
-            return MasterTableOrderResponse.builder()
-                    .tableSessionId(tableSession.getTableSessionId())
-                    .tableName(tableSession.getTableName())
-                    .totalPrice(0L)
-                    .allTableItems(Collections.emptyList())
-                    .build();
-        }
-        OrderEntity mainOrderEntity = orderEntities.get(0) ;
+        // Bước 2: Tìm master Order dựa trên tableSessionId vừa tìm được
+        OrderEntity masterOrder = orderRepository.findByTableSessionTableSessionIdAndStatus( tableSession.getTableSessionId(), OrderStatus.PENDING)
+                .orElseThrow( () -> new OrderException("Master order not found"));
 
         // Bước 3: Lấy danh sách món ăn thuộc session này
-        List<OrderItemEntity> orderItemEntityList = orderItemRepository.findByOrderTableSessionTableSessionId( tableSession.getTableSessionId()) ;
+        List<OrderItemEntity> orderItemEntityList = masterOrder.getItems();
 
         List<OrderItemResponse> orderItemResponseList = orderItemEntityList.stream()
                 .map(orderMapper::toItemResponse)
                 .collect(Collectors.toList());
 
-        return orderMapper.toMasterResponse(mainOrderEntity, orderItemResponseList  );
+        return orderMapper.toMasterResponse(masterOrder, orderItemResponseList  );
     }
 
     //4: BẾP / NHÂN VIÊN CẬP NHẬT TRẠNG THÁI MÓN

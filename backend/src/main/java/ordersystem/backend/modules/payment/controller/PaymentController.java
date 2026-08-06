@@ -8,6 +8,7 @@ import ordersystem.backend.modules.payment.dto.response.PaymentLinkResponse;
 import ordersystem.backend.modules.payment.service.impl.PayOSService;
 import ordersystem.backend.modules.payment.service.impl.PaymentService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,12 +23,14 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping("/create_vietqr")
+    @PreAuthorize("hasAnyRole('MANAGER', 'STAFF')")
     public ResponseEntity<ApiResponse<PaymentLinkResponse>> createVietQr(@Valid @RequestBody CreatePaymentLinkRequest request){
         PaymentLinkResponse response = payOSService.createVietQrPaymentLink(request.getTableSessionId());
         return ResponseEntity.ok(ApiResponse.success("VietQr code generated successfully", response));
     }
 
     @PostMapping("/payos_transfer_handler")
+    @PreAuthorize("hasAnyRole('MANAGER', 'STAFF')")
     public ResponseEntity<ApiResponse<Void>> handlePayOSWebhook(@RequestBody Webhook webhookBody){
         paymentService.processPayOSWebhook(webhookBody);
         return ResponseEntity.ok(ApiResponse.success("Webhook processed successfully", null));

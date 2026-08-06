@@ -1,8 +1,9 @@
 package ordersystem.backend.modules.payment.service.run;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.modules.order.entity.OrderEntity;
+import ordersystem.backend.modules.order.enums.OrderStatus;
+import ordersystem.backend.modules.order.exception.OrderException;
 import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.payment.config.PayOSConfig;
 import ordersystem.backend.modules.payment.dto.response.PaymentLinkResponse;
@@ -41,8 +42,8 @@ public class PayOSServiceImpl implements PayOSService {
                 .orElseThrow( () -> new TableException("Session ID not found: " + tableSessionId));
 
         //Lấy ra master order của table session này để tính tổng tiền
-        OrderEntity masterOrder = orderRepository.findByTableSessionTableSessionId(tableSessionId)
-                .orElseThrow( () -> OrderException("Master Order not found with table session + " session.getTableSessionId()));
+        OrderEntity masterOrder = orderRepository.findByTableSessionTableSessionIdAndStatus(tableSessionId, OrderStatus.PENDING)
+                .orElseThrow( () -> new OrderException("Master Order not found with table session + " + session.getTableSessionId()));
 
         Long grandTotal = masterOrder.getTotalAmount();
 
