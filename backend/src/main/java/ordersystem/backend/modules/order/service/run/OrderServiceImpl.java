@@ -163,18 +163,6 @@ public class OrderServiceImpl implements OrderService {
                 lock.unlock();
             }
         }
-
-
-
-
-
-
-
-
-
-
-
-
     }
 
 
@@ -270,27 +258,5 @@ public class OrderServiceImpl implements OrderService {
                 .totalElements(orderPage.getTotalElements())
                 .build() ;
 
-    }
-
-    @Override
-    public TableInvoiceResponse exportTableInvoice(Long tableId) {
-        TableSessionEntity tableSession = tableSessionRepository.findByTableTableIdAndStatus(tableId , SessionStatus.ACTIVE)
-                .orElseThrow(()-> new OrderException("No ACTIVE session found for table ID: " + tableId)) ;
-
-        List<OrderItemEntity> orderItemResponseList = orderItemRepository.findByOrderTableSessionTableSessionId(tableSession.getTableSessionId()) ;
-
-        if( orderItemResponseList.isEmpty()){
-            throw new OrderException("Cannot export invoice: No items ordered for this table yet.") ;
-        }
-
-        // 3. Map sang OrderItemResponse
-        List<OrderItemResponse> responseList = orderItemResponseList.stream()
-                .map(orderMapper::toItemResponse)
-                .collect(Collectors.toList()) ;
-
-        // Tạo mã số dạng Long dựa trên miligiây hiện tại (VD: 1785456789012L)
-        Long invoiceCode = System.currentTimeMillis();
-
-        return orderMapper.toTableInvoiceResponse( invoiceCode , tableSession , responseList , 0L , 0L  ) ;
     }
 }

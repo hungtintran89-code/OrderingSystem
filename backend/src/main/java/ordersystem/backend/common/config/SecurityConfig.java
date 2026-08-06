@@ -43,6 +43,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(customAccessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
                         // 1. API công khai không cần Token JWT
+                        // 1. API công khai cho khách hàng & WebSocket
                         .requestMatchers("/api/v1/auth/login").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/v1/qr/**").permitAll()

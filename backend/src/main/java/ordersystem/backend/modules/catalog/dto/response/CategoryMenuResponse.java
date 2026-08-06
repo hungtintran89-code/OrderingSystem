@@ -2,6 +2,7 @@ package ordersystem.backend.modules.catalog.dto.response;
 
 import lombok.*;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,7 +12,9 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CategoryMenuResponse {
+public class CategoryMenuResponse implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
 
     private Long categoryId;

@@ -23,10 +23,7 @@ public interface OrderService {
     void updateOrderStatus(Long orderId, OrderStatus status);
 
     // 5.Lấy tổng lịch sử order
-    public PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, Pageable pageable) ;
-
-    // 6.Thêm khai báo hàm xuất hóa đơn theo bàn
-    public TableInvoiceResponse exportTableInvoice(Long tableId) ;
+    PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, Pageable pageable) ;
 
 
 }

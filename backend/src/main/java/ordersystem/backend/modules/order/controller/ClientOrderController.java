@@ -45,14 +45,4 @@ public class ClientOrderController {
         MasterTableOrderResponse response = orderService.getMasterTableOrder(tableId) ;
         return ResponseEntity.ok( ApiResponse.success("Master table order retrieved successfully" , response)) ;
     }
-
-    // API 4: Xem tạm tính hóa đơn cho bàn
-    @GetMapping("/table/{tableId}/invoice")
-    public ResponseEntity<ApiResponse<TableInvoiceResponse>> getTableInvoice (@PathVariable Long tableId){
-        TableInvoiceResponse tableInvoiceResponse = orderService.exportTableInvoice(tableId) ;
-        return ResponseEntity.ok( ApiResponse.success("Table invoice generated successfully" , tableInvoiceResponse)) ;
-    }
-
-
-
 }

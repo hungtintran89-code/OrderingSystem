@@ -41,13 +41,4 @@ public class AdminOrderController {
 
         return ResponseEntity.ok( ApiResponse.success("Order history retrieved successfully" , history)) ;
     }
-    // cho nhaan viên xem xuất hóa đơn
-    @GetMapping("/tables/{tableId}/invoice")
-    @PreAuthorize("hasAnyRole('MANAGER', 'STAFF', 'CASHIER')")
-    public ResponseEntity<ApiResponse<TableInvoiceResponse>> exportAdminTableInvoice( @PathVariable Long tableId ){
-        TableInvoiceResponse invoice = orderService.exportTableInvoice(tableId);
-        return ResponseEntity.ok(ApiResponse.success("Invoice generated for table " + tableId, invoice));
-    }
-
-
 }
