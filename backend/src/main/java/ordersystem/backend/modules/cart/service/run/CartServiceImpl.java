@@ -10,39 +10,59 @@ import ordersystem.backend.modules.cart.dto.response.CartResponse;
 import ordersystem.backend.modules.cart.exception.CartException;
 import ordersystem.backend.modules.cart.mapper.CartMapper;
 import ordersystem.backend.modules.cart.service.impl.CartService;
+import ordersystem.backend.modules.catalog.dto.response.ProductResponse;
 import ordersystem.backend.modules.catalog.entity.ProductEntity;
+import ordersystem.backend.modules.catalog.exception.CatalogException;
+import ordersystem.backend.modules.catalog.mapper.ProductMapper;
 import ordersystem.backend.modules.catalog.repository.ProductRepository;
+import ordersystem.backend.modules.catalog.service.impl.CatalogService;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
 public class CartServiceImpl implements CartService {
 
     private final CartMapper cartMapper ;
-    private final ProductRepository productRepository;
     private final TableSessionRepository tableSessionRepository;
-    private final WebSocketPublisher webSocketPublisher ;
+    private final RedisTemplate<String , Object > redisTemplate ;
+    private final CatalogService catalogService ;
+
 
     // Sử dụng ConcurrentHashMap để lưu trữ giỏ hàng In-Memory an toàn trong môi trường Đa Luồng (Multi-threading).
     // Key của Map dạng: "tableSessionId:threadId" (VD: "10:1001")x
-    private final Map<String, Cart> cartStore = new ConcurrentHashMap<>();
 
     private String buildCartKey(Long tableSessionId, Long threadId) {
-        return tableSessionId + ":" + threadId;
+        return "cart:" +tableSessionId + ":" + threadId;
     }
 
     private void validateTableSession( Long tableSessionId ){
-        TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableSessionId(tableSessionId)
-                .orElseThrow(()-> new CartException("Table session with ID " + tableSessionId + " does not exist")) ;
-        if( tableSessionEntity.getStatus() != SessionStatus.ACTIVE){
+        String sessionKey = "table_session_key:"+tableSessionId ;
+
+        // 1. Kiểm tra trạng thái bàn từ Redis RAM trước
+        String status = ( String ) redisTemplate.opsForValue().get(sessionKey) ;
+
+        if( status == null ){
+            // 2. Nếu Redis chưa có -> Mới gọi DB để lấy và lưu lại Redis
+            TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableSessionId(tableSessionId)
+                    .orElseThrow(() -> new CartException("Table session does not exist")) ;
+
+            status = tableSessionEntity.getStatus().name() ;
+            // Cài thời gian sống 5 tiếng
+            redisTemplate.opsForValue().set(sessionKey , status , 5, TimeUnit.HOURS );
+        }
+        // 3. Kiểm tra trạng thái
+        if( !status.equalsIgnoreCase("ACTIVE")){
             throw new CartException("The session for this table has been closed!") ;
         }
     }
@@ -53,27 +73,30 @@ public class CartServiceImpl implements CartService {
         validateTableSession(request.getTableSessionId());
 
         // Kiểm tra món ăn có tồn tại trong Database không
-        ProductEntity product = productRepository.findByProductId(request.getProductId())
-                .orElseThrow( ()-> new CartException("Product with ID " + request.getProductId() + " not found")) ;
+        ProductResponse product = catalogService.getProductById(request.getProductId());
+
 
         // Kiểm tra món ăn có đang phục vụ (available) không
-        if( Boolean.FALSE.equals(product.getProductIsAvailable())){
+        if( Boolean.FALSE.equals(product.getIsAvailable())){
             throw new CartException("Product " + product.getProductName() + " is currently out of stock!") ;
         }
 
         String cartKey = buildCartKey(request.getTableSessionId(), request.getThreadId() ) ;
 
-        // Lấy giỏ hàng hiện tại hoặc tạo mới giỏ rỗng nếu chưa có
-        Cart cart = cartStore.computeIfAbsent( cartKey , k -> Cart.builder()
-                .tableSessionId(request.getTableSessionId())
-                .threadId(request.getThreadId())
-                .items( new ArrayList<>())
-                .build()) ;
-
-        // Kiểm tra xem món ăn này đã có sẵn trong giỏ chưa
+        // 4. Lấy giỏ hàng từ Redis
+        Cart cart = (Cart) redisTemplate.opsForValue().get(cartKey);
+        if (cart == null) {
+            cart = Cart.builder()
+                    .tableSessionId(request.getTableSessionId())
+                    .threadId(request.getThreadId())
+                    .items(new ArrayList<>())
+                    .build();
+        }
+        // 5. Kiểm tra và cộng dồn số lượng
         Optional<CartItem> existingItemOpt = cart.getItems().stream()
-                .filter(item -> item.getProductId().equals(request.getProductId()))
-                .findFirst() ;
+                .filter(item -> item.getProductId().equals(product.getProductId()))
+                .findFirst();
+
         if( existingItemOpt.isPresent()){
             // Nếu đã có -> Cộng dồn số lượng và cập nhật ghi chú mới (nếu có)
             CartItem existingItem  = existingItemOpt.get() ;
@@ -96,9 +119,10 @@ public class CartServiceImpl implements CartService {
             cart.getItems().add(newCart) ;
         }
 
-        CartResponse response = cartMapper.mapToCartResponse(cart);
+        // 6. Ghi lại giỏ hàng vào Redis
+        redisTemplate.opsForValue().set(cartKey, cart, 12, TimeUnit.HOURS);
 
-        return response;
+        return cartMapper.mapToCartResponse(cart);
     }
 
     // 2. Cập nhật số lượng / ghi chú của 1 món
@@ -107,13 +131,15 @@ public class CartServiceImpl implements CartService {
         validateTableSession(tableSessionId);
 
         String cartKey = buildCartKey( tableSessionId , threadId ) ;
-        Cart cart = cartStore.get(cartKey) ;
+
+        // 1. ĐỌC GIỎ HÀNG TỪ REDIS
+        Cart cart = (Cart) redisTemplate.opsForValue().get(cartKey);
 
         if( cart == null ){
             throw new CartException("Cart is empty!") ;
         }
 
-        // Nếu số lượng = 0 thì tiến hành xoá món khỏi giỏ
+        // 2. XỬ LÝ CẬP NHẬT TRONG MẢNG JAVA
         if( request.getQuantity() <= 0 ){
             cart.getItems().removeIf( item -> item.getProductId().equals(productId) ) ;
         }else {
@@ -125,6 +151,10 @@ public class CartServiceImpl implements CartService {
             cartItem.setQuantity(request.getQuantity());
             cartItem.setNote(request.getNote());
         }
+
+        // 3. GHI CẬP NHẬT NÀY NGƯỢC LẠI REDIS (GIA HẠN 12 TIẾNG)
+        redisTemplate.opsForValue().set(cartKey, cart, 12, TimeUnit.HOURS);
+
         return cartMapper.mapToCartResponse(cart) ;
     }
 
@@ -135,10 +165,21 @@ public class CartServiceImpl implements CartService {
         validateTableSession(tableSessionId);
 
         String cartKey = buildCartKey(tableSessionId, threadId);
-        Cart cart = cartStore.get(cartKey);
+        Cart cart = (Cart) redisTemplate.opsForValue().get(cartKey);
 
         if (cart != null) {
+            // 2. XÓA MÓN TRONG DANH SÁCH
             cart.getItems().removeIf(item -> item.getProductId().equals(productId));
+
+            // 3. GHI CẬP NHẬT LẠI VÀO REDIS
+            redisTemplate.opsForValue().set(cartKey, cart, 12, TimeUnit.HOURS);
+        }else{
+            // Nếu giỏ chưa có thì trả về giỏ rỗng
+            cart = Cart.builder()
+                    .tableSessionId(tableSessionId)
+                    .threadId(threadId)
+                    .items(new ArrayList<>())
+                    .build();
         }
 
         return cartMapper.mapToCartResponse(cart) ;
@@ -151,7 +192,9 @@ public class CartServiceImpl implements CartService {
         validateTableSession(tableSessionId);
 
         String cartKey = buildCartKey(tableSessionId , threadId ) ;
-        Cart cart = cartStore.get(cartKey) ;
+
+        // ĐỌC TRỰC TIẾP TỪ REDIS RAM
+        Cart cart = (Cart) redisTemplate.opsForValue().get(cartKey) ;
 
         if( cart == null ){
             // Trả về giỏ hàng rỗng nếu chưa thêm món nào
@@ -170,8 +213,10 @@ public class CartServiceImpl implements CartService {
     @Override
     public CartResponse clearCart(Long tableSessionId, Long threadId) {
         String cartKey = buildCartKey(tableSessionId, threadId);
-        cartStore.remove(cartKey);
-        // BẮN THÔNG BÁO REAL-TIME: Báo giỏ hàng đã bị làm rỗng cho các máy cùng bàn
+
+        // GỬI LỆNH "DEL cart:" TỚI REDIS SERVER
+        redisTemplate.delete(cartKey);
+
         return CartResponse.builder()
                 .tableSessionId(tableSessionId)
                 .threadId(threadId)

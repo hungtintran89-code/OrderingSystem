@@ -9,11 +9,7 @@ import ordersystem.backend.modules.catalog.dto.request.CreateProductRequest;
 import ordersystem.backend.modules.catalog.dto.request.ToggleAvailabilityRequest;
 import ordersystem.backend.modules.catalog.dto.response.CategoryMenuResponse;
 import ordersystem.backend.modules.catalog.dto.response.ProductResponse;
-import ordersystem.backend.modules.catalog.entity.CategoryEntity;
-import ordersystem.backend.modules.catalog.entity.ProductEntity;
-import ordersystem.backend.modules.catalog.exception.CatalogException;
 import ordersystem.backend.modules.catalog.repository.CategoryRepository;
-import ordersystem.backend.modules.catalog.repository.ProductRepository;
 import ordersystem.backend.modules.catalog.service.impl.CatalogService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -67,5 +63,11 @@ public class AdminCatalogController {
             @Valid @RequestBody ToggleAvailabilityRequest request) {
         ProductResponse product = catalogService.toggleProductAvailability(id, request);
         return ResponseEntity.ok(ApiResponse.success("Product availability updated successfully", product));
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<CategoryMenuResponse>>> getClientMenu (){
+        List<CategoryMenuResponse> categoryMenuResponseList = catalogService.getAllCategories() ;
+        return ResponseEntity.ok( ApiResponse.success("Menu retrieved successfully" , categoryMenuResponseList)) ;
     }
 }

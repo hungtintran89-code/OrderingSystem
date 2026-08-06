@@ -12,6 +12,7 @@ import ordersystem.backend.modules.table.enums.TableStatus;
 import ordersystem.backend.modules.table.repository.RestaurantTableRepository;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
 import ordersystem.backend.modules.table.service.impl.LiveFloorMapService;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,7 @@ public class LiveFloorMapServiceImpl implements LiveFloorMapService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "floor_map", key = "'all_tables'")
     public List<FloorMapResponse> getLiveFloorMap() {
         // Bước 1: Lấy tất cả danh sách các bàn trong nhà hàng
         List<RestaurantTableEntity> tablesInRestaurant = restaurantTableRepository.findAllByIsActiveTrue();

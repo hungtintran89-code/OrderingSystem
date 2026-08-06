@@ -26,4 +26,6 @@ public class ClientCatalogController {
         List<CategoryMenuResponse> categoryMenuResponseList = catalogService.getAllCategories() ;
         return ResponseEntity.ok( ApiResponse.success("Menu retrieved successfully" , categoryMenuResponseList)) ;
     }
+
+
 }

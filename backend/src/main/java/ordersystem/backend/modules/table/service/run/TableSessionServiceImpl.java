@@ -11,7 +11,9 @@ import ordersystem.backend.modules.table.event.TableStateChangeEvent;
 import ordersystem.backend.modules.table.repository.RestaurantTableRepository;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
 import ordersystem.backend.modules.table.service.impl.TableSessionService;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Component
@@ -30,6 +33,7 @@ public class TableSessionServiceImpl implements TableSessionService {
     private final TableSessionRepository tableSessionRepository;
     private final RestaurantTableRepository restaurantTableRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final RedisTemplate<String , Object > redisTemplate ;
 
     @Override
     @Transactional
@@ -70,6 +74,7 @@ public class TableSessionServiceImpl implements TableSessionService {
     // 2. ⭐ HÀM CỐT LÕI ĐÓNG SESSION DUY NHẤT TRONG TOÀN HỆ THỐNG
     @Override
     @Transactional
+    @CacheEvict(value = "floor_map", allEntries = true)
     public void closeSessionEntity(TableSessionEntity session) {
         // Cập nhật trạng thái
         session.setStatus(SessionStatus.CLOSED);
@@ -87,6 +92,9 @@ public class TableSessionServiceImpl implements TableSessionService {
                 session.getTableName(),
                 TableStatus.EMPTY
         ));
+        //add : Xóa Cache trạng thái bàn khỏi Redis ngay lập tức
+        String sessionKey = "table_session_key:" + session.getTableSessionId();
+        redisTemplate.delete(sessionKey);
     }
 
     @Transactional
