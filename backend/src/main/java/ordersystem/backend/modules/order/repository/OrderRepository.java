@@ -6,7 +6,9 @@ import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -15,6 +17,8 @@ import java.util.Optional;
 @Repository
 public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
 
+        //-------- HÀM CƠ BẢN (KHÔNG JOIN) - Dành cho các tác vụ kiểm tra vắn tắt------------------
+        List<OrderEntity> findByTableSessionTableSessionIdInAndStatus ( List<Long> activeSessionIds , OrderStatus status ) ;
 
         // Tìm danh sách Order thuộc về một TableSession
         List<OrderEntity> findByTableSessionTableSessionId(Long tableSessionId);
@@ -22,6 +26,13 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
         // Lọc danh sách Order theo trạng thái kèm phân trang (Cho lịch sử đơn)
         Page<OrderEntity> findByStatus(OrderStatus status, Pageable pageable);
 
-        List<OrderEntity> findByTableSessionTableSessionIdInAndStatus ( List<Long> activeSessionIds , OrderStatus status ) ;
+        //--------- HÀM CÓ @EntityGraph (JOIN ĐẦY ĐỦ ITEMS + PRODUCT + TABLE SESSION) - Dành cho Lịch sử đơn-------------
+
+        @EntityGraph(attributePaths = {"items", "items.product", "tableSession"})
+        Page<OrderEntity> findWithDetailsByStatus(OrderStatus status, Pageable pageable);
+
+        @EntityGraph(attributePaths = {"items", "items.product", "tableSession"})
+        @Query("SELECT o FROM OrderEntity o")
+        Page<OrderEntity> findAllWithDetails(Pageable pageable);
 }
 

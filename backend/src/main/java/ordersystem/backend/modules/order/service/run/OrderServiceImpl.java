@@ -22,9 +22,11 @@ import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.catalog.repository.ProductRepository;
 import ordersystem.backend.modules.order.service.impl.OrderService;
 import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
+import ordersystem.backend.modules.table.entity.RestaurantTableEntity;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
 import ordersystem.backend.modules.table.enums.TableStatus;
+import ordersystem.backend.modules.table.repository.RestaurantTableRepository;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
 import org.redisson.api.*;
 import org.springframework.context.ApplicationEventPublisher;
@@ -51,6 +53,8 @@ public class OrderServiceImpl implements OrderService {
     final private ApplicationEventPublisher eventPublisher;
     final private CartService cartService ;
     final private RedissonClient redissonClient ;
+    final private RestaurantTableRepository restaurantTableRepository ;
+
 
     // 1. Xử lý khi Khách hàng bấm Gửi đơn đặt món
     @Override
@@ -67,7 +71,7 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderException("You are performing actions too quickly! Please wait 3 seconds to continue.") ;
         }
 
-        String lockKey = "lock:order:session:" + request.getTableSessionId();
+        String lockKey = "lock:order:session:" + request.getTableId();
         RLock lock = redissonClient.getLock(lockKey);
         try {
             // 1. LẤY KHÓA TRƯỚC KHI VÀO TRANSACTION
@@ -89,18 +93,22 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Transactional
-    private PersonalOrderResponse submitPersonalOrder(SubmitPersonalOrderRequest request){
+    protected PersonalOrderResponse submitPersonalOrder(SubmitPersonalOrderRequest request){
 
         // 1. Lấy Session bàn đang ACTIVE
-        TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableSessionId(request.getTableSessionId())
-                .orElseThrow(() -> new OrderException("Table session does not exist"));
+        RestaurantTableEntity table = restaurantTableRepository.findByTableId(request.getTableId())
+                .orElseThrow(() -> new OrderException("Table does not available"));
 
-        // 2. Kiểm tra trạng thái Session phải là ACTIVE
-        if( tableSessionEntity.getStatus() != SessionStatus.ACTIVE){
-            throw new OrderException("The session for this table has been closed!");
-        }
+        // 2. Tìm phiên không có thì tạo mới
+        TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableTableIdAndStatus(table.getTableId(), SessionStatus.ACTIVE)
+                .orElseGet(() -> tableSessionRepository.save(
+                        TableSessionEntity.builder()
+                                .table(table)
+                                .status(SessionStatus.ACTIVE)
+                                .build()
+                ));
 
-        // 2. Tìm Master Order tổng của bàn (Nếu chưa có thì tự động tạo mới)
+        // 3. Tìm Master Order tổng của bàn (Nếu chưa có thì tự động tạo mới)
         OrderEntity masterOrderEntity  = orderRepository.findByTableSessionTableSessionId(tableSessionEntity.getTableSessionId())
                 .stream().findFirst()
                 .orElseGet(()->{
@@ -114,10 +122,10 @@ public class OrderServiceImpl implements OrderService {
         Long additonalTotal = 0L ;
         List<OrderItemEntity> newOrderItemEntity = new ArrayList<>() ;
 
-        // 3. Tạo danh sách các món khách đợt này vừa đặt (Đính kèm threadId)
+        // 4. Tạo danh sách các món khách đợt này vừa đặt (Đính kèm threadId)
         for(OrderItemRequest itemRequest : request.getList()){
             ProductEntity productEntity = productRepository.findById(itemRequest.getProductId())
-                    .orElseThrow(()->new OrderException("Product with ID : "+itemRequest.getProductId() +" not found")) ;
+                    .orElseThrow(()->new OrderException("Product with ID : " + itemRequest.getProductId() +" not found")) ;
 
             OrderItemEntity orderItemEntity = OrderItemEntity.builder()
                     .order(masterOrderEntity)
@@ -149,7 +157,7 @@ public class OrderServiceImpl implements OrderService {
         webSocketPublisher.notifyFloorMapUpdate(updatedTableMap);
 
         // 5. Xóa toàn bộ giỏ hàng khi đặt món
-        cartService.clearCart(request.getTableSessionId() , request.getThreadId()) ;
+        cartService.clearCart( tableSessionEntity.getTableSessionId() , request.getThreadId()) ;
 
         // 6. Trả về cho thiết bị khách danh sách các món điện thoại này vừa đặt thành công
         List<OrderItemResponse> newItemsResponses = newOrderItemEntity.stream()
@@ -251,9 +259,9 @@ public class OrderServiceImpl implements OrderService {
 
         Page<OrderEntity> orderPage ;
         if (status != null) {
-            orderPage = orderRepository.findByStatus(status, pageable);
+            orderPage = orderRepository.findWithDetailsByStatus(status, pageable);
         } else {
-            orderPage = orderRepository.findAll(pageable);
+            orderPage = orderRepository.findAllWithDetails(pageable);
         }
 
         List<MasterTableOrderResponse> responses = orderPage.getContent().stream()

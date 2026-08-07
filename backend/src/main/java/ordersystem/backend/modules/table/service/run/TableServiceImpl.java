@@ -1,6 +1,9 @@
 package ordersystem.backend.modules.table.service.run;
 
 import ordersystem.backend.common.exception.ResourceNotFoundException;
+import ordersystem.backend.modules.catalog.dto.response.CategoryMenuResponse;
+import ordersystem.backend.modules.catalog.mapper.CatalogMapper;
+import ordersystem.backend.modules.catalog.repository.CategoryRepository;
 import ordersystem.backend.modules.table.dto.response.QRCodeExportResponse;
 import ordersystem.backend.modules.table.enums.QRFormat;
 import ordersystem.backend.modules.table.enums.SessionStatus;
@@ -34,6 +37,8 @@ public class TableServiceImpl implements TableService {
     private final QRCodeGeneratorService qrCodeGeneratorService;
     private final RestaurantTableMapper restaurantTableMapper;
     private final TableSessionMapper tableSessionMapper;
+    private final CategoryRepository categoryRepository ;
+    private final CatalogMapper catalogMapper ;
 
     @Override
     @Transactional
@@ -62,28 +67,20 @@ public class TableServiceImpl implements TableService {
 
     @Override
     @Transactional
-    public QRResolveResponse resolveQrtoken(String qrToken , Long clientThreadId ){
+    public List<CategoryMenuResponse> resolveQrtoken(String qrToken , Long clientThreadId ){
 
         // Bước 1: Tra cứu bàn trong DB theo qrToken
         RestaurantTableEntity tableInfo = restaurantTableRepository.findByQrToken(qrToken)
         .orElseThrow( () -> new TableException("QR Code not valid or not exist"));
 
-        //Bước 2: Lấy Session đang ACTIVE hoặc khởi tạo Session mới nếu bàn trống
-        TableSessionEntity tableSessionEntity = tableSessionService.getOrCreateActiveSession(tableInfo.getTableId());
-
-        // 📌 SỬA: Nếu Client đã có threadId cũ gửi lên thì giữ nguyên, nếu chưa có mới tự sinh
+        // Bước 2: Nếu Client đã có threadId cũ gửi lên thì giữ nguyên, nếu chưa có mới tự sinh
         Long finalThreadId = (clientThreadId != null)
                 ? clientThreadId
                 : (System.currentTimeMillis() % 1000000L + (long)(Math.random() * 1000));
 
-
-        return QRResolveResponse.builder()
-                .tableId(tableInfo.getTableId())
-                .tableName(tableInfo.getTableName())
-                .sessionId(tableSessionEntity.getTableSessionId())
-                .sessionStatus(SessionStatus.ACTIVE.name())
-                .generatedThreadId(finalThreadId) //
-                .build();
+        return categoryRepository.findAllWithProducts().stream()
+                .map( catalogMapper ::toCategoryMenuResponse)
+                .collect(Collectors.toList());
     }
 
 
