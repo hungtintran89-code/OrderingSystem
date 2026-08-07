@@ -22,9 +22,4 @@ public interface RestaurantTableRepository extends JpaRepository<RestaurantTable
     //Lấy danh sách tất cả các bàn đang có trong hệ thống nhà hàng
     List<RestaurantTableEntity> findAllByIsActiveTrue();
 
-
-    Optional<RestaurantTableEntity> findByTableName(String tableName);
-
-    List<RestaurantTableEntity> findByTableStatus(TableStatus status);
-
 }

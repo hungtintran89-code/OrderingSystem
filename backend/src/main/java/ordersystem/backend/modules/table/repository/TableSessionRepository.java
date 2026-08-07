@@ -3,6 +3,7 @@ package ordersystem.backend.modules.table.repository;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import java.util.Date;
 import java.util.List;
