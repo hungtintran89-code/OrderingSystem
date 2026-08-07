@@ -49,6 +49,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/client/**").permitAll()
                         .requestMatchers("/api/v1/orders/**").permitAll()
                         .requestMatchers("/api/v1/service-requests/**").permitAll()
+                        .requestMatchers("/api/v1/payments/payos_transfer_handler").permitAll()
                         // 2. Tất cả các API còn lại (Admin/Staff/Kitchen) yêu cầu Token JWT
                         .anyRequest().authenticated()
                 );

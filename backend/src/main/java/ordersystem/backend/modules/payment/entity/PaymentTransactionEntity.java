@@ -29,7 +29,7 @@ public class PaymentTransactionEntity {
     @Column(name = "total_amount", nullable = false)
     private Long totalAmount;
 
-    @Column(name = "receive_amount", nullable = false)
+    @Column(name = "receive_amount")
     private Long receivedAmount;
 
     @Column(name = "change_amount", nullable = true)
@@ -49,7 +49,7 @@ public class PaymentTransactionEntity {
     @Column(name = "qr_url", length = 1000)
     private String qrUrl;
 
-    @Column(name = "paid_at", nullable = false)
+    @Column(name = "paid_at", nullable = true)
     private Date paidAt;
 
     @Column(name = "create_at", nullable = false)

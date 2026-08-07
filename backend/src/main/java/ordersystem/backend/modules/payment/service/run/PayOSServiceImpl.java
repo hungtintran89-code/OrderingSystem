@@ -19,8 +19,13 @@ import ordersystem.backend.modules.table.repository.TableSessionRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import vn.payos.PayOS;
-import vn.payos.type.*;
+import vn.payos.model.webhooks.Webhook;
+import vn.payos.model.webhooks.WebhookData;
+import vn.payos.model.v2.paymentRequests.CreatePaymentLinkRequest;
+import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
+import vn.payos.model.v2.paymentRequests.PaymentLinkItem;
 
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -82,23 +87,24 @@ public class PayOSServiceImpl implements PayOSService {
             description = description.substring(0, 25);
         }
 
-        ItemData item = ItemData.builder()
+        PaymentLinkItem item = PaymentLinkItem.builder()
                 .name("Hoa don " + session.getTableName())
                 .quantity(1)
-                .price(Math.toIntExact(grandTotal))
+                .price(grandTotal)
                 .build();
-        PaymentData paymentData = PaymentData.builder()
+
+        CreatePaymentLinkRequest paymentData = CreatePaymentLinkRequest.builder()
                 .orderCode(payosOrderCode)
-                .amount(Math.toIntExact(grandTotal))
+                .amount(grandTotal)
                 .description(description)
-                .returnUrl("https://localhost:8080/api/v1/success")
-                .cancelUrl("https://localhost:8080/api/v1/cancel")
-                .item(item)
+                .returnUrl("http://localhost:8080/api/v1/success")
+                .cancelUrl("http://localhost:8080/api/v1/cancel")
+                .items(List.of(item))
                 .build();
 
         try {
-            // 4. Gọi API PayOS tạo link QR mới
-            CheckoutResponseData responseData = payOS.createPaymentLink(paymentData);
+            // 4. Gọi API PayOS tạo link QR mới (PayOS SDK 2.0.1)
+            CreatePaymentLinkResponse responseData = payOS.paymentRequests().create(paymentData);
             // 5. Cập nhật QR URL vào Transaction
             newTransaction.setQrUrl(responseData.getQrCode());
             return PaymentLinkResponse.builder()
@@ -107,6 +113,7 @@ public class PayOSServiceImpl implements PayOSService {
                     .totalAmount(grandTotal)
                     .transferContent(description)
                     .qrDataUrl(responseData.getQrCode())
+                    .checkoutUrl(responseData.getCheckoutUrl())
                     .build();
         } catch (Exception e) {
             // Nếu lỗi tạo link, đánh dấu Transaction này FAILED
@@ -119,7 +126,7 @@ public class PayOSServiceImpl implements PayOSService {
     public WebhookData verifyAndExtractWebhookData(Webhook webhookBody) {
         PayOS payOS = payOSConfig.getPayOSInstance();
         try {
-            return payOS.verifyPaymentWebhookData(webhookBody);
+            return payOS.webhooks().verify(webhookBody);
         } catch (Exception e) {
             throw new RuntimeException("Invalid PayOS Webhook Signature!");
         }

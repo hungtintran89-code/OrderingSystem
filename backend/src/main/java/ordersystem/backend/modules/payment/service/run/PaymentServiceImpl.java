@@ -26,8 +26,8 @@ import ordersystem.backend.modules.table.repository.TableSessionRepository;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import vn.payos.type.Webhook;
-import vn.payos.type.WebhookData;
+import vn.payos.model.webhooks.Webhook;
+import vn.payos.model.webhooks.WebhookData;
 
 import java.util.Date;
 import java.util.List;
@@ -96,8 +96,11 @@ public class PaymentServiceImpl implements PaymentService {
 
         //Thông tin lần thanh toán hiện tại
         PaymentTransactionEntity currentTx = transactionRepository.findByPayosOrderCode(payosOrderCode)
-            .orElseThrow( () -> new PaymentException("Transaction with PayOS OrderCode " + payosOrderCode + " not found"));
-
+                .orElse(null);
+        if (currentTx == null) {
+            log.warn("Nhận Webhook từ PayOS cho orderCode {} nhưng không tìm thấy trong DB (có thể là Webhook thử nghiệm từ PayOS Dashboard).", payosOrderCode);
+            return; // Trả về HTTP 200 OK bình thường để PayOS xác nhận Webhook thành công
+        }
         //Nếu ở lần thanh toán này có status (SUCCESS/CANCELLED) thì return tránh trùng lặp
         if (currentTx.getPaymentStatus() == PaymentStatus.SUCCESS || currentTx.getPaymentStatus() == PaymentStatus.CANCELLED){
             log.info("Lần thử thanh toán {} đã ở trạng thái kết thúc ({}). Ignore webhook.", payosOrderCode, currentTx.getPaymentStatus());

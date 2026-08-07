@@ -7,7 +7,7 @@ import ordersystem.backend.modules.payment.dto.response.CashConfirmResponse;
 import ordersystem.backend.modules.payment.dto.response.PayOSConfigResponse;
 import ordersystem.backend.modules.payment.entity.PaymentConfigEntity;
 import org.springframework.transaction.annotation.Transactional;
-import vn.payos.type.Webhook;
+import vn.payos.model.webhooks.Webhook;
 
 public interface PaymentService {
     CashConfirmResponse confirmCashPayment(CashConfirmRequest request);

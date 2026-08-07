@@ -11,4 +11,5 @@ public class PaymentLinkResponse {
     private Long totalAmount;
     private String transferContent;
     private String qrDataUrl; //Chua ma qr thanh toan
+    private String checkoutUrl; // Link trang thanh toan PayOS
 }
