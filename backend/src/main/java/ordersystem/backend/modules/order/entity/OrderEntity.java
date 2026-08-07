@@ -41,6 +41,7 @@ public class OrderEntity {
     @Builder.Default
     private List<OrderItemEntity> items = new ArrayList<>();
 
+
     private Date createdAt;
     private Date updatedAt;
 

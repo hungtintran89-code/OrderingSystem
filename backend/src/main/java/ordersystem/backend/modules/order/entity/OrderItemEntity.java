@@ -42,7 +42,7 @@ public class OrderItemEntity {
 
     public void calculatePrice() {
         Long unitPrice = (this.price != null) ? this.price : 0L;
-        long qty = (this.quantity != null) ? this.quantity : 1L;
+        Long qty = (this.quantity != null) ? this.quantity : 1L;
         this.totalPrice = unitPrice * qty;
     }
 
