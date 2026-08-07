@@ -61,7 +61,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new OrderException("Master Order not found with table session " + session.getTableSessionId()));
 
         Long grandTotal = masterOrder.getTotalAmount();
-        long changeAmount = request.getReceivedAmount() - grandTotal;
+        Long changeAmount = request.getReceivedAmount() - grandTotal;
 
         if (changeAmount < 0) {
             throw new PaymentException("Số tiền khách đưa không đủ để thanh toán!");
