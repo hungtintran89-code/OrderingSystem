@@ -24,7 +24,7 @@ public class ClientOrderController {
     // URL: POST /api/v1/orders/submit
     @PostMapping
     public ResponseEntity<ApiResponse<PersonalOrderResponse>> submitOrder (@Valid @RequestBody SubmitPersonalOrderRequest request){
-        PersonalOrderResponse response = orderService.submitPersonalOrder(request) ;
+        PersonalOrderResponse response = orderService.submitOrderWithLock(request) ;
         return ResponseEntity.ok( ApiResponse.success("Order submitted successfully" , response)) ;
     }
 

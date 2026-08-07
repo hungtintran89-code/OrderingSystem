@@ -26,8 +26,7 @@ import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
 import ordersystem.backend.modules.table.enums.TableStatus;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
-import org.redisson.api.RLock;
-import org.redisson.api.RedissonClient;
+import org.redisson.api.*;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,7 +41,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional( readOnly = true)
 public class OrderServiceImpl implements OrderService {
     final private TableSessionRepository tableSessionRepository ;
     final private OrderRepository orderRepository ;
@@ -56,118 +54,133 @@ public class OrderServiceImpl implements OrderService {
 
     // 1. Xử lý khi Khách hàng bấm Gửi đơn đặt món
     @Override
-    @Transactional
-    public PersonalOrderResponse submitPersonalOrder(SubmitPersonalOrderRequest request){
+    public PersonalOrderResponse submitOrderWithLock(SubmitPersonalOrderRequest request) {
+        //1. CHỐNG SPAM (RATE LIMITING):
+        String rateLimitKey = "ratelimit:order:thread:" + request.getThreadId();
+        RRateLimiter rateLimiter = redissonClient.getRateLimiter(rateLimitKey) ;
 
-        // Tạo tên Khóa riêng cho từng Bàn
-        String lockKey = "lock:order:session:" + request.getTableSessionId() ;
+        // Cấu hình: Tối đa 1 Request trong vòng 3 giây cho mỗi thiết bị (threadId)
+        rateLimiter.trySetRate(RateType.OVERALL , 1 , 2 , RateIntervalUnit.SECONDS);
+
+        // Nếu gọi quá 1 lần/3s -> Báo lỗi ngay lập tức mà CHƯA CẦN đụng vào Lock hay DB
+        if( !rateLimiter.tryAcquire() ){
+            throw new OrderException("You are performing actions too quickly! Please wait 3 seconds to continue.") ;
+        }
+
+        String lockKey = "lock:order:session:" + request.getTableSessionId();
         RLock lock = redissonClient.getLock(lockKey);
-
         try {
-            // Thử lấy khóa trong 3s, tự giải phóng sau 5s
-            Boolean isAcquired = lock.tryLock( 3 , 5 , TimeUnit.SECONDS) ;
-            if( !isAcquired){
-                throw new OrderException("The system is creating an order for this table; please do not press repeatedly.");
+            // 1. LẤY KHÓA TRƯỚC KHI VÀO TRANSACTION
+            boolean isAcquired = lock.tryLock(3, 5, TimeUnit.SECONDS);
+            if (!isAcquired) {
+                throw new OrderException("An order is currently being sent for this table; please wait a moment.!");
             }
-
-            // --- CHỈ CÓ 1 THREAD DUY NHẤT ĐƯỢC CHẠY ĐẠO CODE TẠO ĐƠN NÀY ---
-
-            // 1. Lấy Session bàn đang ACTIVE
-            TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableSessionId(request.getTableSessionId())
-                    .orElseThrow(() -> new OrderException("Table session does not exist"));
-            if( tableSessionEntity.getStatus() != SessionStatus.ACTIVE){
-                throw new OrderException("The session for this table has been closed!");
-            }
-
-            // 2. Tìm Master Order tổng của bàn (Nếu chưa có thì tự động tạo mới)
-            OrderEntity masterOrderEntity  = orderRepository.findByTableSessionTableSessionId(tableSessionEntity.getTableSessionId())
-                    .stream().findFirst()
-                    .orElseGet(()->{
-                        return orderRepository.save(OrderEntity.builder()
-                                .orderCode("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                                .tableSession(tableSessionEntity)
-                                .status(OrderStatus.PENDING)
-                                .totalAmount(0L)
-                                .build()) ;
-                    });
-            Long additonalTotal = 0L ;
-            List<OrderItemEntity> newOrderItemEntity = new ArrayList<>() ;
-
-            // 3. Tạo danh sách các món khách đợt này vừa đặt (Đính kèm threadId)
-            for(OrderItemRequest itemRequest : request.getList()){
-                ProductEntity productEntity = productRepository.findById(itemRequest.getProductId())
-                        .orElseThrow(()->new OrderException("Product with ID : "+itemRequest.getProductId() +" not found")) ;
-
-                OrderItemEntity orderItemEntity = OrderItemEntity.builder()
-                        .order(masterOrderEntity)
-                        .product(productEntity)
-                        .quantity(itemRequest.getQuantity())
-                        .price(productEntity.getProductPrice())
-                        .note((itemRequest.getNote()))
-                        .createdByThread(request.getThreadId())
-                        .build();
-                orderItemEntity.calculatePrice();
-                newOrderItemEntity.add(orderItemEntity);
-                additonalTotal += orderItemEntity.getTotalPrice();
-            }
-
-            // 4. Cộng dồn số tiền vào Master Order chung của cả bàn
-            Long currentTotal = (masterOrderEntity.getTotalAmount() != null) ? masterOrderEntity.getTotalAmount() : 0L;
-            masterOrderEntity.setTotalAmount(currentTotal + additonalTotal);
-            masterOrderEntity.getItems().addAll(newOrderItemEntity);
-            OrderEntity savedOrderEntity = orderRepository.save(masterOrderEntity);
-
-            // Bắn thông báo cập nhật Sơ đồ bàn Real-time cho Nhân viên
-            FloorMapResponse updatedTableMap = FloorMapResponse.builder()
-                    .tableId(tableSessionEntity.getTable().getTableId())
-                    .tableName(tableSessionEntity.getTableName())
-                    .status(TableStatus.OCCUPIED)
-                    .tempTotalAmount(masterOrderEntity.getTotalAmount().doubleValue())
-                    .build();
-
-            webSocketPublisher.notifyFloorMapUpdate(updatedTableMap);
-
-            // 5. Xóa toàn bộ giỏ hàng khi đặt món
-            cartService.clearCart(request.getTableSessionId() , request.getThreadId()) ;
-
-            // 6. Trả về cho thiết bị khách danh sách các món điện thoại này vừa đặt thành công
-            List<OrderItemResponse> newItemsResponses = newOrderItemEntity.stream()
-                    .map(orderMapper::toItemResponse)
-                    .collect(Collectors.toList());
-
-            List<OrderSubmittedEvent.OrderItemInfo> itemInfos = newOrderItemEntity.stream()
-                    .map(item -> new OrderSubmittedEvent.OrderItemInfo(
-                            item.getOrderItemId(),
-                            item.getProduct().getProductId(),
-                            item.getProduct().getProductName(),
-                            item.getQuantity(),
-                            item.getNote()
-                    ))
-                    .toList();
-            OrderSubmittedEvent event = new OrderSubmittedEvent(
-                    savedOrderEntity.getId(),
-                    tableSessionEntity.getTable().getTableName(),
-                    "Tầng 1",
-                    itemInfos
-            );
-            // Bắn sự kiện phát vé cho KDS
-            eventPublisher.publishEvent(event);
-
-            return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), request.getThreadId(), newItemsResponses);
-
-        }catch( InterruptedException e) {
+            // 2. GỌI HÀM SERVICE CÓ @Transactional
+            return this.submitPersonalOrder(request);
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new OrderException("System key error") ;
-        }finally {
-            if( lock.isHeldByCurrentThread()){
+            throw new OrderException("System error during data locking\n!");
+        } finally {
+            // 3. CHỈ NHẢ KHÓA SAU KHI TRANSACTION ĐÃ COMMIT HOÀN TOÀN TỐT ĐẸP!
+            if (lock.isHeldByCurrentThread()) {
                 lock.unlock();
             }
         }
     }
 
+    @Transactional
+    private PersonalOrderResponse submitPersonalOrder(SubmitPersonalOrderRequest request){
+
+        // 1. Lấy Session bàn đang ACTIVE
+        TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableSessionId(request.getTableSessionId())
+                .orElseThrow(() -> new OrderException("Table session does not exist"));
+
+        // 2. Kiểm tra trạng thái Session phải là ACTIVE
+        if( tableSessionEntity.getStatus() != SessionStatus.ACTIVE){
+            throw new OrderException("The session for this table has been closed!");
+        }
+
+        // 2. Tìm Master Order tổng của bàn (Nếu chưa có thì tự động tạo mới)
+        OrderEntity masterOrderEntity  = orderRepository.findByTableSessionTableSessionId(tableSessionEntity.getTableSessionId())
+                .stream().findFirst()
+                .orElseGet(()->{
+                    return orderRepository.save(OrderEntity.builder()
+                            .orderCode("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                            .tableSession(tableSessionEntity)
+                            .status(OrderStatus.PENDING)
+                            .totalAmount(0L)
+                            .build()) ;
+                });
+        Long additonalTotal = 0L ;
+        List<OrderItemEntity> newOrderItemEntity = new ArrayList<>() ;
+
+        // 3. Tạo danh sách các món khách đợt này vừa đặt (Đính kèm threadId)
+        for(OrderItemRequest itemRequest : request.getList()){
+            ProductEntity productEntity = productRepository.findById(itemRequest.getProductId())
+                    .orElseThrow(()->new OrderException("Product with ID : "+itemRequest.getProductId() +" not found")) ;
+
+            OrderItemEntity orderItemEntity = OrderItemEntity.builder()
+                    .order(masterOrderEntity)
+                    .product(productEntity)
+                    .quantity(itemRequest.getQuantity())
+                    .price(productEntity.getProductPrice())
+                    .note((itemRequest.getNote()))
+                    .createdByThread(request.getThreadId())
+                    .build();
+            orderItemEntity.calculatePrice();
+            newOrderItemEntity.add(orderItemEntity);
+            additonalTotal += orderItemEntity.getTotalPrice();
+        }
+
+        // 4. Cộng dồn số tiền vào Master Order chung của cả bàn
+        Long currentTotal = (masterOrderEntity.getTotalAmount() != null) ? masterOrderEntity.getTotalAmount() : 0L;
+        masterOrderEntity.setTotalAmount(currentTotal + additonalTotal);
+        masterOrderEntity.getItems().addAll(newOrderItemEntity);
+        OrderEntity savedOrderEntity = orderRepository.save(masterOrderEntity);
+
+        // Bắn thông báo cập nhật Sơ đồ bàn Real-time cho Nhân viên
+        FloorMapResponse updatedTableMap = FloorMapResponse.builder()
+                .tableId(tableSessionEntity.getTable().getTableId())
+                .tableName(tableSessionEntity.getTableName())
+                .status(TableStatus.OCCUPIED)
+                .tempTotalAmount(masterOrderEntity.getTotalAmount().doubleValue())
+                .build();
+
+        webSocketPublisher.notifyFloorMapUpdate(updatedTableMap);
+
+        // 5. Xóa toàn bộ giỏ hàng khi đặt món
+        cartService.clearCart(request.getTableSessionId() , request.getThreadId()) ;
+
+        // 6. Trả về cho thiết bị khách danh sách các món điện thoại này vừa đặt thành công
+        List<OrderItemResponse> newItemsResponses = newOrderItemEntity.stream()
+                .map(orderMapper::toItemResponse)
+                .collect(Collectors.toList());
+
+        List<OrderSubmittedEvent.OrderItemInfo> itemInfos = newOrderItemEntity.stream()
+                .map(item -> new OrderSubmittedEvent.OrderItemInfo(
+                        item.getOrderItemId(),
+                        item.getProduct().getProductId(),
+                        item.getProduct().getProductName(),
+                        item.getQuantity(),
+                        item.getNote()
+                ))
+                .toList();
+        OrderSubmittedEvent event = new OrderSubmittedEvent(
+                savedOrderEntity.getId(),
+                tableSessionEntity.getTable().getTableName(),
+                "Tầng 1",
+                itemInfos
+        );
+        // Bắn sự kiện phát vé cho KDS
+        eventPublisher.publishEvent(event);
+
+        return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), request.getThreadId(), newItemsResponses);
+    }
+
 
     // 2. Khách mở điện thoại cá nhân lên xem -> CHỈ HIỂN THỊ MÓN DO THREAD ĐÓ ĐẶT
     @Override
+    @Transactional( readOnly = true)
     public PersonalOrderResponse getPersonalOrder(Long tableSessionId, Long threadId){
 
         List<OrderItemEntity> orderItemResponseList = orderItemRepository.findByOrderTableSessionTableSessionIdAndCreatedByThread(tableSessionId , threadId);
@@ -183,6 +196,7 @@ public class OrderServiceImpl implements OrderService {
 
     // 3. XEM TỔNG BÀN (Lấy Master Order chứa tất cả các món của mọi Thread gom lại)
     @Override
+    @Transactional( readOnly = true)
     public MasterTableOrderResponse getMasterTableOrder(Long tableId ) {
 
         // Bước 1: Tìm Session đang ACTIVE của bàn đó
@@ -232,6 +246,7 @@ public class OrderServiceImpl implements OrderService {
 
     // 5. Xem lịch sử Đơn hàng
     @Override
+    @Transactional( readOnly = true)
     public PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, Pageable pageable) {
 
         Page<OrderEntity> orderPage ;

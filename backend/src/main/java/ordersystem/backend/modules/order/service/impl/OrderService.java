@@ -11,7 +11,7 @@ import org.springframework.data.domain.Pageable;
 public interface OrderService {
 
     // 1. Xử lý khi Khách hàng bấm Gửi đơn đặt món
-    PersonalOrderResponse submitPersonalOrder(SubmitPersonalOrderRequest request);
+    PersonalOrderResponse submitOrderWithLock(SubmitPersonalOrderRequest request);
 
     // 2. Lấy danh sách món do chính điện thoại của khách đã đặt
     PersonalOrderResponse getPersonalOrder(Long tableSessionId, Long threadId);
