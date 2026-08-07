@@ -27,9 +27,7 @@ public class OrderEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional( propagation = Propagation.REQUIRES_NEW)
     public void handleOrderSubmitted (OrderSubmittedEvent event) {
-
         List<KitchenTicketEntity> ticketToSave = new ArrayList<>();
-
         for (OrderSubmittedEvent.OrderItemInfo itemInfo : event.getItems()) {
             KitchenTicketEntity ticket = KitchenTicketEntity.builder()
                     .orderId(event.getOrderId())

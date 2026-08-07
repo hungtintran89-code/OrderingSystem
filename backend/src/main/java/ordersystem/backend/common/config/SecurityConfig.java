@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.security.CustomAccessDeniedHandler;
 import ordersystem.backend.common.security.CustomAuthenticationEntryPoint;
 import ordersystem.backend.common.security.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -50,6 +51,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/client/**").permitAll()
                         .requestMatchers("/api/v1/orders/**").permitAll()
                         .requestMatchers("/api/v1/service-requests/**").permitAll()
+                        .requestMatchers("/api/v1/payments/payos_transfer_handler").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // 2. Tất cả các API còn lại (Admin/Staff/Kitchen) yêu cầu Token JWT
                         .anyRequest().authenticated()
@@ -63,27 +65,31 @@ public class SecurityConfig {
         return http.build();
     }
 
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
+    private List<String> allowedOrigins;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
-        // Cho phép tất cả Origin (bao gồm React/Vite localhost:5173, localhost:3000, mobile app,...)
-        configuration.setAllowedOriginPatterns(List.of("*"));
-        
+
+        // Khai báo danh sách Origin cụ thể thay vì Wildcard "*"
+        configuration.setAllowedOrigins(allowedOrigins);
+
         // Cho phép các HTTP Methods
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        
+
         // Cho phép tất cả Headers (Authorization, Content-Type, X-Session-Token,...)
-        configuration.setAllowedHeaders(List.of("*"));
-        
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Session-Token", "Accept"));
+
         // Cho phép gửi credentials (cookies, authorization headers)
         configuration.setAllowCredentials(true);
-        
+
         // Expose các header quan trọng nếu cần Frontend đọc
         configuration.setExposedHeaders(List.of("Authorization", "Content-Disposition", "X-Session-Token"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
+
         return source;
     }
 }

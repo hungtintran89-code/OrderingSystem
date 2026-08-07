@@ -17,7 +17,7 @@ import java.util.List;
 @AllArgsConstructor
 public class SubmitPersonalOrderRequest {
 
-    @NotNull(message = "The tableId cannot be left blank.")
+    @NotNull(message = "The table ID cannot be left blank.")
     private Long tableId;
 
     @NotNull(message = "The device thread ID must not be empty.")

@@ -29,7 +29,9 @@ import ordersystem.backend.modules.table.enums.TableStatus;
 import ordersystem.backend.modules.table.repository.RestaurantTableRepository;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
 import org.redisson.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -56,6 +58,12 @@ public class OrderServiceImpl implements OrderService {
     final private RestaurantTableRepository restaurantTableRepository ;
 
 
+
+    @Lazy
+    @Autowired
+    private OrderServiceImpl self; // Inject Proxy của chính class này
+
+
     // 1. Xử lý khi Khách hàng bấm Gửi đơn đặt món
     @Override
     public PersonalOrderResponse submitOrderWithLock(SubmitPersonalOrderRequest request) {
@@ -64,7 +72,11 @@ public class OrderServiceImpl implements OrderService {
         RRateLimiter rateLimiter = redissonClient.getRateLimiter(rateLimitKey) ;
 
         // Cấu hình: Tối đa 1 Request trong vòng 3 giây cho mỗi thiết bị (threadId)
-        rateLimiter.trySetRate(RateType.OVERALL , 1 , 2 , RateIntervalUnit.SECONDS);
+        // Chỉ khởi tạo cấu hình rate limit nếu key này chưa từng tồn tại trên Redis
+        if (!rateLimiter.isExists()) {
+            rateLimiter.trySetRate(RateType.OVERALL, 1, 2, RateIntervalUnit.SECONDS);
+            rateLimiter.expire(java.time.Duration.ofMinutes(30)); // Cài TTL tránh rác Redis
+        }
 
         // Nếu gọi quá 1 lần/3s -> Báo lỗi ngay lập tức mà CHƯA CẦN đụng vào Lock hay DB
         if( !rateLimiter.tryAcquire() ){
@@ -80,7 +92,7 @@ public class OrderServiceImpl implements OrderService {
                 throw new OrderException("An order is currently being sent for this table; please wait a moment.!");
             }
             // 2. GỌI HÀM SERVICE CÓ @Transactional
-            return this.submitPersonalOrder(request);
+            return self.submitPersonalOrder(request);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new OrderException("System error during data locking\n!");
@@ -109,11 +121,10 @@ public class OrderServiceImpl implements OrderService {
                 ));
 
         // 3. Tìm Master Order tổng của bàn (Nếu chưa có thì tự động tạo mới)
-        OrderEntity masterOrderEntity  = orderRepository.findByTableSessionTableSessionId(tableSessionEntity.getTableSessionId())
-                .stream().findFirst()
+        OrderEntity masterOrderEntity  = orderRepository.findByTableSessionTableSessionIdAndStatus(tableSessionEntity.getTableSessionId(), OrderStatus.PENDING)
                 .orElseGet(()->{
                     return orderRepository.save(OrderEntity.builder()
-                            .orderCode("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                            .orderCode("ORD-" + UUID.randomUUID().toString().substring(0,8).toUpperCase())
                             .tableSession(tableSessionEntity)
                             .status(OrderStatus.PENDING)
                             .totalAmount(0L)
@@ -123,10 +134,20 @@ public class OrderServiceImpl implements OrderService {
         List<OrderItemEntity> newOrderItemEntity = new ArrayList<>() ;
 
         // 4. Tạo danh sách các món khách đợt này vừa đặt (Đính kèm threadId)
-        for(OrderItemRequest itemRequest : request.getList()){
-            ProductEntity productEntity = productRepository.findById(itemRequest.getProductId())
-                    .orElseThrow(()->new OrderException("Product with ID : " + itemRequest.getProductId() +" not found")) ;
+        List<Long> produtIds = request.getList().stream()
+                .map(OrderItemRequest::getProductId)
+                .toList();
 
+        List<ProductEntity> productEntities = productRepository.findAllById(produtIds) ;
+        Map<Long , ProductEntity> productMap = productEntities.stream()
+                .collect(Collectors.toMap(ProductEntity::getProductId , p -> p)) ;
+
+
+        for(OrderItemRequest itemRequest : request.getList()){
+            ProductEntity productEntity = productMap.get(itemRequest.getProductId());
+            if (productEntity == null) {
+                throw new OrderException("Product with ID : " + itemRequest.getProductId() + " not found");
+            }
             OrderItemEntity orderItemEntity = OrderItemEntity.builder()
                     .order(masterOrderEntity)
                     .product(productEntity)
@@ -145,7 +166,6 @@ public class OrderServiceImpl implements OrderService {
         masterOrderEntity.setTotalAmount(currentTotal + additonalTotal);
         masterOrderEntity.getItems().addAll(newOrderItemEntity);
         OrderEntity savedOrderEntity = orderRepository.save(masterOrderEntity);
-
         // Bắn thông báo cập nhật Sơ đồ bàn Real-time cho Nhân viên
         FloorMapResponse updatedTableMap = FloorMapResponse.builder()
                 .tableId(tableSessionEntity.getTable().getTableId())
@@ -153,9 +173,7 @@ public class OrderServiceImpl implements OrderService {
                 .status(TableStatus.OCCUPIED)
                 .tempTotalAmount(masterOrderEntity.getTotalAmount().doubleValue())
                 .build();
-
         webSocketPublisher.notifyFloorMapUpdate(updatedTableMap);
-
         // 5. Xóa toàn bộ giỏ hàng khi đặt món
         cartService.clearCart( tableSessionEntity.getTableSessionId() , request.getThreadId()) ;
 
@@ -185,7 +203,6 @@ public class OrderServiceImpl implements OrderService {
         return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), request.getThreadId(), newItemsResponses);
     }
 
-
     // 2. Khách mở điện thoại cá nhân lên xem -> CHỈ HIỂN THỊ MÓN DO THREAD ĐÓ ĐẶT
     @Override
     @Transactional( readOnly = true)
@@ -212,25 +229,17 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(()-> new OrderException("No active session found for table ID: " + tableId)) ;
 
         // Bước 2: Tìm danh sách Order dựa trên tableSessionId vừa tìm được
-        List<OrderEntity> orderEntities = orderRepository.findByTableSessionTableSessionId( tableSession.getTableSessionId()) ;
-        if (orderEntities.isEmpty()) {
-            return MasterTableOrderResponse.builder()
-                    .tableSessionId(tableSession.getTableSessionId())
-                    .tableName(tableSession.getTableName())
-                    .totalPrice(0L)
-                    .allTableItems(Collections.emptyList())
-                    .build();
-        }
-        OrderEntity mainOrderEntity = orderEntities.get(0) ;
+        OrderEntity masterOrder = orderRepository.findByTableSessionTableSessionIdAndStatus( tableSession.getTableSessionId(), OrderStatus.PENDING)
+                .orElseThrow( () -> new OrderException("Master order not found"));
 
         // Bước 3: Lấy danh sách món ăn thuộc session này
-        List<OrderItemEntity> orderItemEntityList = orderItemRepository.findByOrderTableSessionTableSessionId( tableSession.getTableSessionId()) ;
+        List<OrderItemEntity> orderItemEntityList = masterOrder.getItems();
 
         List<OrderItemResponse> orderItemResponseList = orderItemEntityList.stream()
                 .map(orderMapper::toItemResponse)
                 .collect(Collectors.toList()) ;
 
-        return orderMapper.toMasterResponse(mainOrderEntity, orderItemResponseList  );
+        return orderMapper.toMasterResponse(masterOrder, orderItemResponseList  );
     }
 
     //4: BẾP / NHÂN VIÊN CẬP NHẬT TRẠNG THÁI MÓN
@@ -259,7 +268,7 @@ public class OrderServiceImpl implements OrderService {
 
         Page<OrderEntity> orderPage ;
         if (status != null) {
-            orderPage = orderRepository.findWithDetailsByStatus(status, pageable);
+            orderPage = orderRepository.findByStatus(status, pageable);
         } else {
             orderPage = orderRepository.findAllWithDetails(pageable);
         }
@@ -280,6 +289,5 @@ public class OrderServiceImpl implements OrderService {
                 .totalPages(orderPage.getTotalPages())
                 .totalElements(orderPage.getTotalElements())
                 .build() ;
-
     }
 }

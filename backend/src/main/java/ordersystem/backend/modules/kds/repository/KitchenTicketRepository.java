@@ -24,15 +24,15 @@ public interface KitchenTicketRepository extends JpaRepository<KitchenTicketEnti
     List<KitchenTicketEntity> findByStatus( KitchenItemStatus status );
 
     // 📌 API MÀN HÌNH CÁ NHÂN: Chỉ lấy các món ĐANG NẤU do CHÍNH ĐẦU BẾP ĐÓ nhận làm
-    @Query("SELECT k FROM KitchenTicketEntity k WHERE k.status = 'COOKING' AND k.assignedCookId = :cookId")
-    List<KitchenTicketEntity> findMyCookingTickets(@Param("cookId") Long cookId);
+    List<KitchenTicketEntity> findByStatusAndAssignedCookId(KitchenItemStatus status, Long cookId);
+
 
     // Truy vấn lịch sử các món đã làm xong của 1 Đầu bếp
     List<KitchenTicketEntity> findByAssignedCookIdAndStatus(Long cookId, KitchenItemStatus status);
 
     //Truy vấn Lịch sử Hoàn thành Chung của TẤT CẢ đầu bếp (Món nào xong mới nhất lên đầu)
-    @Query("SELECT k FROM KitchenTicketEntity k WHERE k.status = 'COMPLETED'")
-    List<KitchenTicketEntity> findSharedCompletedHistory(Pageable pageable);
+    List<KitchenTicketEntity> findByStatus(KitchenItemStatus status, Pageable pageable);
+
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT k FROM KitchenTicketEntity k WHERE k.kitchenTicketId = :id")

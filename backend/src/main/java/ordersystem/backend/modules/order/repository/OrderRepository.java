@@ -21,7 +21,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
         List<OrderEntity> findByTableSessionTableSessionIdInAndStatus ( List<Long> activeSessionIds , OrderStatus status ) ;
 
         // Tìm danh sách Order thuộc về một TableSession
-        List<OrderEntity> findByTableSessionTableSessionId(Long tableSessionId);
+        Optional<OrderEntity> findByTableSessionTableSessionIdAndStatus(Long tableSessionId, OrderStatus status);
 
         // Lọc danh sách Order theo trạng thái kèm phân trang (Cho lịch sử đơn)
         Page<OrderEntity> findByStatus(OrderStatus status, Pageable pageable);

@@ -51,11 +51,11 @@ public class JwtTokenProvider {
     }
 
     public String getUserIdFromToken(String token) {
-        return this.getClaimsFromToken(token).getSubject() ;
+        Claims claims = getClaimsFromToken(token);
+        return claims != null ? claims.getSubject() : null;
     }
-
     public String getRoleFromToken(String token) {
-        return getClaimsFromToken(token).get("role", String.class);
+        Claims claims = getClaimsFromToken(token);
+        return claims != null ? claims.get("role", String.class) : null;
     }
-
 }

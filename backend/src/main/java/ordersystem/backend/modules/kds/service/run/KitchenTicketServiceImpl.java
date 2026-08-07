@@ -41,7 +41,7 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
     // 📌 2. Lấy danh sách Màn hình cá nhân (Chỉ chứa món COOKING của chính Đầu bếp này)
     @Override
     public List<KitchenTicketResponse> getMyCookingTickets(Long cookUserId) {
-        List<KitchenTicketEntity> tickets = kitchenTicketRepository.findMyCookingTickets(cookUserId);
+        List<KitchenTicketEntity> tickets = kitchenTicketRepository.findByStatusAndAssignedCookId( KitchenItemStatus.COOKING ,cookUserId);
         return tickets.stream()
                 .map(kitchenTicketMapper::toResponse)
                 .toList();
@@ -97,7 +97,7 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
     @Override
     public List<KitchenTicketResponse> getSharedCompletedHistory(int limit) {
         int pageSize = limit > 0 ? limit : 50; // Mặc định lấy 50 món mới nhất
-        List<KitchenTicketEntity> tickets = kitchenTicketRepository.findSharedCompletedHistory(PageRequest.of(0, pageSize));
+        List<KitchenTicketEntity> tickets = kitchenTicketRepository.findByStatus( KitchenItemStatus.COMPLETED ,PageRequest.of(0, pageSize));
         return tickets.stream().map(kitchenTicketMapper::toResponse).toList();
     }
 
