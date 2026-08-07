@@ -8,7 +8,7 @@ import ordersystem.backend.modules.order.dto.request.SubmitPersonalOrderRequest;
 import ordersystem.backend.modules.order.dto.response.MasterTableOrderResponse;
 import ordersystem.backend.modules.order.dto.response.PersonalOrderResponse;
 import ordersystem.backend.modules.order.dto.response.TableInvoiceResponse;
-import ordersystem.backend.modules.order.service.run.OrderService;
+import ordersystem.backend.modules.order.service.impl.OrderService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,7 +24,7 @@ public class ClientOrderController {
     // URL: POST /api/v1/orders/submit
     @PostMapping
     public ResponseEntity<ApiResponse<PersonalOrderResponse>> submitOrder (@Valid @RequestBody SubmitPersonalOrderRequest request){
-        PersonalOrderResponse response = orderService.submitPersonalOrder(request) ;
+        PersonalOrderResponse response = orderService.submitOrderWithLock(request) ;
         return ResponseEntity.ok( ApiResponse.success("Order submitted successfully" , response)) ;
     }
 
@@ -45,14 +45,4 @@ public class ClientOrderController {
         MasterTableOrderResponse response = orderService.getMasterTableOrder(tableId) ;
         return ResponseEntity.ok( ApiResponse.success("Master table order retrieved successfully" , response)) ;
     }
-
-    // API 4: Xem tạm tính hóa đơn cho bàn
-    @GetMapping("/table/{tableId}/invoice")
-    public ResponseEntity<ApiResponse<TableInvoiceResponse>> getTableInvoice (@PathVariable Long tableId){
-        TableInvoiceResponse tableInvoiceResponse = orderService.exportTableInvoice(tableId) ;
-        return ResponseEntity.ok( ApiResponse.success("Table invoice generated successfully" , tableInvoiceResponse)) ;
-    }
-
-
-
 }

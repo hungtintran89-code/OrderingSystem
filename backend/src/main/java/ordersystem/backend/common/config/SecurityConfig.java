@@ -13,6 +13,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -31,12 +36,22 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.disable())
-                .exceptionHandling( exception -> exception
+        http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable())
+                .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(customAuthenticationEntryPoint)
                         .accessDeniedHandler(customAccessDeniedHandler))
-                        .authorizeHttpRequests(auth -> auth
+                .authorizeHttpRequests(auth -> auth
+                        // 1. API công khai không cần Token JWT
+                        // 1. API công khai cho khách hàng & WebSocket
                         .requestMatchers("/api/v1/auth/login").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers("/api/v1/qr/**").permitAll()
+                        .requestMatchers("/api/v1/client/**").permitAll()
+                        .requestMatchers("/api/v1/orders/**").permitAll()
+                        .requestMatchers("/api/v1/service-requests/**").permitAll()
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        // 2. Tất cả các API còn lại (Admin/Staff/Kitchen) yêu cầu Token JWT
                         .anyRequest().authenticated()
                 );
 
@@ -47,4 +62,29 @@ public class SecurityConfig {
 
         return http.build();
     }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        
+        // Cho phép tất cả Origin (bao gồm React/Vite localhost:5173, localhost:3000, mobile app,...)
+        configuration.setAllowedOriginPatterns(List.of("*"));
+        
+        // Cho phép các HTTP Methods
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        
+        // Cho phép tất cả Headers (Authorization, Content-Type, X-Session-Token,...)
+        configuration.setAllowedHeaders(List.of("*"));
+        
+        // Cho phép gửi credentials (cookies, authorization headers)
+        configuration.setAllowCredentials(true);
+        
+        // Expose các header quan trọng nếu cần Frontend đọc
+        configuration.setExposedHeaders(List.of("Authorization", "Content-Disposition", "X-Session-Token"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
 }
+

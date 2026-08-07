@@ -15,7 +15,6 @@ import java.util.Optional;
 @Repository
 public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
 
-        List<OrderEntity> findByTableSessionTableTableIdAndStatusNot(Long tableId, OrderStatus status);
 
         // Tìm danh sách Order thuộc về một TableSession
         List<OrderEntity> findByTableSessionTableSessionId(Long tableSessionId);
@@ -23,5 +22,6 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
         // Lọc danh sách Order theo trạng thái kèm phân trang (Cho lịch sử đơn)
         Page<OrderEntity> findByStatus(OrderStatus status, Pageable pageable);
 
+        List<OrderEntity> findByTableSessionTableSessionIdInAndStatus ( List<Long> activeSessionIds , OrderStatus status ) ;
 }
 

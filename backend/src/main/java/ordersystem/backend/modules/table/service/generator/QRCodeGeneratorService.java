@@ -115,8 +115,12 @@ public class QRCodeGeneratorService {
     private Font getVietnameseFont(float size, int style) {
         try {
             // Dùng BaseFont Identity-H để hỗ trợ Tiếng Việt UTF-8 chuẩn
-            BaseFont baseFont = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-            return new Font(baseFont, size, style);
+            BaseFont baseFont = BaseFont.createFont(
+                    "fonts/Roboto-Regular.ttf",
+                    BaseFont.IDENTITY_H,
+                    BaseFont.EMBEDDED
+            );
+            return new Font(baseFont, 16, Font.BOLD);
         } catch (Exception e) {
             // Fallback nếu môi trường không load được BaseFont
             return FontFactory.getFont(FontFactory.HELVETICA, size, style);

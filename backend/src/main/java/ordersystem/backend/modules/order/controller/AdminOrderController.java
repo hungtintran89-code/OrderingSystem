@@ -6,7 +6,7 @@ import ordersystem.backend.common.payload.PageResponse;
 import ordersystem.backend.modules.order.dto.response.MasterTableOrderResponse;
 import ordersystem.backend.modules.order.dto.response.TableInvoiceResponse;
 import ordersystem.backend.modules.order.enums.OrderStatus;
-import ordersystem.backend.modules.order.service.run.OrderService;
+import ordersystem.backend.modules.order.service.impl.OrderService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -41,13 +41,4 @@ public class AdminOrderController {
 
         return ResponseEntity.ok( ApiResponse.success("Order history retrieved successfully" , history)) ;
     }
-    // cho nhaan viên xem xuất hóa đơn
-    @GetMapping("/tables/{tableId}/invoice")
-    @PreAuthorize("hasAnyRole('MANAGER', 'STAFF', 'CASHIER')")
-    public ResponseEntity<ApiResponse<TableInvoiceResponse>> exportAdminTableInvoice( @PathVariable Long tableId ){
-        TableInvoiceResponse invoice = orderService.exportTableInvoice(tableId);
-        return ResponseEntity.ok(ApiResponse.success("Invoice generated for table " + tableId, invoice));
-    }
-
-
 }

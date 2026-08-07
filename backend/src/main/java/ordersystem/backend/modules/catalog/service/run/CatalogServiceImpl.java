@@ -1,6 +1,5 @@
 package ordersystem.backend.modules.catalog.service.run;
 
-
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.modules.catalog.dto.request.CreateCategoryRequest;
 import ordersystem.backend.modules.catalog.dto.request.CreateProductRequest;
@@ -15,6 +14,8 @@ import ordersystem.backend.modules.catalog.mapper.ProductMapper;
 import ordersystem.backend.modules.catalog.repository.CategoryRepository;
 import ordersystem.backend.modules.catalog.repository.ProductRepository;
 import ordersystem.backend.modules.catalog.service.impl.CatalogService;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,26 +25,17 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class CatalogServiceImpl implements CatalogService {
 
+public class CatalogServiceImpl implements CatalogService {
     final private CategoryRepository categoryRepository ;
     final private ProductRepository productRepository ;
     final private CatalogMapper catalogMapper ;
     final private ProductMapper productMapper ;
 
-    // 1. Lấy Thực đơn đầy đủ cho Khách (Trả về cây Danh mục -> Danh sách món)
-    @Override
-    public List<CategoryMenuResponse> getFullMenuForCustomer () {
-
-        List<CategoryEntity> categoryMenuResponseList = categoryRepository.findAll() ;
-
-        return categoryMenuResponseList.stream()
-                .map( catalogMapper :: toCategoryMenuResponse )
-                .collect(Collectors.toList()) ;
-    }
-
     // 2. Admin tạo Danh mục mới
     @Override
+    @Transactional
+    @CacheEvict( value = "categories" , allEntries = true)
     public CategoryMenuResponse createCategory(CreateCategoryRequest createCategoryRequest ){
 
         if( categoryRepository.findByCategoryName(createCategoryRequest.getCategoryName()).isPresent()){
@@ -58,11 +50,11 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     // Admin lấy tất cả danh mục
+    @Cacheable(value = "categories", key = "'all_categories'")
     @Override
-    @Transactional( readOnly = true )
     public List<CategoryMenuResponse> getAllCategories (){
 
-        List<CategoryEntity> categoryEntities = categoryRepository.findAll() ;
+        List<CategoryEntity> categoryEntities = categoryRepository.findAllWithProducts() ;
 
         return categoryEntities.stream()
                 .map( catalogMapper::toCategoryMenuResponse)
@@ -72,6 +64,7 @@ public class CatalogServiceImpl implements CatalogService {
     // Admin bật/tắt công tắc tạm hết món
     @Override
     @Transactional
+    @CacheEvict(value = {"categories", "single_product"}, allEntries = true)
     public ProductResponse toggleProductAvailability (Long productId , ToggleAvailabilityRequest toggleAvailabilityRequest){
 
         ProductEntity productEntity = productRepository.findByProductId(productId)
@@ -83,6 +76,8 @@ public class CatalogServiceImpl implements CatalogService {
 
     // Admin thêm món vào catalog
     @Override
+    @Transactional
+    @CacheEvict( value = "categories" , allEntries = true)
     public ProductResponse addProductIntoCategory (CreateProductRequest request ){
 
         CategoryEntity categoryEntity = categoryRepository.findByCategoryName( request.getCategoryName())
@@ -102,4 +97,13 @@ public class CatalogServiceImpl implements CatalogService {
         }
         return productMapper.toProductResponse( productRepository.save( productEntity) ) ;
     }
+
+    @Override
+    @Cacheable(value = "single_product", key = "#productId", unless = "#result == null")
+    public ProductResponse getProductById(Long productId) {
+        ProductEntity productEntity = productRepository.findByProductId(productId)
+                .orElseThrow(() -> new CatalogException("Dish with ID " + productId + " not found"));
+        return productMapper.toProductResponse(productEntity);
+    }
 }
+

@@ -44,4 +44,5 @@ public class TableSessionEntity {
         this.status = SessionStatus.CLOSED;
         this.endedAt = new Date();
     }
+
 }

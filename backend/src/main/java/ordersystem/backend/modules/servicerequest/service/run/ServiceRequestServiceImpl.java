@@ -2,6 +2,7 @@ package ordersystem.backend.modules.servicerequest.service.run;
 
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.exception.ResourceNotFoundException;
+import ordersystem.backend.common.websocket.WebSocketPublisher;
 import ordersystem.backend.modules.servicerequest.dto.request.CreateServiceRequestDto;
 import ordersystem.backend.modules.servicerequest.dto.response.ServiceRequestResponse;
 import ordersystem.backend.modules.servicerequest.entity.ServiceRequestEntity;
@@ -27,6 +28,7 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     private final ServiceRequestRepository serviceRequestRepository;
     private final ServiceRequestMapper serviceRequestMapper;
     private final TableSessionService tableSessionService;
+    private final WebSocketPublisher webSocketPublisher;
 
     //Khách gửi yêu cầu trợ giúp
     @Override
@@ -64,7 +66,8 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     //Nhân viên xác nhận xử lí xong yêu cầu
     public ServiceRequestResponse completedRequest(Long requestId){
         //Lấy request đang gửi đến chuyển thành completed
-        ServiceRequestEntity currentRequest = serviceRequestRepository.findByRequestId(requestId);
+        ServiceRequestEntity currentRequest = serviceRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Service request not found with id: " + requestId));
 
         //Chuyển yêu cầu thành completed
         currentRequest.setRequestStatus(RequestStatus.COMPLETED);
@@ -74,7 +77,7 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
         if ("REQUEST_BILL".equalsIgnoreCase(currentRequest.getRequestType().name())){
             tableSessionService.closeSession(currentRequest.getSessionId());
         }
-
+        webSocketPublisher.notifyServiceRequest(serviceRequestMapper.toServiceRequestResponse(currentRequest));
         return serviceRequestMapper.toServiceRequestResponse(currentRequest);
     }
 }
