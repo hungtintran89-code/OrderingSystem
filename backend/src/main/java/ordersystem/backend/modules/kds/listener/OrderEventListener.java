@@ -31,6 +31,8 @@ public class OrderEventListener {
         for (OrderSubmittedEvent.OrderItemInfo itemInfo : event.getItems()) {
             KitchenTicketEntity ticket = KitchenTicketEntity.builder()
                     .orderId(event.getOrderId())
+                    .orderItemId(itemInfo.getOrderItemId())
+                    .productId(itemInfo.getProductId())
                     .tableNumber(event.getTableNumber())
                     .areaName(event.getAreaName())
                     .productName(itemInfo.getProductName())

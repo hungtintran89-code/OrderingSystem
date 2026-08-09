@@ -1,0 +1,30 @@
+{
+  "name": "orderingsystem",
+  "version": "1.0.0",
+  "description": "mini web team three member",
+  "main": "index.js",
+  "scripts": {
+    "dev": "cd frontend && node node_modules/vite/bin/vite.js",
+    "start": "cd frontend && node node_modules/vite/bin/vite.js",
+    "build": "cd frontend && node node_modules/vite/bin/vite.js build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hungtintran89-code/OrderingSystem.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/hungtintran89-code/OrderingSystem/issues"
+  },
+  "homepage": "https://github.com/hungtintran89-code/OrderingSystem#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.2.0"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.101.4"
+  }
+}

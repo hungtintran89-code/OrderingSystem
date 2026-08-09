@@ -1,4 +1,4 @@
-package ordersystem.backend.modules.kds.dto.listener;
+package ordersystem.backend.modules.kds.listener;
 
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.websocket.WebSocketPublisher;
