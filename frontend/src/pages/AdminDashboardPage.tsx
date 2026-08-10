@@ -13,31 +13,31 @@ export const AdminDashboardPage: React.FC = () => {
   const location = useLocation();
   const path = location.pathname;
 
-  if (path === '/admin/menu') {
+  if (path.endsWith('/menu') || path.includes('/menu')) {
     return <MenuManagement />;
   }
 
-  if (path === '/admin/tables-qr') {
+  if (path.endsWith('/tables-qr') || path.includes('/tables-qr')) {
     return <TableQRManager />;
   }
 
-  if (path === '/admin/tables') {
+  if (path.endsWith('/tables') || path.includes('/tables')) {
     return <StaffTableMap />;
   }
 
-  if (path === '/admin/staff') {
+  if (path.endsWith('/staff') || path.includes('/staff')) {
     return <StaffManagement />;
   }
 
-  if (path === '/admin/orders') {
+  if (path.endsWith('/orders') || path.includes('/orders')) {
     return <OrderListManagement />;
   }
 
-  if (path === '/admin/quick-pos') {
+  if (path.endsWith('/quick-pos') || path.includes('/quick-pos')) {
     return <QuickPosManagement />;
   }
 
-  if (path === '/admin/analytics') {
+  if (path.endsWith('/analytics') || path.includes('/analytics')) {
     return (
       <div className="space-y-4 font-sans">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -52,6 +52,6 @@ export const AdminDashboardPage: React.FC = () => {
     );
   }
 
-  // Default Route `/admin` renders KPI Dashboard
+  // Default Route `/app/admin` renders KPI Dashboard
   return <DashboardKPI />;
 };

@@ -47,6 +47,24 @@ public class AdminStaffController {
         return ResponseEntity.ok(ApiResponse.success("Get list staff successfully", response));
     }
 
+    @PutMapping("/{id}")
+    @Operation(summary = "Cập nhật thông tin tài khoản nhân viên")
+    public ResponseEntity<ApiResponse<StaffResponse>> updateStaff(
+            @PathVariable Long id,
+            @Valid @RequestBody ordersystem.backend.modules.auth.dto.request.UpdateStaffRequest updateStaffRequest) {
+        log.info("[REST API] Received request to update staff ID: {}", id);
+        StaffResponse response = staffService.updateStaff(id, updateStaffRequest);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin nhân viên thành công", response));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Xóa tài khoản nhân viên khỏi cơ sở dữ liệu")
+    public ResponseEntity<ApiResponse<Void>> deleteStaff(@PathVariable Long id) {
+        log.info("[REST API] Received request to delete staff ID: {}", id);
+        staffService.deleteStaff(id);
+        return ResponseEntity.ok(ApiResponse.success("Đã xóa nhân viên khỏi hệ thống", null));
+    }
+
     /**
      * API Khóa / Mở khóa nhanh tài khoản nhân viên.
      * 

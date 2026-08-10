@@ -1,6 +1,7 @@
 package ordersystem.backend.modules.auth.service.impl;
 
 import ordersystem.backend.modules.auth.dto.request.CreateStaffRequest;
+import ordersystem.backend.modules.auth.dto.request.UpdateStaffRequest;
 import ordersystem.backend.modules.auth.dto.response.StaffResponse;
 import ordersystem.backend.common.payload.PageResponse;
 
@@ -11,6 +12,16 @@ public interface StaffService {
 
     StaffResponse createStaff(CreateStaffRequest request);
     PageResponse<StaffResponse> getStaffs(int page, int size);
+
+    /**
+     * Cập nhật thông tin nhân viên (Họ tên, Vai trò, Lương, Số điện thoại, Mật khẩu).
+     */
+    StaffResponse updateStaff(Long staffId, UpdateStaffRequest request);
+
+    /**
+     * Xóa hoàn toàn tài khoản nhân viên khỏi cơ sở dữ liệu.
+     */
+    void deleteStaff(Long staffId);
 
     /**
      * Phương thức Khóa / Mở khóa tài khoản nhân viên nhanh chóng.

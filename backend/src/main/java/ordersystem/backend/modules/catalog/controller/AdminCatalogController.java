@@ -53,6 +53,34 @@ public class AdminCatalogController {
         return ResponseEntity.ok(ApiResponse.success("Product created successfully", product));
     }
 
+    // 3.1. Admin lấy tất cả Món ăn
+    // URL: GET /api/v1/admin/products
+    @GetMapping("/products")
+    @PreAuthorize("hasAnyRole('MANAGER', 'STAFF', 'KITCHEN')")
+    public ResponseEntity<ApiResponse<List<ProductResponse>>> getAllProducts() {
+        List<ProductResponse> products = catalogService.getAllProducts();
+        return ResponseEntity.ok(ApiResponse.success("Products retrieved successfully", products));
+    }
+
+    // 3.2. Admin cập nhật thông tin Món ăn
+    // URL: PUT /api/v1/admin/products/{id}
+    @PutMapping("/products/{id}")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
+            @PathVariable Long id,
+            @Valid @RequestBody ordersystem.backend.modules.catalog.dto.request.UpdateProductRequest request) {
+        ProductResponse product = catalogService.updateProduct(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Product updated successfully", product));
+    }
+
+    // 3.3. Admin xóa Món ăn khỏi Thực đơn
+    // URL: DELETE /api/v1/admin/products/{id}
+    @DeleteMapping("/products/{id}")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable Long id) {
+        catalogService.deleteProduct(id);
+        return ResponseEntity.ok(ApiResponse.success("Product deleted successfully", null));
+    }
 
     // 4. Admin / Nhân viên Bật/Tắt công tắc "Tạm hết món"
     // URL: PATCH /api/v1/admin/products/5/toggle-availability

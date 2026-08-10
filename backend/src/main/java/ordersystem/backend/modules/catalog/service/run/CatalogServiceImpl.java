@@ -99,6 +99,56 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     @Override
+    public List<ProductResponse> getAllProducts() {
+        List<ProductEntity> products = productRepository.findAll();
+        return products.stream()
+                .map(productMapper::toProductResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = {"categories", "single_product"}, allEntries = true)
+    public ProductResponse updateProduct(Long productId, ordersystem.backend.modules.catalog.dto.request.UpdateProductRequest request) {
+        ProductEntity productEntity = productRepository.findByProductId(productId)
+                .orElseThrow(() -> new CatalogException("Dish with ID " + productId + " not found"));
+
+        if (request.getProductName() != null && !request.getProductName().isBlank()) {
+            productEntity.setProductName(request.getProductName().trim());
+        }
+        if (request.getProductPrice() != null) {
+            productEntity.setProductPrice(request.getProductPrice());
+        }
+        if (request.getImageUrl() != null) {
+            productEntity.setProductImageUrl(request.getImageUrl());
+        }
+        if (request.getDescription() != null) {
+            productEntity.setProductDescription(request.getDescription());
+        }
+        if (request.getIsAvailable() != null) {
+            productEntity.setProductIsAvailable(request.getIsAvailable());
+        }
+        if (request.getCategoryName() != null && !request.getCategoryName().isBlank()) {
+            CategoryEntity categoryEntity = categoryRepository.findByCategoryName(request.getCategoryName().trim())
+                    .orElseGet(() -> categoryRepository.save(CategoryEntity.builder().categoryName(request.getCategoryName().trim()).build()));
+            productEntity.setCategory(categoryEntity);
+        }
+
+        ProductEntity saved = productRepository.save(productEntity);
+        return productMapper.toProductResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = {"categories", "single_product"}, allEntries = true)
+    public void deleteProduct(Long productId) {
+        if (!productRepository.existsById(productId)) {
+            throw new CatalogException("Dish with ID " + productId + " not found");
+        }
+        productRepository.deleteById(productId);
+    }
+
+    @Override
     @Cacheable(value = "single_product", key = "#productId", unless = "#result == null")
     public ProductResponse getProductById(Long productId) {
         ProductEntity productEntity = productRepository.findByProductId(productId)

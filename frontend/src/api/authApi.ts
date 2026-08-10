@@ -24,7 +24,7 @@ export interface ChangePasswordRequest {
 
 export const authApi = {
   // 1. POST /api/v1/auth/login
-  async login(credentials: LoginRequest): Promise<AuthResponseData | null> {
+  async login(credentials: LoginRequest): Promise<AuthResponseData> {
     try {
       const res = await apiClient.post<ApiResponse<AuthResponseData>>('/auth/login', credentials);
       if (res.data && res.data.data) {
@@ -35,10 +35,10 @@ export const authApi = {
         localStorage.setItem('user_name', data.fullName || data.username);
         return data;
       }
-      return null;
-    } catch {
+      throw new Error('Dữ liệu phản hồi từ máy chủ không hợp lệ!');
+    } catch (error) {
       // Toast error is handled centrally by apiClient interceptor
-      return null;
+      throw error;
     }
   },
 

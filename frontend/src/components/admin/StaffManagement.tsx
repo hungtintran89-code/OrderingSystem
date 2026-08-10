@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StaffUser, StaffRole } from '../../types/admin';
-import { fetchStaffUsersApi } from '../../api/adminApi';
+import { fetchStaffUsersApi, createStaffApi, updateStaffApi, deleteStaffApi } from '../../api/adminApi';
 import {
   ShieldCheck,
   Plus,
@@ -45,6 +45,17 @@ export const StaffManagement: React.FC = () => {
   const [editSalary, setEditSalary] = useState<number>(0);
   const [editUsername, setEditUsername] = useState('');
   const [editPassword, setEditPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
+
+  // Table Password Visibility Toggle State
+  const [showPasswordTable, setShowPasswordTable] = useState<Record<string, boolean>>({});
+
+  const toggleTablePasswordVisibility = (staffId: string) => {
+    setShowPasswordTable((prev) => ({
+      ...prev,
+      [staffId]: !prev[staffId],
+    }));
+  };
 
   const loadStaffUsers = async () => {
     try {
@@ -80,35 +91,39 @@ export const StaffManagement: React.FC = () => {
   };
 
   // --- CREATE STAFF ACTION ---
-  const handleCreateStaff = (e: React.FormEvent) => {
+  const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim() || !newUsername.trim() || !newPassword.trim()) {
       message.error('Vui lòng điền đầy đủ Họ tên, Tên đăng nhập và Mật khẩu');
       return;
     }
 
-    const newStaff: StaffUser = {
-      id: `usr-${Date.now()}`,
-      name: newName.trim(),
-      email: newEmail.trim() || `${newUsername.trim()}@restaurant.com`,
-      phone: newPhone.trim() || '0900000000',
-      role: newRole,
-      salary: Number(newSalary),
-      username: newUsername.trim(),
-      password: newPassword.trim(),
-      status: 'ACTIVE',
-      lastActive: 'Vừa tạo',
-    };
+    try {
+      setLoading(true);
+      const created = await createStaffApi({
+        fullName: newName.trim(),
+        username: newUsername.trim(),
+        password: newPassword.trim(),
+        role: newRole,
+        salary: Number(newSalary),
+        phone: newPhone.trim(),
+      });
 
-    setStaffList((prev) => [newStaff, ...prev]);
-    setIsCreateModalOpen(false);
-    // Reset Form
-    setNewName('');
-    setNewEmail('');
-    setNewPhone('');
-    setNewUsername('');
-    setNewPassword('123456');
-    message.success(`Đã cấp tài khoản thành công cho nhân viên ${newName}!`);
+      setStaffList((prev) => [created, ...(Array.isArray(prev) ? prev : [])]);
+      setIsCreateModalOpen(false);
+      // Reset Form
+      setNewName('');
+      setNewEmail('');
+      setNewPhone('');
+      setNewUsername('');
+      setNewPassword('123456');
+      message.success(`Đã cấp tài khoản thành công cho nhân viên ${newName}!`);
+      await loadStaffUsers();
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || 'Không thể tạo tài khoản nhân viên. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // --- EDIT STAFF ACTION ---
@@ -124,33 +139,46 @@ export const StaffManagement: React.FC = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleSaveEditStaff = (e: React.FormEvent) => {
+  const handleSaveEditStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStaff || !editName.trim()) {
       message.error('Vui lòng nhập Họ tên nhân viên');
       return;
     }
 
-    const updated: StaffUser = {
-      ...editingStaff,
-      name: editName.trim(),
-      email: editEmail.trim(),
-      phone: editPhone.trim(),
-      role: editRole,
-      salary: Number(editSalary),
-      username: editUsername.trim(),
-      password: editPassword.trim() ? editPassword.trim() : editingStaff.password,
-    };
+    try {
+      setLoading(true);
+      const updated = await updateStaffApi(editingStaff.id, {
+        fullName: editName.trim(),
+        role: editRole,
+        salary: Number(editSalary),
+        phone: editPhone.trim(),
+        password: editPassword.trim() || undefined,
+      });
 
-    setStaffList((prev) => prev.map((s) => (s.id === editingStaff.id ? updated : s)));
-    setIsEditModalOpen(false);
-    message.success(`Đã cập nhật thông tin nhân viên ${editName}!`);
+      setStaffList((prev) => (Array.isArray(prev) ? prev.map((s) => (s.id === editingStaff.id ? updated : s)) : []));
+      setIsEditModalOpen(false);
+      message.success(`Đã cập nhật thành công thông tin nhân viên ${editName}!`);
+      await loadStaffUsers();
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || 'Không thể cập nhật thông tin nhân viên. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // --- DELETE / DEACTIVATE STAFF ACTION ---
-  const handleDeleteStaff = (staffId: string) => {
-    setStaffList((prev) => prev.filter((s) => s.id !== staffId));
-    message.success('Đã xóa tài khoản nhân viên khỏi hệ thống');
+  const handleDeleteStaff = async (staffId: string) => {
+    try {
+      setLoading(true);
+      await deleteStaffApi(staffId);
+      setStaffList((prev) => (Array.isArray(prev) ? prev.filter((s) => s.id !== staffId) : []));
+      await loadStaffUsers();
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || 'Không thể xóa tài khoản nhân viên. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -207,23 +235,23 @@ export const StaffManagement: React.FC = () => {
       {!loading && !error && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-700">
+            <table className="w-full text-left text-xs text-slate-700 min-w-[920px]">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
                 <tr>
-                  <th className="p-3.5">Họ & Tên Nhân Viên</th>
-                  <th className="p-3.5">Tài Khoản / Liên Hệ</th>
-                  <th className="p-3.5">Vai Trò (Role)</th>
-                  <th className="p-3.5">Mức Lương (VND)</th>
-                  <th className="p-3.5">Trạng Thái</th>
-                  <th className="p-3.5 text-right">Thao Tác</th>
+                  <th className="px-4 py-3.5 min-w-[200px]">Họ & Tên Nhân Viên</th>
+                  <th className="px-4 py-3.5 min-w-[220px]">Liên Hệ (Email & SĐT)</th>
+                  <th className="px-4 py-3.5 min-w-[150px]">Mật Khẩu</th>
+                  <th className="px-4 py-3.5 min-w-[160px]">Vai Trò (Role)</th>
+                  <th className="px-4 py-3.5 min-w-[140px]">Mức Lương (VND)</th>
+                  <th className="px-4 py-3.5 text-right min-w-[90px]">Thao Tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {staffList.map((usr) => {
+                {(Array.isArray(staffList) ? staffList : []).map((usr) => {
                   const roleBadge = getRoleLabel(usr.role);
                   return (
                     <tr key={usr.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3.5">
+                      <td className="px-4 py-3.5 whitespace-nowrap">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
                             {usr.name.charAt(0)}
@@ -235,35 +263,45 @@ export const StaffManagement: React.FC = () => {
                         </div>
                       </td>
 
-                      <td className="p-3.5">
-                        <p className="font-mono text-xs font-semibold text-slate-800">
-                          @{usr.username || usr.email.split('@')[0]}
-                        </p>
-                        <p className="text-[10px] text-slate-500">{usr.email} • {usr.phone}</p>
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <p className="text-xs font-semibold text-slate-800">{usr.email}</p>
+                        <p className="text-[11px] text-slate-500 font-mono">{usr.phone}</p>
                       </td>
 
-                      <td className="p-3.5">
-                        <span className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border ${roleBadge.color}`}>
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-xs bg-slate-100 text-slate-800 px-2 py-1 rounded-md border border-slate-200 inline-block min-w-[80px] text-center font-bold">
+                            {showPasswordTable[usr.id]
+                              ? (usr.password || '123456')
+                              : '••••••••'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleTablePasswordVisibility(usr.id)}
+                            className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                            title={showPasswordTable[usr.id] ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                          >
+                            {showPasswordTable[usr.id] ? <EyeOff className="w-4 h-4 text-orange-600" /> : <Eye className="w-4 h-4 text-slate-500" />}
+                          </button>
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <span className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border inline-block ${roleBadge.color}`}>
                           {roleBadge.label}
                         </span>
                       </td>
 
-                      <td className="p-3.5 font-extrabold text-slate-900">
+                      <td className="px-4 py-3.5 whitespace-nowrap font-extrabold text-slate-900">
                         {usr.salary ? formatVND(usr.salary) : '7.500.000 đ'}
                       </td>
 
-                      <td className="p-3.5">
-                        <span className="inline-flex items-center gap-1 font-bold text-emerald-600 text-xs">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Hoạt động
-                        </span>
-                      </td>
-
-                      <td className="p-3.5 text-right space-x-1">
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap space-x-1">
                         {/* Nút Thao Tác: Chỉnh Sửa Nhân Viên */}
                         <button
                           onClick={() => handleOpenEditModal(usr)}
                           className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-orange-50 hover:border-orange-300 text-slate-600 hover:text-orange-600 transition-colors cursor-pointer shadow-2xs"
-                          title="Chỉnh sửa thông tin nhân viên"
+                          title="Chỉnh sửa thông tin nhân viên & mật khẩu"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
@@ -513,13 +551,22 @@ export const StaffManagement: React.FC = () => {
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Mật khẩu mới (Bỏ trống nếu không đổi)</label>
-              <input
-                type="password"
-                placeholder="Nhập mật khẩu mới..."
-                value={editPassword}
-                onChange={(e) => setEditPassword(e.target.value)}
-                className="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-xs focus:border-orange-500 font-mono"
-              />
+              <div className="relative">
+                <input
+                  type={showEditPassword ? 'text' : 'password'}
+                  placeholder="Nhập mật khẩu mới..."
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  className="w-full p-2.5 pr-10 rounded-lg border border-slate-200 bg-white text-xs focus:border-orange-500 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword(!showEditPassword)}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
           </div>
 

@@ -40,11 +40,14 @@ public class StaffServiceImpl implements StaffService {
             throw new UserAlreadyExistsException("Username already exists!");
         }
         log.debug("Encrypting password and saving user to DB...");
+        java.math.BigDecimal salaryVal = request.getSalary() != null ? request.getSalary() : new java.math.BigDecimal("7500000.00");
         User staff = User.builder()
                 .fullName(request.getFullName())
                 .username(request.getUsername())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .role(request.getRole())
+                .salary(salaryVal)
+                .phone(request.getPhone())
                 .active(true)
                 .build();
         User savedStaff = userRepository.save(staff);
@@ -53,6 +56,8 @@ public class StaffServiceImpl implements StaffService {
                 .fullName(savedStaff.getFullName())
                 .username(savedStaff.getUsername())
                 .role(savedStaff.getRole())
+                .salary(savedStaff.getSalary())
+                .phone(savedStaff.getPhone())
                 .active(savedStaff.isActive())
                 .createdAt(savedStaff.getCreatedAt())
                 .build();
@@ -70,6 +75,8 @@ public class StaffServiceImpl implements StaffService {
                         .fullName(staff.getFullName())
                         .username(staff.getUsername())
                         .role(staff.getRole())
+                        .salary(staff.getSalary() != null ? staff.getSalary() : new java.math.BigDecimal("7500000.00"))
+                        .phone(staff.getPhone())
                         .active(staff.isActive())
                         .createdAt(staff.getCreatedAt())
                         .build())
@@ -82,6 +89,53 @@ public class StaffServiceImpl implements StaffService {
                 .totalElements(staffPage.getTotalElements())
                 .totalPages(staffPage.getTotalPages())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public StaffResponse updateStaff(Long staffId, ordersystem.backend.modules.auth.dto.request.UpdateStaffRequest request) {
+        User staff = userRepository.findById(staffId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân viên với ID: " + staffId));
+
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            staff.setFullName(request.getFullName().trim());
+        }
+        if (request.getRole() != null) {
+            staff.setRole(request.getRole());
+        }
+        if (request.getSalary() != null) {
+            staff.setSalary(request.getSalary());
+        }
+        if (request.getPhone() != null) {
+            staff.setPhone(request.getPhone().trim());
+        }
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            staff.setPasswordHash(passwordEncoder.encode(request.getPassword().trim()));
+        }
+
+        User updatedStaff = userRepository.save(staff);
+        log.info("📢 Đã cập nhật thành công thông tin nhân viên ID {}", staffId);
+
+        return StaffResponse.builder()
+                .userId(updatedStaff.getUserId())
+                .fullName(updatedStaff.getFullName())
+                .username(updatedStaff.getUsername())
+                .role(updatedStaff.getRole())
+                .salary(updatedStaff.getSalary() != null ? updatedStaff.getSalary() : new java.math.BigDecimal("7500000.00"))
+                .phone(updatedStaff.getPhone())
+                .active(updatedStaff.isActive())
+                .createdAt(updatedStaff.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void deleteStaff(Long staffId) {
+        if (!userRepository.existsById(staffId)) {
+            throw new ResourceNotFoundException("Không tìm thấy nhân viên với ID: " + staffId);
+        }
+        userRepository.deleteById(staffId);
+        log.info("📢 Đã xóa hoàn toàn tài khoản nhân viên ID {} khỏi DB", staffId);
     }
 
     /**
@@ -105,6 +159,8 @@ public class StaffServiceImpl implements StaffService {
                 .fullName(updatedStaff.getFullName())
                 .username(updatedStaff.getUsername())
                 .role(updatedStaff.getRole())
+                .salary(updatedStaff.getSalary() != null ? updatedStaff.getSalary() : new java.math.BigDecimal("7500000.00"))
+                .phone(updatedStaff.getPhone())
                 .active(updatedStaff.isActive())
                 .createdAt(updatedStaff.getCreatedAt())
                 .build();

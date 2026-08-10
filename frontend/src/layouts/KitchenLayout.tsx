@@ -36,7 +36,7 @@ export const KitchenLayout: React.FC<KitchenLayoutProps> = ({
   const handleLogout = () => {
     localStorage.clear();
     message.success('Đã đăng xuất tài khoản Bếp thành công!');
-    navigate('/login');
+    navigate('/app/login');
   };
 
   const kitchenDropdownItems = [

@@ -94,7 +94,7 @@ export const StaffKitchenLayout: React.FC<StaffKitchenLayoutProps> = ({ children
             </div>
 
             <Button
-              onClick={() => navigate('/admin')}
+              onClick={() => navigate('/app/admin')}
               className="bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 font-bold rounded-xl h-10 text-xs"
             >
               ⚙️ Admin Portal

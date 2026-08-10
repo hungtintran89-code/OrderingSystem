@@ -29,6 +29,8 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+let isRedirectingToLogin = false;
+
 // Response Interceptor: Handle Errors with subtle Toast Notification & Refresh Token
 apiClient.interceptors.response.use(
   (response) => {
@@ -36,8 +38,35 @@ apiClient.interceptors.response.use(
   },
   async (error: AxiosError<ApiResponse<unknown>>) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+    const isLoginRequest = originalRequest?.url?.includes('/auth/login');
 
-    // 1. Automatic Token Refresh on 401 Unauthorized
+    // 0. Special Handling for Login Request Failures
+    if (isLoginRequest) {
+      const serverMsg = error.response?.data?.message;
+      let loginErrMsg = 'Tên đăng nhập hoặc mật khẩu không chính xác!';
+
+      if (serverMsg) {
+        if (serverMsg.includes('User account is disabled')) {
+          loginErrMsg = 'Tài khoản người dùng đã bị vô hiệu hóa!';
+        } else if (serverMsg.includes('Incorrect username or password')) {
+          loginErrMsg = 'Tên đăng nhập hoặc mật khẩu không chính xác!';
+        } else {
+          loginErrMsg = serverMsg;
+        }
+      } else if (error.code === 'ERR_NETWORK') {
+        loginErrMsg = 'Không thể kết nối đến máy chủ Backend! Vui lòng kiểm tra lại dịch vụ Spring Boot.';
+      }
+
+      message.error({
+        content: loginErrMsg,
+        key: 'login-failed-toast',
+        duration: 4,
+      });
+
+      return Promise.reject(error);
+    }
+
+    // 1. Automatic Token Refresh on 401 Unauthorized for Protected Endpoints
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       const refreshToken = localStorage.getItem('refresh_token');
@@ -58,13 +87,36 @@ apiClient.interceptors.response.use(
             return apiClient(originalRequest);
           }
         } catch {
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
+          // Token refresh failed
         }
       }
+
+      // If refresh token is missing or failed
+      localStorage.clear();
+
+      if (!isRedirectingToLogin && window.location.pathname.startsWith('/app') && !window.location.pathname.includes('/app/login')) {
+        isRedirectingToLogin = true;
+        message.error({
+          content: 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại!',
+          key: 'session-expired',
+          duration: 4,
+        });
+
+        setTimeout(() => {
+          isRedirectingToLogin = false;
+          window.location.href = '/app/login';
+        }, 600);
+      }
+
+      return Promise.reject(error);
     }
 
-    // 2. Display subtle Toast notification for API errors
+    // Suppress duplicate toasts if 401 is already handling redirect
+    if (error.response?.status === 401) {
+      return Promise.reject(error);
+    }
+
+    // 2. Display Toast notification for non-401 API errors
     const errorMessage =
       error.response?.data?.message ||
       (error.code === 'ECONNABORTED'

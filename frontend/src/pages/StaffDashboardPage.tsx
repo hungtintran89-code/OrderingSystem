@@ -8,14 +8,14 @@ export const StaffDashboardPage: React.FC = () => {
   const location = useLocation();
   const path = location.pathname;
 
-  if (path === '/staff/orders') {
+  if (path.endsWith('/orders') || path.includes('/orders')) {
     return <OrderListManagement />;
   }
 
-  if (path === '/staff/quick-pos') {
+  if (path.endsWith('/quick-pos') || path.includes('/quick-pos')) {
     return <QuickPosManagement />;
   }
 
-  // Default Route `/staff` or `/staff/tables` renders StaffTableMap
+  // Default Route `/app/staff` or `/app/staff/tables` renders StaffTableMap
   return <StaffTableMap />;
 };

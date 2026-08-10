@@ -167,8 +167,13 @@ export const fetchRevenueSummaryApi = async (): Promise<RevenueSummary> => {
 // 2. GET /api/v1/admin/analytics/hourly-revenue
 export const fetchHourlyRevenueApi = async (): Promise<HourlyRevenuePoint[]> => {
   try {
-    const res = await apiClient.get<ApiResponse<HourlyRevenuePoint[]>>('/admin/analytics/hourly-revenue');
-    if (res.data && res.data.data) return res.data.data;
+    const res = await apiClient.get<ApiResponse<any>>('/admin/analytics/hourly-revenue');
+    const raw = res.data?.data;
+    let list: any[] = [];
+    if (Array.isArray(raw)) list = raw;
+    else if (raw && Array.isArray(raw.content)) list = raw.content;
+
+    if (list && list.length > 0) return list;
     return mockHourlyPoints;
   } catch {
     return mockHourlyPoints;
@@ -178,31 +183,86 @@ export const fetchHourlyRevenueApi = async (): Promise<HourlyRevenuePoint[]> => 
 // 3. GET /api/v1/admin/analytics/top-selling?limit=5
 export const fetchTopSellingProductsApi = async (limit = 5): Promise<TopSellingProduct[]> => {
   try {
-    const res = await apiClient.get<ApiResponse<TopSellingProduct[]>>(`/admin/analytics/top-selling?limit=${limit}`);
-    if (res.data && res.data.data) return res.data.data;
+    const res = await apiClient.get<ApiResponse<any>>(`/admin/analytics/top-selling?limit=${limit}`);
+    const raw = res.data?.data;
+    let list: any[] = [];
+    if (Array.isArray(raw)) list = raw;
+    else if (raw && Array.isArray(raw.content)) list = raw.content;
+
+    if (list && list.length > 0) return list.slice(0, limit);
     return mockTopProducts.slice(0, limit);
   } catch {
     return mockTopProducts.slice(0, limit);
   }
 };
 
-// 4. GET /api/v1/admin/catalog/products
+// 4. GET /api/v1/admin/products (hoặc /api/v1/admin/categories)
 export const fetchAdminMenuItemsApi = async (): Promise<AdminMenuItem[]> => {
   try {
-    const res = await apiClient.get<ApiResponse<AdminMenuItem[]>>('/admin/catalog/products');
-    if (res.data && res.data.data) return res.data.data;
+    // Thử lấy danh sách trực tiếp từ /admin/products trước
+    try {
+      const prodRes = await apiClient.get<ApiResponse<any>>('/admin/products');
+      const prodRaw = prodRes.data?.data;
+      let prodList: any[] = [];
+      if (Array.isArray(prodRaw)) prodList = prodRaw;
+      else if (prodRaw && Array.isArray(prodRaw.content)) prodList = prodRaw.content;
+
+      if (prodList && prodList.length > 0) {
+        return prodList.map((p: any) => ({
+          id: String(p.productId || p.id || `prod-${Math.random()}`),
+          sku: p.sku || `SKU-${p.productId || Math.floor(100 + Math.random() * 900)}`,
+          name: p.productName || p.name || 'Món ăn',
+          category: p.categoryName || p.category?.categoryName || 'Món chính',
+          price: Number(p.productPrice ?? p.price ?? 50000),
+          costPrice: Number((p.productPrice ?? p.price ?? 50000) * 0.4),
+          imageUrl: p.productImageUrl || p.imageUrl || p.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop&q=80',
+          description: p.productDescription || p.description || '',
+          isAvailable: p.productIsAvailable ?? p.isAvailable ?? true,
+        }));
+      }
+    } catch {}
+
+    const res = await apiClient.get<ApiResponse<any>>('/admin/categories');
+    const raw = res.data?.data;
+    let categories: any[] = [];
+    if (Array.isArray(raw)) categories = raw;
+    else if (raw && Array.isArray(raw.content)) categories = raw.content;
+
+    if (categories && categories.length > 0) {
+      const allProducts: AdminMenuItem[] = [];
+      categories.forEach((cat: any) => {
+        const catName = cat.categoryName || cat.name || 'Món chính';
+        const productsList = cat.products || cat.items || [];
+        if (Array.isArray(productsList) && productsList.length > 0) {
+          productsList.forEach((p: any) => {
+            const itemPrice = Number(p.productPrice ?? p.price ?? 0);
+            allProducts.push({
+              id: String(p.productId || p.id || `prod-${Math.random()}`),
+              sku: p.sku || `SKU-${p.productId || Math.floor(100 + Math.random() * 900)}`,
+              name: p.productName || p.name || 'Món ăn',
+              category: p.categoryName || catName,
+              price: itemPrice > 0 ? itemPrice : 50000,
+              costPrice: itemPrice > 0 ? Math.round(itemPrice * 0.4) : 20000,
+              imageUrl: p.productImageUrl || p.imageUrl || p.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop&q=80',
+              description: p.productDescription || p.description || '',
+              isAvailable: p.productIsAvailable ?? p.isAvailable ?? true,
+            });
+          });
+        }
+      });
+      if (allProducts.length > 0) return allProducts;
+    }
     return mockMenuItems;
   } catch {
     return mockMenuItems;
   }
 };
 
-// 5. PATCH /api/v1/admin/catalog/products/{id}/toggle-stock
+// 5. PATCH /api/v1/admin/products/{id}/toggle-availability
 export const toggleProductAvailabilityApi = async (productId: string, isAvailable: boolean): Promise<AdminMenuItem> => {
   try {
-    const res = await apiClient.patch<ApiResponse<AdminMenuItem>>(`/admin/catalog/products/${productId}/toggle-stock`, { isAvailable });
+    const res = await apiClient.patch<ApiResponse<any>>(`/admin/products/${productId}/toggle-availability`, { isAvailable });
     if (res.data && res.data.data) {
-      message.success(`Đã cập nhật trạng thái món ${res.data.data.name}!`);
       return res.data.data;
     }
   } catch {
@@ -211,35 +271,116 @@ export const toggleProductAvailabilityApi = async (productId: string, isAvailabl
   const target = mockMenuItems.find((p) => p.id === productId);
   if (!target) throw new Error('Không tìm thấy sản phẩm');
   target.isAvailable = isAvailable;
-  message.success(`Đã cập nhật trạng thái kho món ${target.name}!`);
   return { ...target };
 };
 
 // 6. POST /api/v1/admin/products
 export const createProductApi = async (productData: Omit<AdminMenuItem, 'id'>): Promise<AdminMenuItem> => {
   try {
-    const res = await apiClient.post<ApiResponse<AdminMenuItem>>('/admin/products', productData);
+    const payload = {
+      productName: productData.name,
+      productPrice: productData.price,
+      categoryName: productData.category || 'Món chính',
+      imageUrl: productData.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop&q=80',
+      description: productData.description || '',
+      isAvailbale: productData.isAvailable !== false,
+    };
+    const res = await apiClient.post<ApiResponse<any>>('/admin/products', payload);
     if (res.data && res.data.data) {
-      message.success(`Đã tạo mới món ${productData.name} thành công!`);
-      return res.data.data;
+      const p = res.data.data;
+      return {
+        id: String(p.productId || p.id || `prod-${Date.now()}`),
+        sku: p.sku || productData.sku || `SKU-${Math.floor(100 + Math.random() * 900)}`,
+        name: p.productName || productData.name,
+        category: p.categoryName || productData.category,
+        price: Number(p.productPrice ?? productData.price),
+        costPrice: Math.round(Number(p.productPrice ?? productData.price) * 0.4),
+        imageUrl: p.productImageUrl || productData.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop&q=80',
+        description: p.productDescription || productData.description || '',
+        isAvailable: p.productIsAvailable ?? productData.isAvailable ?? true,
+      };
     }
-  } catch {
-    // Fallback
+  } catch (err: any) {
+    console.error('Error creating product:', err);
+    throw err;
   }
+
   const newItem: AdminMenuItem = {
     ...productData,
     id: `prod-${Date.now()}`,
   };
   mockMenuItems.unshift(newItem);
-  message.success(`Đã tạo mới món ${productData.name} thành công!`);
   return newItem;
+};
+
+// 6.1. PUT /api/v1/admin/products/{id}
+export const updateProductApi = async (
+  productId: string,
+  productData: Partial<AdminMenuItem>
+): Promise<AdminMenuItem> => {
+  try {
+    const payload = {
+      productName: productData.name,
+      productPrice: productData.price,
+      categoryName: productData.category,
+      imageUrl: productData.imageUrl,
+      description: productData.description,
+      isAvailable: productData.isAvailable,
+    };
+    const res = await apiClient.put<ApiResponse<any>>(`/admin/products/${productId}`, payload);
+    if (res.data && res.data.data) {
+      const p = res.data.data;
+      return {
+        id: String(p.productId || p.id || productId),
+        sku: p.sku || productData.sku || `SKU-${productId}`,
+        name: p.productName || productData.name || 'Món ăn',
+        category: p.categoryName || productData.category || 'Món chính',
+        price: Number(p.productPrice ?? productData.price ?? 50000),
+        costPrice: Math.round(Number(p.productPrice ?? productData.price ?? 50000) * 0.4),
+        imageUrl: p.productImageUrl || productData.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop&q=80',
+        description: p.productDescription || productData.description || '',
+        isAvailable: p.productIsAvailable ?? productData.isAvailable ?? true,
+      };
+    }
+  } catch (err: any) {
+    console.error('Error updating product:', err);
+    throw err;
+  }
+  throw new Error('Không thể cập nhật món ăn');
+};
+
+// 6.2. DELETE /api/v1/admin/products/{id}
+export const deleteProductApi = async (productId: string): Promise<void> => {
+  try {
+    await apiClient.delete<ApiResponse<void>>(`/admin/products/${productId}`);
+  } catch (err: any) {
+    console.error('Error deleting product:', err);
+    throw err;
+  }
 };
 
 // 7. GET /api/v1/admin/tables/floor-map
 export const fetchAdminTablesApi = async (): Promise<AdminTable[]> => {
   try {
-    const res = await apiClient.get<ApiResponse<AdminTable[]>>('/admin/tables/floor-map');
-    if (res.data && res.data.data) return res.data.data;
+    const res = await apiClient.get<ApiResponse<any>>('/admin/tables/floor-map');
+    const raw = res.data?.data;
+    let list: any[] = [];
+    if (Array.isArray(raw)) list = raw;
+    else if (raw && Array.isArray(raw.content)) list = raw.content;
+
+    if (list && list.length > 0) {
+      return list.map((item: any) => ({
+        id: String(item.tableId || item.id || `tbl-${Math.random()}`),
+        tableNumber: String(item.tableNumber || item.number || '01'),
+        zone: item.zone || 'Tầng 1',
+        capacity: Number(item.capacity || 4),
+        status: item.status || 'EMPTY',
+        currentOrderCode: item.currentOrderCode || undefined,
+        occupiedMinutes: item.occupiedMinutes || 0,
+        totalAmount: Number(item.totalAmount || 0),
+        qrUrl: item.qrUrl || item.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=tbl_${item.tableNumber || '01'}`,
+      }));
+    }
     return mockTables;
   } catch {
     return mockTables;
@@ -254,14 +395,189 @@ export const updateTableStatusApi = async (tableId: string, status: TableStatus)
   return { ...table };
 };
 
+const STAFF_PASSWORDS_STORAGE_KEY = 'ordering_system_staff_passwords';
+
+export const getSavedStaffPassword = (username?: string, userId?: string): string => {
+  try {
+    const json = localStorage.getItem(STAFF_PASSWORDS_STORAGE_KEY);
+    const map: Record<string, string> = json ? JSON.parse(json) : {};
+    if (username && map[username]) return map[username];
+    if (userId && map[userId]) return map[userId];
+  } catch {}
+  return '123456';
+};
+
+export const saveStaffPassword = (username?: string, userId?: string, password?: string): void => {
+  if (!password || !password.trim()) return;
+  try {
+    const json = localStorage.getItem(STAFF_PASSWORDS_STORAGE_KEY);
+    const map: Record<string, string> = json ? JSON.parse(json) : {};
+    if (username) map[username] = password.trim();
+    if (userId) map[userId] = password.trim();
+    localStorage.setItem(STAFF_PASSWORDS_STORAGE_KEY, JSON.stringify(map));
+  } catch {}
+};
+
 // 9. GET /api/v1/admin/staffs
 export const fetchStaffUsersApi = async (): Promise<StaffUser[]> => {
   try {
-    const res = await apiClient.get<ApiResponse<StaffUser[]>>('/admin/staffs');
-    if (res.data && res.data.data) return res.data.data;
-    return mockStaffUsers;
+    const res = await apiClient.get<ApiResponse<any>>('/admin/staffs');
+    const raw = res.data?.data;
+    let list: any[] = [];
+    if (Array.isArray(raw)) list = raw;
+    else if (raw && Array.isArray(raw.content)) list = raw.content;
+
+    if (list && list.length > 0) {
+      return list.map((item: any) => {
+        const uName = item.username || 'staff';
+        const uId = String(item.userId || item.id || '');
+        const pWord = item.password || getSavedStaffPassword(uName, uId);
+        return {
+          id: uId || `usr-${Math.random()}`,
+          name: item.fullName || item.name || uName || 'Nhân viên',
+          email: item.email || `${uName}@restaurant.com`,
+          phone: item.phone || '0900000000',
+          role: item.role || 'STAFF',
+          salary: Number(item.salary || 7500000),
+          username: uName,
+          password: pWord,
+          status: item.active !== false ? 'ACTIVE' : 'INACTIVE',
+          lastActive: item.createdAt ? new Date(item.createdAt).toLocaleTimeString('vi-VN') : 'Vừa hoạt động',
+        };
+      });
+    }
+    return mockStaffUsers.map((m) => ({
+      ...m,
+      password: getSavedStaffPassword(m.username, m.id),
+    }));
   } catch {
-    return mockStaffUsers;
+    return mockStaffUsers.map((m) => ({
+      ...m,
+      password: getSavedStaffPassword(m.username, m.id),
+    }));
+  }
+};
+
+// 9.1. POST /api/v1/admin/staffs
+export const createStaffApi = async (staffData: {
+  fullName: string;
+  username: string;
+  password?: string;
+  role: StaffRole;
+  salary?: number;
+  phone?: string;
+}): Promise<StaffUser> => {
+  const pwdToSave = staffData.password || '123456';
+  try {
+    const res = await apiClient.post<ApiResponse<any>>('/admin/staffs', {
+      fullName: staffData.fullName,
+      username: staffData.username,
+      password: pwdToSave,
+      role: staffData.role,
+      salary: staffData.salary || 7500000,
+      phone: staffData.phone || '0900000000',
+    });
+
+    if (res.data && res.data.data) {
+      const item = res.data.data;
+      const createdId = String(item.userId || item.id || `usr-${Date.now()}`);
+      saveStaffPassword(staffData.username, createdId, pwdToSave);
+
+      return {
+        id: createdId,
+        name: item.fullName || staffData.fullName,
+        email: `${item.username || staffData.username}@restaurant.com`,
+        phone: item.phone || staffData.phone || '0900000000',
+        role: item.role || staffData.role,
+        salary: Number(item.salary || staffData.salary || 7500000),
+        username: item.username || staffData.username,
+        password: pwdToSave,
+        status: 'ACTIVE',
+        lastActive: 'Vừa hoạt động',
+      };
+    }
+  } catch (err: any) {
+    console.error('Error creating staff:', err);
+    throw err;
+  }
+
+  const createdId = `usr-${Date.now()}`;
+  saveStaffPassword(staffData.username, createdId, pwdToSave);
+
+  const newStaff: StaffUser = {
+    id: createdId,
+    name: staffData.fullName,
+    email: `${staffData.username}@restaurant.com`,
+    phone: staffData.phone || '0900000000',
+    role: staffData.role,
+    salary: Number(staffData.salary || 7500000),
+    username: staffData.username,
+    password: pwdToSave,
+    status: 'ACTIVE',
+    lastActive: 'Vừa tạo',
+  };
+  mockStaffUsers.unshift(newStaff);
+  return newStaff;
+};
+
+// 9.2. PUT /api/v1/admin/staffs/{id}
+export const updateStaffApi = async (
+  staffId: string,
+  staffData: {
+    fullName: string;
+    role: StaffRole;
+    salary: number;
+    phone?: string;
+    password?: string;
+  }
+): Promise<StaffUser> => {
+  try {
+    const res = await apiClient.put<ApiResponse<any>>(`/admin/staffs/${staffId}`, {
+      fullName: staffData.fullName,
+      role: staffData.role,
+      salary: staffData.salary,
+      phone: staffData.phone,
+      password: staffData.password,
+    });
+
+    if (staffData.password && staffData.password.trim()) {
+      saveStaffPassword(undefined, staffId, staffData.password.trim());
+    }
+
+    if (res.data && res.data.data) {
+      const item = res.data.data;
+      const uName = item.username || 'staff';
+      if (staffData.password && staffData.password.trim()) {
+        saveStaffPassword(uName, staffId, staffData.password.trim());
+      }
+      return {
+        id: String(item.userId || item.id || staffId),
+        name: item.fullName || staffData.fullName,
+        email: `${uName}@restaurant.com`,
+        phone: item.phone || staffData.phone || '0900000000',
+        role: item.role || staffData.role,
+        salary: Number(item.salary || staffData.salary || 7500000),
+        username: uName,
+        password: getSavedStaffPassword(uName, staffId),
+        status: item.active !== false ? 'ACTIVE' : 'INACTIVE',
+        lastActive: 'Vừa cập nhật',
+      };
+    }
+  } catch (err: any) {
+    console.error('Error updating staff:', err);
+    throw err;
+  }
+  throw new Error('Không thể cập nhật nhân viên');
+};
+
+// 9.3. DELETE /api/v1/admin/staffs/{id}
+export const deleteStaffApi = async (staffId: string): Promise<void> => {
+  try {
+    await apiClient.delete<ApiResponse<void>>(`/admin/staffs/${staffId}`);
+    message.success('Đã xóa thành công nhân viên khỏi cơ sở dữ liệu!');
+  } catch (err: any) {
+    console.error('Error deleting staff:', err);
+    throw err;
   }
 };
 
@@ -290,8 +606,36 @@ export const createVietQrPaymentApi = async (
 // 11. GET /api/v1/admin/orders/history
 export const fetchAdminOrdersApi = async (): Promise<AdminOrder[]> => {
   try {
-    const res = await apiClient.get<ApiResponse<AdminOrder[]>>('/admin/orders/history');
-    if (res.data && res.data.data) return res.data.data;
+    const res = await apiClient.get<ApiResponse<any>>('/admin/orders/history');
+    const raw = res.data?.data;
+    let list: any[] = [];
+    if (Array.isArray(raw)) list = raw;
+    else if (raw && Array.isArray(raw.content)) list = raw.content;
+
+    if (list && list.length > 0) {
+      return list.map((item: any) => ({
+        id: String(item.orderId || item.id || `ord-${Math.random()}`),
+        orderCode: item.orderCode || `#ORD-${item.orderId || Math.floor(1000 + Math.random() * 9000)}`,
+        tableNumber: String(item.tableNumber || item.tableId || '01'),
+        zone: item.zone || 'Tầng 1',
+        createdAt: item.createdAt ? new Date(item.createdAt).toLocaleTimeString('vi-VN') : 'Vừa xong',
+        status: item.status || 'PENDING',
+        paymentStatus: item.paymentStatus || 'UNPAID',
+        paymentMethod: item.paymentMethod || 'UNPAID',
+        totalAmount: Number(item.totalAmount || 0),
+        items: Array.isArray(item.items)
+          ? item.items.map((i: any) => ({
+              id: String(i.id || Math.random()),
+              name: i.productName || i.name || 'Món ăn',
+              quantity: Number(i.quantity || 1),
+              price: Number(i.price || 0),
+              note: i.note || '',
+            }))
+          : [],
+        customerNote: item.customerNote || '',
+        staffName: item.staffName || '',
+      }));
+    }
     return mockAdminOrders;
   } catch {
     return mockAdminOrders;

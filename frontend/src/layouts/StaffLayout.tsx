@@ -29,12 +29,12 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({
 
   const navigate = useNavigate();
   const location = useLocation();
-  const currentPath = location.pathname || '/staff';
+  const currentPath = location.pathname || '/app/staff';
 
   const menuItems = [
-    { key: '/staff/tables', icon: LayoutGrid, label: 'Sơ đồ & Danh sách Bàn' },
-    { key: '/staff/orders', icon: Receipt, label: 'Danh sách Đơn hàng' },
-    { key: '/staff/quick-pos', icon: UtensilsCrossed, label: 'Đặt món tại bàn (Quick POS)' },
+    { key: '/app/staff/tables', icon: LayoutGrid, label: 'Sơ đồ & Danh sách Bàn' },
+    { key: '/app/staff/orders', icon: Receipt, label: 'Danh sách Đơn hàng' },
+    { key: '/app/staff/quick-pos', icon: UtensilsCrossed, label: 'Đặt món tại bàn (Quick POS)' },
   ];
 
   const handleMenuClick = (path: string) => {
@@ -46,7 +46,7 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({
   const handleLogout = () => {
     localStorage.clear();
     message.success('Đã đăng xuất thành công!');
-    navigate('/login');
+    navigate('/app/login');
   };
 
   const staffDropdownItems = [
@@ -161,7 +161,7 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({
         placement="left"
         onClose={() => setMobileDrawerOpen(false)}
         open={mobileDrawerOpen}
-        bodyStyle={{ padding: 0 }}
+        styles={{ body: { padding: 0 } }}
         width={260}
       >
         {renderSidebarContent(true)}
@@ -180,9 +180,9 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({
               <MenuIcon className="w-5 h-5" />
             </button>
 
-            {/* Nút Mũi Tên Quay Về Trang Chủ STAFF (/staff) */}
+            {/* Nút Mũi Tên Quay Về Trang Chủ STAFF (/app/staff) */}
             <button
-              onClick={() => navigate('/staff')}
+              onClick={() => navigate('/app/staff')}
               className="md:hidden h-10 px-2.5 rounded-lg border border-slate-200 bg-slate-100/90 hover:bg-orange-50 hover:border-orange-300 text-slate-700 hover:text-orange-600 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95 flex-shrink-0"
               title="Quay về Trang chủ POS"
             >

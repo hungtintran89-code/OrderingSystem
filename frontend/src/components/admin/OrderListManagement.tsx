@@ -99,19 +99,21 @@ export const OrderListManagement: React.FC = () => {
     }
   };
 
+  const safeOrdersList = Array.isArray(orders) ? orders : [];
+
   // Counts for tabs
   const getCountByStatus = (status: AdminOrderStatus | 'ALL') => {
-    if (status === 'ALL') return orders.length;
-    return orders.filter((o) => o.status === status).length;
+    if (status === 'ALL') return safeOrdersList.length;
+    return safeOrdersList.filter((o) => o.status === status).length;
   };
 
   // Filtered Orders
-  const filteredOrders = orders.filter((ord) => {
+  const filteredOrders = safeOrdersList.filter((ord) => {
     const matchesStatus = statusFilter === 'ALL' || ord.status === statusFilter;
     const matchesSearch =
-      ord.orderCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ord.tableNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ord.items.some((it) => it.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      (ord.orderCode || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (ord.tableNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (Array.isArray(ord.items) && ord.items.some((it) => (it.name || '').toLowerCase().includes(searchQuery.toLowerCase())));
     return matchesStatus && matchesSearch;
   });
 

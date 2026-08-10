@@ -3,7 +3,9 @@ import { AdminMenuItem } from '../../types/admin';
 import {
   fetchAdminMenuItemsApi,
   toggleProductAvailabilityApi,
-  createProductApi
+  createProductApi,
+  updateProductApi,
+  deleteProductApi
 } from '../../api/adminApi';
 import {
   Search,
@@ -26,6 +28,8 @@ import {
   Eye
 } from 'lucide-react';
 import { Modal, Switch, message, Popconfirm, Image as AntImage } from 'antd';
+import { SmartSearchBar } from '../common/SmartSearchBar';
+import { isVietnameseMatch } from '../../utils/vietnameseSearch';
 
 export const MenuManagement: React.FC = () => {
   const [items, setItems] = useState<AdminMenuItem[]>([]);
@@ -165,23 +169,24 @@ export const MenuManagement: React.FC = () => {
       setSubmitting(true);
       const created = await createProductApi({
         sku: `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-        name: newProductName,
+        name: newProductName.trim(),
         category: newProductCategory,
         price: Number(newProductPrice),
-        imageUrl: newProductImage.trim(), // Để trống nếu không có ảnh
-        description: newProductDesc,
+        imageUrl: newProductImage.trim(),
+        description: newProductDesc.trim(),
         isAvailable: true,
       });
 
-      setItems((prev) => [created, ...prev]);
+      setItems((prev) => [created, ...(Array.isArray(prev) ? prev : [])]);
       setIsModalOpen(false);
       // Reset form
       setNewProductName('');
       setNewProductDesc('');
       setNewProductImage('');
-      message.success('Đã thêm món ăn mới vào Thực đơn!');
-    } catch (err) {
-      message.error('Lỗi khi thêm món ăn mới');
+      message.success(`Đã thêm thành công món "${newProductName}" vào Thực đơn!`);
+      await loadMenuItems();
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || 'Lỗi khi thêm món ăn mới. Vui lòng thử lại.');
     } finally {
       setSubmitting(false);
     }
@@ -199,39 +204,56 @@ export const MenuManagement: React.FC = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleSaveEditProduct = (e: React.FormEvent) => {
+  const handleSaveEditProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem || !editProductName.trim()) {
       message.error('Vui lòng nhập tên món ăn');
       return;
     }
 
-    const updatedItem: AdminMenuItem = {
-      ...editingItem,
-      name: editProductName,
-      category: editProductCategory,
-      price: Number(editProductPrice),
-      description: editProductDesc,
-      imageUrl: editProductImage.trim(),
-      isAvailable: editProductAvailable,
-    };
+    try {
+      setSubmitting(true);
+      const updated = await updateProductApi(editingItem.id, {
+        name: editProductName.trim(),
+        category: editProductCategory,
+        price: Number(editProductPrice),
+        description: editProductDesc.trim(),
+        imageUrl: editProductImage.trim(),
+        isAvailable: editProductAvailable,
+      });
 
-    setItems((prev) => prev.map((item) => (item.id === editingItem.id ? updatedItem : item)));
-    setIsEditModalOpen(false);
-    message.success('Đã cập nhật thông tin món ăn thành công!');
+      setItems((prev) => (Array.isArray(prev) ? prev.map((item) => (item.id === editingItem.id ? updated : item)) : []));
+      setIsEditModalOpen(false);
+      message.success(`Đã cập nhật thành công thông tin món "${editProductName}"!`);
+      await loadMenuItems();
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || 'Không thể cập nhật món ăn. Vui lòng thử lại.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // --- DELETE DISH ACTION ---
-  const handleDeleteDish = (itemId: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== itemId));
-    message.success('Đã xóa món ăn khỏi thực đơn');
+  const handleDeleteDish = async (itemId: string) => {
+    try {
+      setLoading(true);
+      await deleteProductApi(itemId);
+      setItems((prev) => (Array.isArray(prev) ? prev.filter((i) => i.id !== itemId) : []));
+      message.success('Đã xóa món ăn khỏi cơ sở dữ liệu!');
+      await loadMenuItems();
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || 'Không thể xóa món ăn. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredItems = items.filter((item) => {
     const matchesCategory = selectedCategory === 'Tất cả' || item.category === selectedCategory;
     const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.sku.toLowerCase().includes(searchQuery.toLowerCase());
+      isVietnameseMatch(item.name, searchQuery) ||
+      isVietnameseMatch(item.sku, searchQuery) ||
+      isVietnameseMatch(item.category, searchQuery);
     return matchesCategory && matchesSearch;
   });
 
@@ -270,18 +292,15 @@ export const MenuManagement: React.FC = () => {
           </button>
         </div>
 
-        {/* Right: Search & Create Dish Button */}
-        <div className="flex items-center gap-2 flex-1 sm:flex-none justify-end">
-          <div className="relative w-44 sm:w-60">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Tìm theo tên hoặc SKU..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:border-orange-500 transition-colors"
-            />
-          </div>
+        {/* Right: Smart Autocomplete Search Bar & Create Dish Button */}
+        <div className="flex items-center gap-2.5 flex-1 sm:flex-none justify-end">
+          <SmartSearchBar
+            items={items}
+            selectedCategory={selectedCategory}
+            searchQuery={searchQuery}
+            onSearchChange={(q) => setSearchQuery(q)}
+            onClearCategoryFilter={() => setSelectedCategory('Tất cả')}
+          />
 
           <button
             onClick={() => setIsModalOpen(true)}
@@ -503,7 +522,7 @@ export const MenuManagement: React.FC = () => {
         open={isModalOpen}
         onCancel={() => setIsModalOpen(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
       >
         <form onSubmit={handleCreateProduct} className="space-y-4 pt-2 text-xs">
           <div>
@@ -642,7 +661,7 @@ export const MenuManagement: React.FC = () => {
         open={isEditModalOpen}
         onCancel={() => setIsEditModalOpen(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
       >
         <form onSubmit={handleSaveEditProduct} className="space-y-4 pt-2 text-xs">
           <div>

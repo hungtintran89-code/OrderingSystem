@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Utensils, User, Lock, Eye, EyeOff, Info } from 'lucide-react';
 import { message } from 'antd';
+import { authApi } from '../api/authApi';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -12,32 +13,40 @@ export const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   // Role Authentication Handler
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) {
       message.error('Vui lòng nhập email hoặc tên đăng nhập!');
       return;
     }
+    if (!password) {
+      message.error('Vui lòng nhập mật khẩu!');
+      return;
+    }
 
     setLoading(true);
-    const input = username.trim().toLowerCase();
 
-    setTimeout(() => {
+    try {
+      // 1. Authenticate with Backend Spring Boot API
+      const authData = await authApi.login({ username: username.trim(), password });
       setLoading(false);
-      if (input.includes('admin') || input === 'quanly' || input === 'admin@ordering.com') {
-        message.success('Đăng nhập thành công với quyền Quản Lý (Admin)!');
-        navigate('/admin');
-      } else if (input.includes('kitchen') || input.includes('bep') || input === 'kitchen@ordering.com') {
-        message.success('Đăng nhập thành công với quyền Đầu Bếp (Kitchen KDS)!');
-        navigate('/kitchen');
-      } else if (input.includes('staff') || input.includes('nhanvien') || input === 'staff@ordering.com') {
-        message.success('Đăng nhập thành công với quyền Nhân Viên (Staff POS)!');
-        navigate('/staff');
-      } else {
-        message.success('Đăng nhập thành công!');
-        navigate('/staff');
+
+      if (authData && authData.token) {
+        message.success(`Đăng nhập thành công! Chào mừng ${authData.fullName || authData.username}.`);
+        const userRole = (authData.role || '').toUpperCase();
+        if (['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole)) {
+          navigate('/app/admin');
+        } else if (userRole.includes('KITCHEN') || userRole.includes('CHEF')) {
+          navigate('/app/kitchen');
+        } else {
+          navigate('/app/staff');
+        }
       }
-    }, 500);
+    } catch {
+      // Login failed: Error message toast is displayed by Axios interceptor.
+      // STAY ON /app/login! DO NOT NAVIGATE ANYWHERE!
+      setLoading(false);
+    }
   };
 
   // Forgot Password Click Handler

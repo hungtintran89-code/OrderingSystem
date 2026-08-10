@@ -41,24 +41,24 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     {
       title: 'QUẢN TRỊ HỆ THỐNG',
       items: [
-        { key: '/admin', icon: LayoutGrid, label: 'Dashboard Tổng quan' },
-        { key: '/admin/menu', icon: UtensilsCrossed, label: 'Quản lý Thực đơn & Topping' },
-        { key: '/admin/tables-qr', icon: LayoutGrid, label: 'Quản lý Bàn & Mã QR' },
-        { key: '/admin/staff', icon: Users, label: 'Quản lý Nhân viên & Quyền' },
-        { key: '/admin/analytics', icon: PieChart, label: 'Báo cáo & Analytics' },
+        { key: '/app/admin', icon: LayoutGrid, label: 'Dashboard Tổng quan' },
+        { key: '/app/admin/menu', icon: UtensilsCrossed, label: 'Quản lý Thực đơn & Topping' },
+        { key: '/app/admin/tables-qr', icon: LayoutGrid, label: 'Quản lý Bàn & Mã QR' },
+        { key: '/app/admin/staff', icon: Users, label: 'Quản lý Nhân viên & Quyền' },
+        { key: '/app/admin/analytics', icon: PieChart, label: 'Báo cáo & Analytics' },
       ],
     },
     {
       title: 'VẬN HÀNH POS & PHỤC VỤ (STAFF)',
       items: [
-        { key: '/admin/tables', icon: LayoutGrid, label: 'Sơ đồ & Danh sách Bàn' },
-        { key: '/admin/orders', icon: Receipt, label: 'Danh sách Đơn hàng' },
-        { key: '/admin/quick-pos', icon: UtensilsCrossed, label: 'Đặt món tại bàn (Quick POS)' },
+        { key: '/app/admin/tables', icon: LayoutGrid, label: 'Sơ đồ & Danh sách Bàn' },
+        { key: '/app/admin/orders', icon: Receipt, label: 'Danh sách Đơn hàng' },
+        { key: '/app/admin/quick-pos', icon: UtensilsCrossed, label: 'Đặt món tại bàn (Quick POS)' },
       ],
     },
   ];
 
-  const currentPath = location.pathname || '/admin';
+  const currentPath = location.pathname || '/app/admin';
 
   const handleMenuClick = (path: string) => {
     navigate(path);
@@ -69,7 +69,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   const handleLogout = () => {
     localStorage.clear();
     message.success('Đã đăng xuất thành công!');
-    navigate('/login');
+    navigate('/app/login');
   };
 
   const userDropdownItems = [
@@ -95,19 +95,19 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   // Dynamic & Clickable Breadcrumb Items Generator
   const getBreadcrumbItems = () => {
     const routeTitles: Record<string, string> = {
-      '/admin': 'Dashboard Tổng Quan',
-      '/admin/menu': 'Quản lý Thực đơn & Topping',
-      '/admin/tables-qr': 'Quản lý Bàn & Mã QR',
-      '/admin/staff': 'Quản lý Nhân viên & Quyền',
-      '/admin/analytics': 'Báo cáo & Analytics',
-      '/admin/tables': 'Sơ đồ & Danh sách Bàn',
-      '/admin/orders': 'Danh sách Đơn hàng',
-      '/admin/quick-pos': 'Đặt món tại bàn (Quick POS)',
+      '/app/admin': 'Dashboard Tổng Quan',
+      '/app/admin/menu': 'Quản lý Thực đơn & Topping',
+      '/app/admin/tables-qr': 'Quản lý Bàn & Mã QR',
+      '/app/admin/staff': 'Quản lý Nhân viên & Quyền',
+      '/app/admin/analytics': 'Báo cáo & Analytics',
+      '/app/admin/tables': 'Sơ đồ & Danh sách Bàn',
+      '/app/admin/orders': 'Danh sách Đơn hàng',
+      '/app/admin/quick-pos': 'Đặt món tại bàn (Quick POS)',
     };
 
     const currentTitle = routeTitles[currentPath] || 'Quản trị & Vận hành';
 
-    if (currentPath === '/admin') {
+    if (currentPath === '/app/admin') {
       return [
         {
           title: (
@@ -123,7 +123,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       {
         title: (
           <button
-            onClick={() => navigate('/admin')}
+            onClick={() => navigate('/app/admin')}
             className="text-xs font-medium text-slate-500 hover:text-orange-600 hover:underline transition-colors cursor-pointer inline-flex items-center gap-1"
             title="Nhấp để quay về Trang chủ Admin"
           >
@@ -242,7 +242,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         placement="left"
         onClose={() => setMobileDrawerOpen(false)}
         open={mobileDrawerOpen}
-        bodyStyle={{ padding: 0 }}
+        styles={{ body: { padding: 0 } }}
         width={270}
       >
         {renderSidebarContent(true)}
@@ -262,9 +262,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               <MenuIcon className="w-5 h-5" />
             </button>
 
-            {/* Nút Mũi Tên Quay Về Trang Chủ ADMIN (/admin) */}
+            {/* Nút Mũi Tên Quay Về Trang Chủ ADMIN (/app/admin) */}
             <button
-              onClick={() => navigate('/admin')}
+              onClick={() => navigate('/app/admin')}
               className="md:hidden h-10 px-2.5 rounded-lg border border-slate-200 bg-slate-100/90 hover:bg-orange-50 hover:border-orange-300 text-slate-700 hover:text-orange-600 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95 flex-shrink-0"
               title="Quay về Trang chủ Admin"
             >

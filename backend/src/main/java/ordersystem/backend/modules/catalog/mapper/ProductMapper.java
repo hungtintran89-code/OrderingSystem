@@ -21,6 +21,8 @@ public class ProductMapper {
     }
 
     public ProductResponse toProductResponse ( ProductEntity productEntity ){
+        Long catId = productEntity.getCategory() != null ? productEntity.getCategory().getCategoryId() : null;
+        String catName = productEntity.getCategory() != null ? productEntity.getCategory().getCategoryName() : null;
         return ProductResponse.builder()
                 .productId( productEntity.getProductId())
                 .productName( productEntity.getProductName() )
@@ -28,6 +30,8 @@ public class ProductMapper {
                 .productImageUrl( productEntity.getProductImageUrl() )
                 .description( productEntity.getProductDescription())
                 .isAvailable( productEntity.getProductIsAvailable())
+                .categoryId( catId )
+                .categoryName( catName )
                 .build();
     }
 }
