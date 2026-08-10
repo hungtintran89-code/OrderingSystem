@@ -3,6 +3,8 @@ package ordersystem.backend.modules.table.service.run;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import ordersystem.backend.common.exception.ResourceNotFoundException;
+import ordersystem.backend.modules.order.entity.OrderEntity;
+import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.table.entity.RestaurantTableEntity;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
@@ -15,16 +17,16 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * Service triển khai logic quản lý Phiên hoạt động của Bàn ăn (Table Sessions),
+ * bao gồm Mở/Đóng phiên, Chuyển bàn, Gộp bàn và cập nhật trạng thái vật lý.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -32,8 +34,9 @@ public class TableSessionServiceImpl implements TableSessionService {
 
     private final TableSessionRepository tableSessionRepository;
     private final RestaurantTableRepository restaurantTableRepository;
+    private final OrderRepository orderRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final RedisTemplate<String , Object > redisTemplate ;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
     @Transactional
@@ -43,7 +46,7 @@ public class TableSessionServiceImpl implements TableSessionService {
                 .orElseGet(() -> {
                     TableSessionEntity newSession = createNewSessionForTable(tableId);
 
-                    // 📌 BỔ SUNG: Cập nhật trạng thái bàn vật lý trong DB thành OCCUPIED
+                    // 📌 Cập nhật trạng thái bàn vật lý trong DB thành OCCUPIED
                     RestaurantTableEntity table = newSession.getTable();
                     table.setTableStatus(TableStatus.OCCUPIED);
                     restaurantTableRepository.save(table); // Lưu lại DB
@@ -70,7 +73,6 @@ public class TableSessionServiceImpl implements TableSessionService {
         closeSessionEntity(session); // Gọi hàm cốt lõi
     }
 
-
     // 2. ⭐ HÀM CỐT LÕI ĐÓNG SESSION DUY NHẤT TRONG TOÀN HỆ THỐNG
     @Override
     @Transactional
@@ -81,7 +83,7 @@ public class TableSessionServiceImpl implements TableSessionService {
         session.setEndedAt(new Date());
         tableSessionRepository.save(session);
 
-        // 📌 BỔ SUNG: Cập nhật trạng thái bàn vật lý trong DB về EMPTY
+        // 📌 Cập nhật trạng thái bàn vật lý trong DB về EMPTY
         RestaurantTableEntity table = session.getTable();
         table.setTableStatus(TableStatus.EMPTY);
 
@@ -116,5 +118,72 @@ public class TableSessionServiceImpl implements TableSessionService {
 
         //Lưu lại vào db session mới
         return tableSessionRepository.save(newSession);
+    }
+
+    /**
+     * Nghiệp vụ Chuyển bàn: Chuyển toàn bộ các đơn hàng active từ Bàn Nguồn sang Bàn Đích.
+     * Đóng session ở Bàn nguồn và giải phóng bàn nguồn về EMPTY.
+     * 
+     * @param sourceTableId ID Bàn nguồn
+     * @param targetTableId ID Bàn đích
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = "floor_map", allEntries = true)
+    public void transferTable(Long sourceTableId, Long targetTableId) {
+        if (sourceTableId.equals(targetTableId)) {
+            throw new IllegalArgumentException("Bàn nguồn và Bàn đích không được trùng nhau.");
+        }
+
+        // 1. Lấy phiên ACTIVE của bàn nguồn
+        TableSessionEntity sourceSession = tableSessionRepository.findByTableTableIdAndStatus(sourceTableId, SessionStatus.ACTIVE)
+                .orElseThrow(() -> new ResourceNotFoundException("Bàn nguồn hiện không có phiên hoạt động nào."));
+
+        // 2. Lấy hoặc tạo mới phiên ACTIVE ở bàn đích
+        TableSessionEntity targetSession = getOrCreateActiveSession(targetTableId);
+
+        // 3. Tìm các đơn hàng thuộc session nguồn và chuyển sang session đích
+        List<OrderEntity> sourceOrders = orderRepository.findAll().stream()
+                .filter(o -> o.getTableSession().getTableSessionId().equals(sourceSession.getTableSessionId()))
+                .toList();
+
+        for (OrderEntity order : sourceOrders) {
+            order.setTableSession(targetSession);
+            orderRepository.save(order);
+        }
+
+        // 4. Đóng session ở bàn nguồn
+        closeSessionEntity(sourceSession);
+        log.info("📢 Chuyển bàn thành công từ TableID {} sang TableID {}", sourceTableId, targetTableId);
+    }
+
+    /**
+     * Nghiệp vụ Gộp bàn: Gộp toàn bộ các đơn hàng từ danh sách Bàn Nguồn vào 1 Bàn Đích chính.
+     * 
+     * @param sourceTableIds Danh sách ID các bàn nguồn
+     * @param targetTableId ID Bàn đích chính
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = "floor_map", allEntries = true)
+    public void mergeTables(List<Long> sourceTableIds, Long targetTableId) {
+        TableSessionEntity targetSession = getOrCreateActiveSession(targetTableId);
+
+        for (Long sourceId : sourceTableIds) {
+            if (sourceId.equals(targetTableId)) continue;
+
+            tableSessionRepository.findByTableTableIdAndStatus(sourceId, SessionStatus.ACTIVE)
+                    .ifPresent(sourceSession -> {
+                        List<OrderEntity> orders = orderRepository.findAll().stream()
+                                .filter(o -> o.getTableSession().getTableSessionId().equals(sourceSession.getTableSessionId()))
+                                .toList();
+                        for (OrderEntity order : orders) {
+                            order.setTableSession(targetSession);
+                            orderRepository.save(order);
+                        }
+                        closeSessionEntity(sourceSession);
+                    });
+        }
+        log.info("📢 Gộp bàn thành công {} bàn nguồn vào TableID {}", sourceTableIds.size(), targetTableId);
     }
 }

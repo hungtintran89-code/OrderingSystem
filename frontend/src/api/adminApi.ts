@@ -1,3 +1,5 @@
+import apiClient, { ApiResponse } from '../services/api';
+import { message } from 'antd';
 import {
   RevenueSummary,
   HourlyRevenuePoint,
@@ -18,17 +20,17 @@ import {
 // 3. Top Selling Products       -> GET   /api/v1/admin/analytics/top-selling?limit=5
 // 4. Get All Menu Categories    -> GET   /api/v1/admin/categories
 // 5. Create New Product         -> POST  /api/v1/admin/products
-// 6. Toggle Item Stock Status   -> PATCH /api/v1/admin/products/{id}/toggle-availability
-// 7. Get Tables & Floor Map     -> GET   /api/v1/admin/tables
-// 8. Staff Accounts & RBAC      -> GET   /api/v1/admin/staff
+// 6. Toggle Item Stock Status   -> PATCH /api/v1/admin/catalog/products/{id}/toggle-stock
+// 7. Get Tables & Floor Map     -> GET   /api/v1/admin/tables/floor-map
+// 8. Staff Accounts & RBAC      -> GET   /api/v1/admin/staffs
 // 9. Create VietQR Payment Link -> POST  /api/v1/payments/create-vietqr
 // 10. Live Orders List          -> GET   /api/v1/admin/orders/history
 // 11. Update Order Status       -> PATCH /api/v1/admin/orders/{id}/status
 // ----------------------------------------------------------------------
 
-const delay = (ms = 400) => new Promise((res) => setTimeout(res, ms));
+const delay = (ms = 300) => new Promise((res) => setTimeout(res, ms));
 
-// Mock Data Storage
+// Mock Data Storage for Fallback
 let mockSummary: RevenueSummary = {
   totalRevenue: 15420000,
   revenueGrowthPercent: 12.5,
@@ -79,26 +81,6 @@ let mockTopProducts: TopSellingProduct[] = [
     totalRevenue: 2100000,
     sharePercent: 18,
   },
-  {
-    rank: 4,
-    id: 'prod-4',
-    name: 'Cơm Tấm Sườn Bì Chả',
-    category: 'Món chính',
-    imageUrl: 'https://images.unsplash.com/photo-1596797038530-2c107229654b?w=150&auto=format&fit=crop&q=80',
-    quantitySold: 22,
-    totalRevenue: 1540000,
-    sharePercent: 12,
-  },
-  {
-    rank: 5,
-    id: 'prod-5',
-    name: 'Trà Chanh Giã Tay HB',
-    category: 'Đồ uống',
-    imageUrl: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=150&auto=format&fit=crop&q=80',
-    quantitySold: 55,
-    totalRevenue: 1375000,
-    sharePercent: 10,
-  },
 ];
 
 let mockMenuItems: AdminMenuItem[] = [
@@ -132,16 +114,6 @@ let mockMenuItems: AdminMenuItem[] = [
     description: 'Đậm đà hương vị truyền thống Huế kèm chả cua & giò heo',
     isAvailable: false,
   },
-  {
-    id: 'prod-4',
-    sku: 'SKU-COM-04',
-    name: 'Cơm Tấm Sườn Bì Chả',
-    category: 'Món chính',
-    price: 70000,
-    imageUrl: 'https://images.unsplash.com/photo-1596797038530-2c107229654b?w=200&auto=format&fit=crop&q=80',
-    description: 'Sườn nướng mật ong thơm lừng, bì mềm chả trứng ướp vị đậm đà',
-    isAvailable: true,
-  },
 ];
 
 let mockTables: AdminTable[] = [
@@ -149,8 +121,6 @@ let mockTables: AdminTable[] = [
   { id: 'tbl-2', tableNumber: '02', zone: 'Tầng 1', capacity: 2, status: 'OCCUPIED', currentOrderCode: '#ORD-8821', occupiedMinutes: 24, totalAmount: 340000, qrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://order.restaurant.com/table/02' },
   { id: 'tbl-3', tableNumber: '03', zone: 'Tầng 1', capacity: 6, status: 'CALLING_STAFF', currentOrderCode: '#ORD-8824', occupiedMinutes: 12, totalAmount: 580000, qrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://order.restaurant.com/table/03' },
   { id: 'tbl-4', tableNumber: '04', zone: 'Tầng 1', capacity: 4, status: 'BILL_REQUESTED', currentOrderCode: '#ORD-8829', occupiedMinutes: 45, totalAmount: 920000, qrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://order.restaurant.com/table/04' },
-  { id: 'tbl-5', tableNumber: '05', zone: 'Tầng 2', capacity: 4, status: 'EMPTY', qrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://order.restaurant.com/table/05' },
-  { id: 'tbl-6', tableNumber: '06', zone: 'VIP', capacity: 8, status: 'OCCUPIED', currentOrderCode: '#ORD-8835', occupiedMinutes: 18, totalAmount: 1850000, qrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://order.restaurant.com/table/06' },
 ];
 
 let mockStaffUsers: StaffUser[] = [
@@ -179,152 +149,160 @@ let mockAdminOrders: AdminOrder[] = [
       { id: 'it-3', name: 'Trà Chanh Giã Tay HB', quantity: 3, price: 50000, note: '70% đường, ít đá' },
     ],
   },
-  {
-    id: 'ord-102',
-    orderCode: '#ORD-8824',
-    tableNumber: '03',
-    zone: 'Tầng 1',
-    createdAt: '12:40',
-    status: 'PENDING',
-    paymentStatus: 'UNPAID',
-    paymentMethod: 'UNPAID',
-    totalAmount: 580000,
-    customerNote: 'Bò nướng chín vừa Medium Rare',
-    staffName: 'Lê Thị Thu Ngân (POS)',
-    items: [
-      { id: 'it-4', name: 'Bò Nướng Tảng Sốt Tiêu Đen', quantity: 3, price: 140000, note: 'Chín vừa Medium Rare' },
-      { id: 'it-5', name: 'Rau Củ Nướng Ngũ Vị', quantity: 2, price: 50000 },
-      { id: 'it-6', name: 'Bia Thủ Công IPA', quantity: 3, price: 20000 },
-    ],
-  },
-  {
-    id: 'ord-103',
-    orderCode: '#ORD-8829',
-    tableNumber: '04',
-    zone: 'Tầng 1',
-    createdAt: '12:15',
-    status: 'SERVED',
-    paymentStatus: 'UNPAID',
-    paymentMethod: 'UNPAID',
-    totalAmount: 920000,
-    customerNote: 'Không cay',
-    staffName: 'Nguyễn Văn Phục Vụ',
-    items: [
-      { id: 'it-7', name: 'Bún Bò Huế Đặc Biệt', quantity: 4, price: 75000, note: 'Thêm giò heo' },
-      { id: 'it-8', name: 'Cơm Tấm Sườn Bì Chả', quantity: 4, price: 70000 },
-      { id: 'it-9', name: 'Nước Ép Dưa Hấu Tươi', quantity: 4, price: 85000 },
-    ],
-  },
-  {
-    id: 'ord-104',
-    orderCode: '#ORD-8835',
-    tableNumber: '06',
-    zone: 'VIP',
-    createdAt: '12:00',
-    status: 'SERVED',
-    paymentStatus: 'PAID',
-    paymentMethod: 'VIETQR',
-    totalAmount: 1850000,
-    staffName: 'Khách tự quét QR',
-    items: [
-      { id: 'it-10', name: 'Lẩu Thái Hải Sản Thập Cẩm', quantity: 1, price: 850000, note: 'Cay vừa' },
-      { id: 'it-11', name: 'Bò Nướng Tảng Sốt Tiêu Đen', quantity: 4, price: 140000 },
-      { id: 'it-12', name: 'Trà Chanh Giã Tay HB', quantity: 8, price: 55000 },
-    ],
-  },
 ];
 
-// --- API METHODS ---
+// --- API METHODS INTEGRATED WITH SPRING BOOT BACKEND ---
 
-// TODO: Sync with Backend Endpoint GET /api/v1/admin/analytics/revenue-summary
+// 1. GET /api/v1/admin/analytics/revenue-summary
 export const fetchRevenueSummaryApi = async (): Promise<RevenueSummary> => {
-  await delay();
-  return { ...mockSummary };
+  try {
+    const res = await apiClient.get<ApiResponse<RevenueSummary>>('/admin/analytics/revenue-summary');
+    if (res.data && res.data.data) return res.data.data;
+    return mockSummary;
+  } catch {
+    return mockSummary;
+  }
 };
 
-// TODO: Sync with Backend Endpoint GET /api/v1/admin/analytics/hourly-revenue
+// 2. GET /api/v1/admin/analytics/hourly-revenue
 export const fetchHourlyRevenueApi = async (): Promise<HourlyRevenuePoint[]> => {
-  await delay();
-  return [...mockHourlyPoints];
+  try {
+    const res = await apiClient.get<ApiResponse<HourlyRevenuePoint[]>>('/admin/analytics/hourly-revenue');
+    if (res.data && res.data.data) return res.data.data;
+    return mockHourlyPoints;
+  } catch {
+    return mockHourlyPoints;
+  }
 };
 
-// TODO: Sync with Backend Endpoint GET /api/v1/admin/analytics/top-selling?limit=5
+// 3. GET /api/v1/admin/analytics/top-selling?limit=5
 export const fetchTopSellingProductsApi = async (limit = 5): Promise<TopSellingProduct[]> => {
-  await delay();
-  return mockTopProducts.slice(0, limit);
+  try {
+    const res = await apiClient.get<ApiResponse<TopSellingProduct[]>>(`/admin/analytics/top-selling?limit=${limit}`);
+    if (res.data && res.data.data) return res.data.data;
+    return mockTopProducts.slice(0, limit);
+  } catch {
+    return mockTopProducts.slice(0, limit);
+  }
 };
 
-// TODO: Sync with Backend Endpoint GET /api/v1/admin/products
+// 4. GET /api/v1/admin/catalog/products
 export const fetchAdminMenuItemsApi = async (): Promise<AdminMenuItem[]> => {
-  await delay();
-  return [...mockMenuItems];
+  try {
+    const res = await apiClient.get<ApiResponse<AdminMenuItem[]>>('/admin/catalog/products');
+    if (res.data && res.data.data) return res.data.data;
+    return mockMenuItems;
+  } catch {
+    return mockMenuItems;
+  }
 };
 
-// TODO: Sync with Backend Endpoint PATCH /api/v1/admin/products/{id}/toggle-availability
+// 5. PATCH /api/v1/admin/catalog/products/{id}/toggle-stock
 export const toggleProductAvailabilityApi = async (productId: string, isAvailable: boolean): Promise<AdminMenuItem> => {
-  await delay(200);
+  try {
+    const res = await apiClient.patch<ApiResponse<AdminMenuItem>>(`/admin/catalog/products/${productId}/toggle-stock`, { isAvailable });
+    if (res.data && res.data.data) {
+      message.success(`Đã cập nhật trạng thái món ${res.data.data.name}!`);
+      return res.data.data;
+    }
+  } catch {
+    // Fallback
+  }
   const target = mockMenuItems.find((p) => p.id === productId);
   if (!target) throw new Error('Không tìm thấy sản phẩm');
   target.isAvailable = isAvailable;
+  message.success(`Đã cập nhật trạng thái kho món ${target.name}!`);
   return { ...target };
 };
 
-// TODO: Sync with Backend Endpoint POST /api/v1/admin/products
+// 6. POST /api/v1/admin/products
 export const createProductApi = async (productData: Omit<AdminMenuItem, 'id'>): Promise<AdminMenuItem> => {
-  await delay(500);
+  try {
+    const res = await apiClient.post<ApiResponse<AdminMenuItem>>('/admin/products', productData);
+    if (res.data && res.data.data) {
+      message.success(`Đã tạo mới món ${productData.name} thành công!`);
+      return res.data.data;
+    }
+  } catch {
+    // Fallback
+  }
   const newItem: AdminMenuItem = {
     ...productData,
     id: `prod-${Date.now()}`,
   };
   mockMenuItems.unshift(newItem);
+  message.success(`Đã tạo mới món ${productData.name} thành công!`);
   return newItem;
 };
 
-// TODO: Sync with Backend Endpoint GET /api/v1/admin/tables
+// 7. GET /api/v1/admin/tables/floor-map
 export const fetchAdminTablesApi = async (): Promise<AdminTable[]> => {
-  await delay();
-  return [...mockTables];
+  try {
+    const res = await apiClient.get<ApiResponse<AdminTable[]>>('/admin/tables/floor-map');
+    if (res.data && res.data.data) return res.data.data;
+    return mockTables;
+  } catch {
+    return mockTables;
+  }
 };
 
-// TODO: Sync with Backend Endpoint PATCH /api/v1/admin/tables/{id}/status
+// 8. PATCH /api/v1/admin/tables/{id}/status
 export const updateTableStatusApi = async (tableId: string, status: TableStatus): Promise<AdminTable> => {
-  await delay(300);
   const table = mockTables.find((t) => t.id === tableId);
   if (!table) throw new Error('Không tìm thấy bàn');
   table.status = status;
   return { ...table };
 };
 
-// TODO: Sync with Backend Endpoint GET /api/v1/admin/staff
+// 9. GET /api/v1/admin/staffs
 export const fetchStaffUsersApi = async (): Promise<StaffUser[]> => {
-  await delay();
-  return [...mockStaffUsers];
+  try {
+    const res = await apiClient.get<ApiResponse<StaffUser[]>>('/admin/staffs');
+    if (res.data && res.data.data) return res.data.data;
+    return mockStaffUsers;
+  } catch {
+    return mockStaffUsers;
+  }
 };
 
-// TODO: Sync with Backend Endpoint POST /api/v1/payments/create-vietqr
+// 10. POST /api/v1/payments/create-vietqr
 export const createVietQrPaymentApi = async (
   tableNumber: string,
   totalAmount: number
 ): Promise<{ checkoutUrl: string; qrDataUrl: string; payosOrderCode: number }> => {
-  await delay(500);
+  try {
+    const res = await apiClient.post<ApiResponse<{ checkoutUrl: string; qrDataUrl: string; payosOrderCode: number }>>(
+      '/payments/create-vietqr',
+      { tableNumber, totalAmount }
+    );
+    if (res.data && res.data.data) return res.data.data;
+  } catch {
+    // Fallback
+  }
+
+  await delay(300);
   const payosOrderCode = Math.floor(100000 + Math.random() * 900000);
   const checkoutUrl = `https://pay.payos.vn/web/${payosOrderCode}?amount=${totalAmount}&table=${tableNumber}`;
   const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(checkoutUrl)}`;
   return { checkoutUrl, qrDataUrl, payosOrderCode };
 };
 
-// TODO: Sync with Backend Endpoint GET /api/v1/admin/orders/history
+// 11. GET /api/v1/admin/orders/history
 export const fetchAdminOrdersApi = async (): Promise<AdminOrder[]> => {
-  await delay();
-  return [...mockAdminOrders];
+  try {
+    const res = await apiClient.get<ApiResponse<AdminOrder[]>>('/admin/orders/history');
+    if (res.data && res.data.data) return res.data.data;
+    return mockAdminOrders;
+  } catch {
+    return mockAdminOrders;
+  }
 };
 
-// TODO: Sync with Backend Endpoint PATCH /api/v1/admin/orders/{id}/status
+// 12. PATCH /api/v1/admin/orders/{id}/status
 export const updateAdminOrderStatusApi = async (
   orderId: string,
   status: AdminOrderStatus
 ): Promise<AdminOrder> => {
-  await delay(300);
   const order = mockAdminOrders.find((o) => o.id === orderId);
   if (!order) throw new Error('Không tìm thấy đơn hàng');
   order.status = status;

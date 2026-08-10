@@ -2,6 +2,7 @@ package ordersystem.backend.modules.auth.service.run;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import ordersystem.backend.common.exception.ResourceNotFoundException;
 import ordersystem.backend.common.payload.PageResponse;
 import ordersystem.backend.modules.auth.dto.request.CreateStaffRequest;
 import ordersystem.backend.modules.auth.dto.response.StaffResponse;
@@ -19,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Service triển khai logic tạo, danh sách và khóa/mở khóa nhân viên.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -57,24 +61,52 @@ public class StaffServiceImpl implements StaffService {
     @Override
     public PageResponse<StaffResponse> getStaffs(int page, int size) {
         int safePage = Math.max(1, page);
-        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("createdAt").descending());
+        Pageable pageable = PageRequest.of(safePage - 1, size, Sort.by("createdAt").descending());
+
         Page<User> staffPage = userRepository.findAll(pageable);
         List<StaffResponse> content = staffPage.getContent().stream()
-                .map(user -> StaffResponse.builder()
-                        .userId(user.getUserId())
-                        .fullName(user.getFullName())
-                        .username(user.getUsername())
-                        .role(user.getRole())
-                        .active(user.isActive())
-                        .createdAt(user.getCreatedAt())
-                        .build()).toList();
+                .map(staff -> StaffResponse.builder()
+                        .userId(staff.getUserId())
+                        .fullName(staff.getFullName())
+                        .username(staff.getUsername())
+                        .role(staff.getRole())
+                        .active(staff.isActive())
+                        .createdAt(staff.getCreatedAt())
+                        .build())
+                .toList();
+
         return PageResponse.<StaffResponse>builder()
                 .content(content)
-                .page(page)
+                .page(safePage)
                 .size(size)
                 .totalElements(staffPage.getTotalElements())
                 .totalPages(staffPage.getTotalPages())
                 .build();
     }
-}
 
+    /**
+     * Khóa / Mở khóa tài khoản nhân viên hệ thống.
+     * 
+     * @param staffId ID nhân viên
+     * @return StaffResponse thông tin tài khoản sau khi chuyển trạng thái
+     */
+    @Override
+    @Transactional
+    public StaffResponse toggleStaffActive(Long staffId) {
+        User staff = userRepository.findById(staffId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân viên với ID: " + staffId));
+
+        staff.setActive(!staff.isActive());
+        User updatedStaff = userRepository.save(staff);
+
+        log.info("📢 Trạng thái hoạt động của nhân viên ID {} đã chuyển sang: {}", staffId, updatedStaff.isActive());
+        return StaffResponse.builder()
+                .userId(updatedStaff.getUserId())
+                .fullName(updatedStaff.getFullName())
+                .username(updatedStaff.getUsername())
+                .role(updatedStaff.getRole())
+                .active(updatedStaff.isActive())
+                .createdAt(updatedStaff.getCreatedAt())
+                .build();
+    }
+}
