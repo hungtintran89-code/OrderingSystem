@@ -256,8 +256,8 @@ export const TableQRManager: React.FC = () => {
 
   return (
     <div className="space-y-4 font-sans">
-      {/* TOOLBAR: ZONE TABS & ACTION BUTTONS */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+      {/* TOOLBAR STICKY: ZONE TABS & ACTION BUTTONS */}
+      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 transition-all">
         {/* Zone Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           <button
@@ -360,91 +360,93 @@ export const TableQRManager: React.FC = () => {
         </div>
       )}
 
-      {/* STATE 4: SUCCESS TABLE CARDS GRID */}
+      {/* STATE 4: SUCCESS TABLE CARDS GRID INSIDE SCROLLABLE CONTAINER CARD */}
       {!loading && !error && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredTables.map((table) => {
-            const isSelected = selectedTableIds.includes(table.id);
-            return (
-              <div
-                key={table.id}
-                onClick={() => toggleSelectTable(table.id)}
-                className={`bg-white rounded-xl p-4 border transition-all cursor-pointer relative shadow-2xs hover:shadow-md flex flex-col justify-between ${
-                  isSelected ? 'border-orange-500 ring-2 ring-orange-200' : 'border-slate-200'
-                }`}
-              >
-                {/* Top Action Header: Edit, Delete & Selection Checkbox */}
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-2">
-                  <div className="flex items-center gap-1">
-                    {/* Nút Chỉnh Sửa Tên Bàn */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenEditModal(table);
-                      }}
-                      className="p-1 rounded bg-slate-100 hover:bg-orange-50 text-slate-500 hover:text-orange-600 transition-colors cursor-pointer"
-                      title="Chỉnh sửa tên bàn & thông tin QR"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </button>
-
-                    {/* Nút Xóa Mã QR & Bàn */}
-                    <Popconfirm
-                      title="Xóa Bàn & Mã QR"
-                      description={`Xóa ${formatTableLabel(table.tableNumber)}?`}
-                      onConfirm={() => handleDeleteTable(table.id)}
-                      okText="Xóa"
-                      cancelText="Hủy"
-                      okButtonProps={{ danger: true }}
-                    >
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 max-h-[calc(100vh-210px)] min-h-[420px] overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filteredTables.map((table) => {
+              const isSelected = selectedTableIds.includes(table.id);
+              return (
+                <div
+                  key={table.id}
+                  onClick={() => toggleSelectTable(table.id)}
+                  className={`bg-white rounded-xl p-4 border transition-all cursor-pointer relative shadow-2xs hover:shadow-md flex flex-col justify-between ${
+                    isSelected ? 'border-orange-500 ring-2 ring-orange-200' : 'border-slate-200'
+                  }`}
+                >
+                  {/* Top Action Header: Edit, Delete & Selection Checkbox */}
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-2">
+                    <div className="flex items-center gap-1">
+                      {/* Nút Chỉnh Sửa Tên Bàn */}
                       <button
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-1 rounded bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
-                        title="Xóa bàn này"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEditModal(table);
+                        }}
+                        className="p-1 rounded bg-slate-100 hover:bg-orange-50 text-slate-500 hover:text-orange-600 transition-colors cursor-pointer"
+                        title="Chỉnh sửa tên bàn & thông tin QR"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Edit className="w-3.5 h-3.5" />
                       </button>
-                    </Popconfirm>
+
+                      {/* Nút Xóa Mã QR & Bàn */}
+                      <Popconfirm
+                        title="Xóa Bàn & Mã QR"
+                        description={`Xóa ${formatTableLabel(table.tableNumber)}?`}
+                        onConfirm={() => handleDeleteTable(table.id)}
+                        okText="Xóa"
+                        cancelText="Hủy"
+                        okButtonProps={{ danger: true }}
+                      >
+                        <button
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1 rounded bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                          title="Xóa bàn này"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </Popconfirm>
+                    </div>
+
+                    {/* Checkbox Tích Chọn Xuất File In */}
+                    <div>
+                      {isSelected ? (
+                        <CheckSquare className="w-5 h-5 text-orange-600" />
+                      ) : (
+                        <Square className="w-5 h-5 text-slate-300" />
+                      )}
+                    </div>
                   </div>
 
-                  {/* Checkbox Tích Chọn Xuất File In */}
-                  <div>
-                    {isSelected ? (
-                      <CheckSquare className="w-5 h-5 text-orange-600" />
-                    ) : (
-                      <Square className="w-5 h-5 text-slate-300" />
-                    )}
-                  </div>
-                </div>
+                  {/* Main Card Content */}
+                  <div className="space-y-3 text-center">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        {table.zone}
+                      </span>
+                      <h3 className="font-extrabold text-lg text-slate-900">{formatTableLabel(table.tableNumber)}</h3>
+                      <p className="text-[11px] text-slate-500 flex items-center justify-center gap-1 mt-0.5">
+                        <Users className="w-3 h-3 text-slate-400" /> {table.capacity} chỗ ngồi
+                      </p>
+                    </div>
 
-                {/* Main Card Content */}
-                <div className="space-y-3 text-center">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      {table.zone}
-                    </span>
-                    <h3 className="font-extrabold text-lg text-slate-900">{formatTableLabel(table.tableNumber)}</h3>
-                    <p className="text-[11px] text-slate-500 flex items-center justify-center gap-1 mt-0.5">
-                      <Users className="w-3 h-3 text-slate-400" /> {table.capacity} chỗ ngồi
+                    {/* QR Code Graphic */}
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 inline-block shadow-2xs">
+                      <img
+                        src={table.qrUrl}
+                        alt={`QR ${formatTableLabel(table.tableNumber)}`}
+                        className="w-32 h-32 object-contain mx-auto"
+                      />
+                    </div>
+
+                    <p className="text-[10px] font-mono text-slate-400 truncate">
+                      {`http://localhost:3000/menu?tableToken=${table.qrToken || 'qr_tok_' + table.id}`}
                     </p>
                   </div>
-
-                  {/* QR Code Graphic */}
-                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 inline-block shadow-2xs">
-                    <img
-                      src={table.qrUrl}
-                      alt={`QR ${formatTableLabel(table.tableNumber)}`}
-                      className="w-32 h-32 object-contain mx-auto"
-                    />
-                  </div>
-
-                  <p className="text-[10px] font-mono text-slate-400 truncate">
-                    {table.qrUrl}
-                  </p>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 

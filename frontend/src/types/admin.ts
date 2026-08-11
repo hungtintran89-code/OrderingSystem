@@ -64,6 +64,7 @@ export interface AdminTable {
   occupiedMinutes?: number;
   totalAmount?: number;
   qrUrl: string;
+  qrToken?: string;
 }
 
 export type StaffRole = 'SUPER_ADMIN' | 'MANAGER' | 'STAFF' | 'KITCHEN';

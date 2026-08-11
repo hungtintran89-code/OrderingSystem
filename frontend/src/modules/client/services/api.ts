@@ -6,7 +6,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 2500,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -16,11 +16,19 @@ const apiClient = axios.create({
 export let isBackendConnected = false;
 
 export const apiService = {
-  // 1. Resolve QR token or fetch full menu
+  // 1. Fetch full menu directly from PostgreSQL Database via /client/menu
   async getMenu(qrToken?: string): Promise<CategoryMenu[]> {
     try {
+      // Ưu tiên 1: Gọi GET /client/menu truy vấn trực tiếp bảng categories và products từ Postgres DB
+      const clientRes = await apiClient.get('/client/menu').catch(() => null);
+      if (clientRes && clientRes.status >= 200 && clientRes.status < 300 && clientRes.data && clientRes.data.data && Array.isArray(clientRes.data.data) && clientRes.data.data.length > 0) {
+        isBackendConnected = true;
+        return clientRes.data.data;
+      }
+
+      // Ưu tiên 2: Gọi GET /qr/info/${tokenToUse}
       const tokenToUse = qrToken || 'qr_tok_table_01';
-      const res = await apiClient.get(`/qr/resolve/${tokenToUse}`).catch(() => null);
+      const res = await apiClient.get(`/qr/info/${tokenToUse}`).catch(() => null);
 
       if (res && res.status >= 200 && res.status < 300 && res.data && (res.data.data || res.data.content)) {
         isBackendConnected = true;
@@ -33,6 +41,23 @@ export const apiService = {
       isBackendConnected = false;
       return MOCK_MENU;
     }
+  },
+
+  // 1.1 Fetch table info by QR token
+  async getTableInfo(qrToken?: string): Promise<{ tableId: number; tableName: string; sessionId?: number } | null> {
+    try {
+      const tokenToUse = qrToken || 'qr_tok_table_01';
+      const res = await apiClient.get(`/qr/table-info/${tokenToUse}`).catch(() => null);
+      if (res && res.status >= 200 && res.status < 300 && res.data && res.data.data) {
+        const d = res.data.data;
+        return {
+          tableId: Number(d.tableId || 1),
+          tableName: String(d.tableName || 'Bàn 01'),
+          sessionId: d.sessionId ? Number(d.sessionId) : undefined,
+        };
+      }
+    } catch {}
+    return null;
   },
 
   // 2. Fetch cart
@@ -153,23 +178,29 @@ export const apiService = {
     note: string = ""
   ): Promise<PersonalOrder | null> {
     try {
-      const res = await apiClient.post('/orders', {
-        tableId,
-        threadId,
-        note,
-        list: items
-      }).catch(() => null);
+      const payload = {
+        tableId: Number(tableId || 1),
+        threadId: Number(threadId || 12345),
+        note: note || "",
+        list: items.map((item) => ({
+          productId: Number(item.productId),
+          quantity: Number(item.quantity),
+          note: item.note || ""
+        }))
+      };
+
+      const res = await apiClient.post('/orders', payload);
 
       if (res && res.status >= 200 && res.status < 300 && res.data && res.data.data) {
         isBackendConnected = true;
         return res.data.data;
+      } else {
+        console.warn('Backend submit order response:', res?.data);
       }
-      isBackendConnected = false;
-      return MOCK_PERSONAL_ORDERS;
-    } catch {
-      isBackendConnected = false;
-      return MOCK_PERSONAL_ORDERS;
+    } catch (err) {
+      console.error('Error submitting order to backend:', err);
     }
+    return null;
   },
 
   // 8. Get personal orders history

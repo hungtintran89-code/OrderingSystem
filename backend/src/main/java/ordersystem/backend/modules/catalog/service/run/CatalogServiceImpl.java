@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 
+import ordersystem.backend.modules.catalog.dto.request.UpdateCategoryRequest;
+
 @Service
 @RequiredArgsConstructor
 
@@ -47,6 +49,45 @@ public class CatalogServiceImpl implements CatalogService {
                 .build();
         CategoryEntity categorySaved = categoryRepository.save(categoryEntity) ;
         return catalogMapper.toCategoryMenuResponse(categorySaved) ;
+    }
+
+    // Admin cập nhật tên danh mục
+    @Override
+    @Transactional
+    @CacheEvict(value = "categories", allEntries = true)
+    public CategoryMenuResponse updateCategory(Long categoryId, UpdateCategoryRequest request) {
+        CategoryEntity categoryEntity = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new CatalogException("Danh mục với ID " + categoryId + " không tồn tại"));
+
+        String newName = request.getCategoryName() != null ? request.getCategoryName().trim() : "";
+        if (newName.isBlank()) {
+            throw new CatalogException("Tên danh mục không được để trống!");
+        }
+
+        categoryRepository.findByCategoryNameIgnoreCase(newName).ifPresent(existing -> {
+            if (!existing.getCategoryId().equals(categoryId)) {
+                throw new CatalogException("Danh mục '" + newName + "' đã tồn tại!");
+            }
+        });
+
+        categoryEntity.setCategoryName(newName);
+        CategoryEntity updated = categoryRepository.save(categoryEntity);
+        return catalogMapper.toCategoryMenuResponse(updated);
+    }
+
+    // Admin xóa danh mục
+    @Override
+    @Transactional
+    @CacheEvict(value = "categories", allEntries = true)
+    public void deleteCategory(Long categoryId) {
+        CategoryEntity categoryEntity = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new CatalogException("Danh mục với ID " + categoryId + " không tồn tại"));
+
+        if (categoryEntity.getProductEntities() != null && !categoryEntity.getProductEntities().isEmpty()) {
+            throw new CatalogException("Không thể xóa danh mục '" + categoryEntity.getCategoryName() + "' vì đang chứa " + categoryEntity.getProductEntities().size() + " món ăn. Vui lòng di chuyển hoặc xóa các món ăn trước!");
+        }
+
+        categoryRepository.delete(categoryEntity);
     }
 
     // Admin lấy tất cả danh mục

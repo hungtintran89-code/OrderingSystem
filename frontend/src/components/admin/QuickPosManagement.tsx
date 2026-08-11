@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AdminMenuItem, AdminTable } from '../../types/admin';
-import { fetchAdminMenuItemsApi, fetchAdminTablesApi, createVietQrPaymentApi, updateTableStatusApi } from '../../api/adminApi';
+import { fetchAdminMenuItemsApi, fetchAdminTablesApi, createVietQrPaymentApi, updateTableStatusApi, checkoutTableApi } from '../../api/adminApi';
 import {
   UtensilsCrossed,
   Search,
@@ -212,11 +212,13 @@ export const QuickPosManagement: React.FC = () => {
   const handleConfirmCompletePayment = async () => {
     try {
       if (orderType === 'DINE_IN' && selectedTable) {
-        await updateTableStatusApi(selectedTable.id, 'EMPTY');
+        const recvAmount = typeof cashReceived === 'number' ? cashReceived : undefined;
+        const method = paymentMethodTab === 'QR' ? 'VIETQR' : 'CASH';
+        await checkoutTableApi(selectedTable.id, method, recvAmount);
       }
       setCart([]);
       setIsCheckoutModalOpen(false);
-      message.success('Đã hoàn tất thanh toán & giải phóng đơn!');
+      message.success('Đã hoàn tất thanh toán & giải phóng đơn trong DB!');
     } catch (err) {
       message.error('Lỗi khi thanh toán đơn hàng');
     }

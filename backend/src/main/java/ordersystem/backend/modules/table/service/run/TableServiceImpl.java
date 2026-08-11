@@ -28,6 +28,8 @@ import ordersystem.backend.modules.table.service.impl.TableSessionService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
+import ordersystem.backend.modules.table.dto.request.TableCheckoutRequest;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -35,6 +37,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TableServiceImpl implements TableService {
     private final RestaurantTableRepository restaurantTableRepository;
+    private final TableSessionRepository tableSessionRepository;
     private final TableSessionService tableSessionService;
     private final QRCodeGeneratorService qrCodeGeneratorService;
     private final RestaurantTableMapper restaurantTableMapper;
@@ -148,6 +151,55 @@ public class TableServiceImpl implements TableService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public QRResolveResponse getTableInfoByQrToken(String qrToken) {
+        if (qrToken == null || qrToken.isBlank()) {
+            throw new TableException("Mã QR token không được để trống");
+        }
+
+        String cleanToken = qrToken.trim();
+        if (cleanToken.contains("/")) {
+            cleanToken = cleanToken.substring(cleanToken.lastIndexOf("/") + 1);
+        }
+        if (cleanToken.contains("?")) {
+            cleanToken = cleanToken.split("\\?")[0];
+        }
+
+        final String targetToken = cleanToken;
+        RestaurantTableEntity tableInfo = restaurantTableRepository.findByQrToken(targetToken)
+                .orElseGet(() -> {
+                    try {
+                        String numStr = targetToken.replaceAll("[^0-9]", "");
+                        if (!numStr.isEmpty()) {
+                            Long id = Long.parseLong(numStr);
+                            return restaurantTableRepository.findByTableId(id).orElse(null);
+                        }
+                    } catch (Exception e) {}
+                    return null;
+                });
+
+        if (tableInfo == null && ("default".equalsIgnoreCase(targetToken) || "first".equalsIgnoreCase(targetToken))) {
+            tableInfo = restaurantTableRepository.findAllByIsActiveTrueOrderByTableIdAsc().stream().findFirst().orElse(null);
+        }
+
+        if (tableInfo == null) {
+            throw new TableException("Mã QR bàn không tồn tại trong hệ thống nhà hàng (Token: " + qrToken + ")");
+        }
+
+        TableSessionEntity activeSession = tableSessionRepository
+                .findByTableTableIdAndStatus(tableInfo.getTableId(), SessionStatus.ACTIVE)
+                .orElse(null);
+
+        return QRResolveResponse.builder()
+                .tableId(tableInfo.getTableId())
+                .tableName(tableInfo.getTableName())
+                .sessionId(activeSession != null ? activeSession.getTableSessionId() : null)
+                .sessionStatus(activeSession != null ? activeSession.getStatus().name() : "EMPTY")
+                .generatedThreadId(System.currentTimeMillis() % 1000000L)
+                .build();
+    }
+
 
     @Override
     @Transactional( readOnly = true )
@@ -158,5 +210,21 @@ public class TableServiceImpl implements TableService {
 
         //Điều phối sinh ra file (PNG hoặc PDF) qua generator
         return qrCodeGeneratorService.generate(tableInfo.getTableName(), tableInfo.getQrUrl(), qrFormat);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = "floor_map", allEntries = true)
+    public void checkoutAndClearTable(Long tableId, TableCheckoutRequest request) {
+        RestaurantTableEntity tableInfo = restaurantTableRepository.findById(tableId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bàn ăn với ID: " + tableId));
+
+        Optional<TableSessionEntity> activeSessionOpt = tableSessionRepository.findByTableTableIdAndStatus(tableId, SessionStatus.ACTIVE);
+        if (activeSessionOpt.isPresent()) {
+            tableSessionService.closeSessionEntity(activeSessionOpt.get());
+        } else {
+            tableInfo.setTableStatus(TableStatus.EMPTY);
+            restaurantTableRepository.save(tableInfo);
+        }
     }
 }

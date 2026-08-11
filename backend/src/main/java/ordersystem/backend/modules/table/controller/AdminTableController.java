@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.payload.ApiResponse;
 import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.table.dto.request.CreateTableRequest;
+import ordersystem.backend.modules.table.dto.request.TableCheckoutRequest;
 import ordersystem.backend.modules.table.dto.request.UpdateTableRequest;
 import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
 import ordersystem.backend.modules.table.dto.response.QRCodeExportResponse;
@@ -91,14 +92,17 @@ public class AdminTableController {
         return ResponseEntity.ok(ApiResponse.success("Opened table successfull", session));
     }
 
-    // 2. API cho Nhân viên bấm Đóng Bàn & Thanh toán
-    @PostMapping("/sessions/{sessionId}/close")
+    // 3. API cho Nhân viên bấm Thanh toán & Clear Bàn theo tableId
+    @PostMapping("/{tableId}/checkout")
     @PreAuthorize("hasRole('MANAGER') or hasRole('STAFF')")
-    public ResponseEntity<ApiResponse<Void>> closeTableSession(@PathVariable String sessionId) {
-        tableSessionService.closeSession(sessionId);
-        return ResponseEntity.ok(ApiResponse.success("Closed table successfull", null));
+    public ResponseEntity<ApiResponse<Void>> checkoutTable(
+            @PathVariable Long tableId,
+            @RequestBody(required = false) TableCheckoutRequest request
+    ) {
+        if (request == null) {
+            request = TableCheckoutRequest.builder().paymentMethod("CASH").build();
+        }
+        tableService.checkoutAndClearTable(tableId, request);
+        return ResponseEntity.ok(ApiResponse.success("Đã hoàn tất thanh toán và dọn bàn thành công!", null));
     }
-
-
-
 }

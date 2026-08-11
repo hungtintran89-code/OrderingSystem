@@ -17,19 +17,77 @@ import { wsService } from '../services/websocket';
 import { Search, Bell, ShoppingBag, CheckCircle2, X, ArrowRight } from 'lucide-react';
 import { filterAndSortByRelevance } from '../../../utils/vietnameseSearch';
 
+// Hàm lấy hoặc khởi tạo định danh duy nhất cho từng điện thoại/thiết bị cá nhân (threadId)
+const getOrCreateDeviceThreadId = (): number => {
+  const STORAGE_KEY = 'ordering_system_device_thread_id';
+  try {
+    let saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) {
+      saved = String(Math.floor(100000 + Math.random() * 900000));
+      localStorage.setItem(STORAGE_KEY, saved);
+    }
+    return Number(saved);
+  } catch {
+    return Math.floor(100000 + Math.random() * 900000);
+  }
+};
+
 export function CustomerApp() {
-  const [currentTable] = useState<TableInfo>(MOCK_TABLES[0]);
-  const [threadId] = useState<number>(Math.floor(10000 + Math.random() * 90000));
+  const [currentTable, setCurrentTable] = useState<TableInfo>(MOCK_TABLES[0]);
+  const [threadId] = useState<number>(getOrCreateDeviceThreadId);
   const [categories, setCategories] = useState<CategoryMenu[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Initial cart with real product IDs matching backend DB Flyway migration
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    { productId: 1, productName: 'Gỏi cuốn tôm thịt', productPrice: 45000, quantity: 1, priceTotal: 45000, note: 'Ít rau' },
-    { productId: 35, productName: 'Phở bò tái nạm đặc biệt', productPrice: 85000, quantity: 2, priceTotal: 170000, note: 'Không hành, ít cay' },
-    { productId: 81, productName: 'Trà đào cam sả tươi', productPrice: 45000, quantity: 1, priceTotal: 45000, note: 'Nhiều đá' }
-  ]);
+  // Tra cứu bàn thực tế từ DB dựa trên URL query param tableToken/path/localStorage (hoặc mặc định 'default')
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    let tokenToFetch = params.get('tableToken') || params.get('token') || params.get('qrToken');
+
+    if (!tokenToFetch) {
+      const pathParts = window.location.pathname.split('/').filter(Boolean);
+      const lastPart = pathParts[pathParts.length - 1];
+      if (lastPart && lastPart !== 'client' && lastPart !== 'menu') {
+        tokenToFetch = lastPart;
+      }
+    }
+
+    if (!tokenToFetch) {
+      try {
+        const savedJson = localStorage.getItem('ordering_system_active_client_table');
+        if (savedJson) {
+          const savedTable = JSON.parse(savedJson);
+          if (savedTable && savedTable.qrToken) {
+            tokenToFetch = savedTable.qrToken;
+          }
+        }
+      } catch {}
+    }
+
+    if (!tokenToFetch) {
+      tokenToFetch = 'default';
+    }
+
+    apiService.getTableInfo(tokenToFetch).then((info) => {
+      if (info && info.tableId) {
+        const resolvedTable: TableInfo = {
+          tableId: Number(info.tableId),
+          tableName: info.tableName,
+          tableSessionId: info.sessionId || Number(info.tableId),
+          qrToken: tokenToFetch !== 'default' ? tokenToFetch : '',
+        };
+        setCurrentTable(resolvedTable);
+        try {
+          localStorage.setItem('ordering_system_active_client_table', JSON.stringify(resolvedTable));
+        } catch {}
+      }
+    }).catch((err) => {
+      console.error('Error loading table info:', err);
+    });
+  }, []);
+
+  // Khởi tạo giỏ hàng trống cho khách chọn món thực tế từ DB
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
@@ -119,12 +177,12 @@ export function CustomerApp() {
     if (cartItems.length === 0) return;
 
     const itemsToSubmit = cartItems.map((item) => ({
-      productId: item.productId,
-      quantity: item.quantity,
+      productId: Number(item.productId),
+      quantity: Number(item.quantity),
       note: item.note
     }));
 
-    await apiService.submitOrder(currentTable.tableId, threadId, itemsToSubmit);
+    const result = await apiService.submitOrder(currentTable.tableId, threadId, itemsToSubmit);
 
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const newOrderItems = cartItems.map((item, i) => ({
@@ -158,11 +216,11 @@ export function CustomerApp() {
 
     setCartItems([]);
     setIsCartOpen(false);
-
     setShowSuccessToast(true);
     setTimeout(() => {
       setShowSuccessToast(false);
     }, 4000);
+    await loadOrders();
   };
 
   const handleServiceRequest = (type: RequestType) => {

@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.payload.ApiResponse;
 import ordersystem.backend.modules.catalog.dto.request.CreateCategoryRequest;
+import ordersystem.backend.modules.catalog.dto.request.UpdateCategoryRequest;
 import ordersystem.backend.modules.catalog.dto.request.CreateProductRequest;
 import ordersystem.backend.modules.catalog.dto.request.ToggleAvailabilityRequest;
 import ordersystem.backend.modules.catalog.dto.response.CategoryMenuResponse;
@@ -32,6 +33,26 @@ public class AdminCatalogController {
     public ResponseEntity<ApiResponse<CategoryMenuResponse>> createCategory (@Valid @RequestBody CreateCategoryRequest createCategoryRequest){
         CategoryMenuResponse categoryMenuResponse = catalogService.createCategory(createCategoryRequest) ;
         return ResponseEntity.ok( ApiResponse.success( "Category created successfully" , categoryMenuResponse)) ;
+    }
+
+    // 1.1. Admin cập nhật tên Danh mục
+    // URL: PUT /api/v1/admin/categories/{id}
+    @PutMapping("/categories/{id}")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<ApiResponse<CategoryMenuResponse>> updateCategory(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateCategoryRequest request) {
+        CategoryMenuResponse categoryMenuResponse = catalogService.updateCategory(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Category updated successfully", categoryMenuResponse));
+    }
+
+    // 1.2. Admin xóa Danh mục
+    // URL: DELETE /api/v1/admin/categories/{id}
+    @DeleteMapping("/categories/{id}")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<ApiResponse<Void>> deleteCategory(@PathVariable Long id) {
+        catalogService.deleteCategory(id);
+        return ResponseEntity.ok(ApiResponse.success("Category deleted successfully", null));
     }
 
     // 2. Admin lấy danh sách Danh mục

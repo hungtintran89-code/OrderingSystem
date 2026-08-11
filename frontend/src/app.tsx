@@ -15,6 +15,8 @@ export const App: React.FC = () => {
       <Routes>
         {/* ROUTE 1: CLIENT CUSTOMER APP (Giao diện Khách Đặt Món tại Bàn) */}
         <Route path="/client" element={<CustomerApp />} />
+        <Route path="/menu" element={<CustomerApp />} />
+        <Route path="/table/:tableId" element={<CustomerApp />} />
         <Route path="/" element={<Navigate to="/client" replace />} />
 
         {/* ROUTE 2: MANAGEMENT & STAFF PORTAL (/app) */}

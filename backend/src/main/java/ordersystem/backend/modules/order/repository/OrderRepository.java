@@ -19,6 +19,8 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
 
         //-------- HÀM CƠ BẢN (KHÔNG JOIN) - Dành cho các tác vụ kiểm tra vắn tắt------------------
         List<OrderEntity> findByTableSessionTableSessionIdInAndStatus ( List<Long> activeSessionIds , OrderStatus status ) ;
+        List<OrderEntity> findByTableSessionTableSessionIdInAndStatusNot ( List<Long> activeSessionIds , OrderStatus status ) ;
+        List<OrderEntity> findByTableSessionTableSessionIdIn ( List<Long> activeSessionIds ) ;
 
         // Tìm danh sách Order thuộc về một TableSession
         Optional<OrderEntity> findByTableSessionTableSessionIdAndStatus(Long tableSessionId, OrderStatus status);

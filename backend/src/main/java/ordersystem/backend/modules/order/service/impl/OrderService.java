@@ -6,11 +6,13 @@ import ordersystem.backend.modules.order.dto.response.MasterTableOrderResponse;
 import ordersystem.backend.modules.order.dto.response.PersonalOrderResponse;
 import ordersystem.backend.modules.order.dto.response.TableInvoiceResponse;
 import ordersystem.backend.modules.order.enums.OrderStatus;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Pageable;
 
 public interface OrderService {
 
     // 1. Xử lý khi Khách hàng bấm Gửi đơn đặt món
+    @CacheEvict(value = "floor_map", allEntries = true)
     PersonalOrderResponse submitOrderWithLock(SubmitPersonalOrderRequest request);
 
     // 2. Lấy danh sách món do chính điện thoại của khách đã đặt

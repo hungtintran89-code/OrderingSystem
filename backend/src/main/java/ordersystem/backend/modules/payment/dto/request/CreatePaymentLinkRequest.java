@@ -7,7 +7,8 @@ import lombok.*;
 @Builder
 @NoArgsConstructor @AllArgsConstructor
 public class CreatePaymentLinkRequest {
-    //Tạo vietqr cho toàn bộ phiên ăn
-    @NotNull(message = "Table Session Id cannot be left blank")
     private Long tableSessionId;
+    private String tableNumber;
+    private Long totalAmount;
+    private Long amount;
 }

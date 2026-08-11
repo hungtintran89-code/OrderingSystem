@@ -9,10 +9,18 @@ import ordersystem.backend.modules.catalog.dto.response.ProductResponse;
 
 import java.util.List;
 
+import ordersystem.backend.modules.catalog.dto.request.UpdateCategoryRequest;
+
 public interface CatalogService {
 
     // Admin tạo danh mục mới
     CategoryMenuResponse createCategory(CreateCategoryRequest createCategoryRequest);
+
+    // Admin cập nhật danh mục
+    CategoryMenuResponse updateCategory(Long categoryId, UpdateCategoryRequest updateCategoryRequest);
+
+    // Admin xóa danh mục
+    void deleteCategory(Long categoryId);
 
     // Admin lấy tất cả danh mục
     List<CategoryMenuResponse> getAllCategories();

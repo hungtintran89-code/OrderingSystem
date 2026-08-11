@@ -6,6 +6,7 @@ import {
   TopSellingProduct,
   AdminMenuItem,
   AdminTable,
+  StaffRole,
   StaffUser,
   TableStatus,
   AdminOrder,
@@ -379,6 +380,7 @@ export const fetchAdminTablesApi = async (): Promise<AdminTable[]> => {
         occupiedMinutes: item.occupiedMinutes || 0,
         totalAmount: Number(item.tempTotalAmount || item.totalAmount || 0),
         qrUrl: item.qrImageBase64 || item.qrUrl || '',
+        qrToken: item.qrToken || undefined,
       }));
     }
     return [];
@@ -628,15 +630,24 @@ export const createVietQrPaymentApi = async (
       '/payments/create-vietqr',
       { tableNumber, totalAmount }
     );
-    if (res.data && res.data.data) return res.data.data;
-  } catch {
-    // Fallback
+    if (res.data && res.data.data) {
+      const data = res.data.data;
+      const cleanTable = tableNumber.replace(/^bàn\s+/i, '').trim() || '01';
+      const realVietQrUrl = `https://img.vietqr.io/image/MB-0388888888-compact2.png?amount=${totalAmount}&addInfo=${encodeURIComponent(`TT BAN ${cleanTable}`)}`;
+      return {
+        ...data,
+        qrDataUrl: realVietQrUrl,
+      };
+    }
+  } catch (err) {
+    console.warn('Error calling create-vietqr backend endpoint, using VietQR QuickLink fallback:', err);
   }
 
   await delay(300);
   const payosOrderCode = Math.floor(100000 + Math.random() * 900000);
-  const checkoutUrl = `https://pay.payos.vn/web/${payosOrderCode}?amount=${totalAmount}&table=${tableNumber}`;
-  const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(checkoutUrl)}`;
+  const cleanTable = tableNumber.replace(/^bàn\s+/i, '').trim() || '01';
+  const checkoutUrl = `https://pay.payos.vn/web/${payosOrderCode}?amount=${totalAmount}&table=${cleanTable}`;
+  const qrDataUrl = `https://img.vietqr.io/image/MB-0388888888-compact2.png?amount=${totalAmount}&addInfo=${encodeURIComponent(`TT BAN ${cleanTable}`)}`;
   return { checkoutUrl, qrDataUrl, payosOrderCode };
 };
 
@@ -735,4 +746,75 @@ export const updateAdminZoneApi = async (zoneId: number, zoneName: string): Prom
 
 export const deleteAdminZoneApi = async (zoneId: number): Promise<void> => {
   await apiClient.delete(`/admin/zones/${zoneId}`);
+};
+
+// 14. ADMIN CATEGORY MANAGEMENT APIS
+export interface AdminCategoryItem {
+  categoryId: number;
+  categoryName: string;
+}
+
+export const fetchAdminCategoriesListApi = async (): Promise<AdminCategoryItem[]> => {
+  try {
+    const res = await apiClient.get<ApiResponse<any>>('/admin/categories');
+    const raw = res.data?.data;
+    let list: any[] = [];
+    if (Array.isArray(raw)) list = raw;
+    else if (raw && Array.isArray(raw.content)) list = raw.content;
+
+    if (list && list.length > 0) {
+      return list.map((c: any) => ({
+        categoryId: Number(c.categoryId || c.id || 0),
+        categoryName: String(c.categoryName || c.name || ''),
+      }));
+    }
+  } catch (err) {
+    console.error('Error fetching categories list:', err);
+  }
+  return [];
+};
+
+export const createAdminCategoryApi = async (categoryName: string): Promise<AdminCategoryItem> => {
+  const res = await apiClient.post<ApiResponse<any>>('/admin/categories', { categoryName });
+  const item = res.data?.data;
+  return {
+    categoryId: Number(item?.categoryId || item?.id || Date.now()),
+    categoryName: String(item?.categoryName || categoryName),
+  };
+};
+
+export const updateAdminCategoryApi = async (categoryId: number, categoryName: string): Promise<AdminCategoryItem> => {
+  const res = await apiClient.put<ApiResponse<any>>(`/admin/categories/${categoryId}`, { categoryName });
+  const item = res.data?.data;
+  return {
+    categoryId: Number(item?.categoryId || categoryId),
+    categoryName: String(item?.categoryName || categoryName),
+  };
+};
+
+export const deleteAdminCategoryApi = async (categoryId: number): Promise<void> => {
+  await apiClient.delete<ApiResponse<void>>(`/admin/categories/${categoryId}`);
+};
+
+export const checkoutTableApi = async (
+  tableId: string,
+  paymentMethod: 'CASH' | 'VIETQR' = 'CASH',
+  amountReceived?: number
+): Promise<void> => {
+  await apiClient.post(`/admin/tables/${tableId}/checkout`, {
+    paymentMethod,
+    amountReceived: amountReceived || undefined,
+  });
+};
+
+export const fetchMasterTableOrderApi = async (tableId: string): Promise<any> => {
+  try {
+    const res = await apiClient.get<ApiResponse<any>>(`/orders/table/${tableId}`);
+    if (res.data && res.data.data) {
+      return res.data.data;
+    }
+  } catch (err) {
+    console.error('Error fetching master table order:', err);
+  }
+  return null;
 };

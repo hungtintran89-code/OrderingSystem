@@ -19,10 +19,10 @@ public class PaymentController {
     private final PayOSService payOSService;
     private final PaymentService paymentService;
 
-    @PostMapping("/create_vietqr")
+    @PostMapping({"/create-vietqr", "/create_vietqr"})
     @PreAuthorize("hasAnyRole('MANAGER', 'STAFF')")
-    public ResponseEntity<ApiResponse<PaymentLinkResponse>> createVietQr(@Valid @RequestBody CreatePaymentLinkRequest request){
-        PaymentLinkResponse response = payOSService.createVietQrPaymentLink(request.getTableSessionId());
+    public ResponseEntity<ApiResponse<PaymentLinkResponse>> createVietQr(@RequestBody CreatePaymentLinkRequest request){
+        PaymentLinkResponse response = payOSService.createVietQrPaymentLink(request);
         return ResponseEntity.ok(ApiResponse.success("VietQr code generated successfully", response));
     }
 

@@ -5,7 +5,12 @@ import {
   toggleProductAvailabilityApi,
   createProductApi,
   updateProductApi,
-  deleteProductApi
+  deleteProductApi,
+  fetchAdminCategoriesListApi,
+  createAdminCategoryApi,
+  updateAdminCategoryApi,
+  deleteAdminCategoryApi,
+  AdminCategoryItem
 } from '../../api/adminApi';
 import {
   Search,
@@ -37,6 +42,7 @@ export const MenuManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Dynamic Categories State
+  const [categoryItems, setCategoryItems] = useState<AdminCategoryItem[]>([]);
   const [categories, setCategories] = useState<string[]>([
     'Tất cả',
     'Khai Vị',
@@ -51,6 +57,8 @@ export const MenuManagement: React.FC = () => {
   // Category Manager Modal State
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [newCatInput, setNewCatInput] = useState('');
+  const [editingCategory, setEditingCategory] = useState<AdminCategoryItem | null>(null);
+  const [editCategoryNameInput, setEditCategoryNameInput] = useState('');
 
   // Modal Create Product State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -70,6 +78,19 @@ export const MenuManagement: React.FC = () => {
   const [editProductDesc, setEditProductDesc] = useState('');
   const [editProductImage, setEditProductImage] = useState<string>('');
   const [editProductAvailable, setEditProductAvailable] = useState<boolean>(true);
+
+  const loadCategories = async () => {
+    try {
+      const dbCats = await fetchAdminCategoriesListApi();
+      if (Array.isArray(dbCats) && dbCats.length > 0) {
+        setCategoryItems(dbCats);
+        const catNames = dbCats.map((c) => c.categoryName);
+        setCategories(Array.from(new Set(['Tất cả', ...catNames])));
+      }
+    } catch (err) {
+      console.error('Không thể tải danh sách danh mục từ DB:', err);
+    }
+  };
 
   const loadMenuItems = async () => {
     try {
@@ -93,34 +114,74 @@ export const MenuManagement: React.FC = () => {
 
   useEffect(() => {
     loadMenuItems();
+    loadCategories();
   }, []);
 
-  // --- CATEGORY ACTIONS ---
-  const handleAddCategory = () => {
+  // --- CATEGORY ACTIONS CONNECTED TO DB ---
+  const handleAddCategory = async () => {
     const trimmed = newCatInput.trim();
     if (!trimmed) {
       message.error('Vui lòng nhập tên danh mục');
       return;
     }
-    if (categories.includes(trimmed)) {
-      message.warning('Danh mục này đã tồn tại');
+    if (categoryItems.some((c) => c.categoryName.toLowerCase() === trimmed.toLowerCase())) {
+      message.warning('Danh mục này đã tồn tại trong cơ sở dữ liệu');
       return;
     }
-    setCategories((prev) => [...prev, trimmed]);
-    setNewCatInput('');
-    message.success(`Đã thêm danh mục "${trimmed}"`);
+    try {
+      const created = await createAdminCategoryApi(trimmed);
+      message.success(`Đã thêm thành công danh mục "${created.categoryName}" vào DB!`);
+      setNewCatInput('');
+      await loadCategories();
+      await loadMenuItems();
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || 'Không thể thêm danh mục';
+      message.error(errMsg);
+    }
   };
 
-  const handleDeleteCategory = (catToDelete: string) => {
-    if (catToDelete === 'Tất cả') {
-      message.error('Không thể xóa danh mục "Tất cả"');
+  const handleStartEditCategory = (catItem: AdminCategoryItem) => {
+    setEditingCategory(catItem);
+    setEditCategoryNameInput(catItem.categoryName);
+  };
+
+  const handleSaveEditCategory = async () => {
+    if (!editingCategory) return;
+    const trimmed = editCategoryNameInput.trim();
+    if (!trimmed) {
+      message.error('Tên danh mục không được để trống');
       return;
     }
-    setCategories((prev) => prev.filter((c) => c !== catToDelete));
-    if (selectedCategory === catToDelete) {
-      setSelectedCategory('Tất cả');
+    if (trimmed === editingCategory.categoryName) {
+      setEditingCategory(null);
+      return;
     }
-    message.success(`Đã xóa danh mục "${catToDelete}"`);
+    try {
+      await updateAdminCategoryApi(editingCategory.categoryId, trimmed);
+      message.success(`Đã cập nhật danh mục thành "${trimmed}" trong DB!`);
+      setEditingCategory(null);
+      setEditCategoryNameInput('');
+      await loadCategories();
+      await loadMenuItems();
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || 'Không thể cập nhật tên danh mục';
+      message.error(errMsg);
+    }
+  };
+
+  const handleDeleteCategory = async (catItem: AdminCategoryItem) => {
+    try {
+      await deleteAdminCategoryApi(catItem.categoryId);
+      message.success(`Đã xóa danh mục "${catItem.categoryName}" khỏi DB!`);
+      if (selectedCategory === catItem.categoryName) {
+        setSelectedCategory('Tất cả');
+      }
+      await loadCategories();
+      await loadMenuItems();
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || 'Không thể xóa danh mục';
+      message.error(errMsg);
+    }
   };
 
   // --- IMAGE FILE UPLOAD HANDLER ---
@@ -273,22 +334,27 @@ export const MenuManagement: React.FC = () => {
 
   return (
     <div className="space-y-4 font-sans">
-      {/* TOOLBAR: CATEGORY CHIPS + CATEGORY MANAGER + SEARCH + CREATE BUTTON */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+      {/* TOOLBAR STICKY: CATEGORY CHIPS + CATEGORY MANAGER + SEARCH + CREATE BUTTON */}
+      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 transition-all">
         {/* Left: Category Chips & Category Manager Button */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-full">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[36px] ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[36px] flex items-center gap-1.5 ${
                   selectedCategory === cat
                     ? 'bg-orange-600 text-white shadow-2xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {cat}
+                <span>{cat}</span>
+                {cat === selectedCategory && (
+                  <span className="bg-white/20 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                    {filteredItems.length}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -370,23 +436,23 @@ export const MenuManagement: React.FC = () => {
         </div>
       )}
 
-      {/* STATE 1: NORMAL DATA COMMERCIAL TABLE */}
+      {/* STATE 1: SCROLLABLE CONTAINER CARD ("Ô VUÔNG CUỘN THEO DẦN") */}
       {!loading && !error && filteredItems.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col max-h-[calc(100vh-210px)] min-h-[420px] overflow-hidden">
+          <div className="overflow-auto flex-1 custom-scrollbar">
+            <table className="w-full text-left text-xs text-slate-700 relative border-collapse">
+              <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-slate-200 shadow-2xs">
                 <tr>
-                  <th className="p-3.5">Món Ăn & SKU</th>
-                  <th className="p-3.5">Danh Mục</th>
-                  <th className="p-3.5">Giá Bán</th>
-                  <th className="p-3.5 w-[160px] min-w-[160px]">Trạng Thái Kho</th>
-                  <th className="p-3.5 text-right w-[100px] min-w-[100px]">Thao Tác</th>
+                  <th className="p-3.5 bg-slate-50">Món Ăn & SKU</th>
+                  <th className="p-3.5 bg-slate-50">Danh Mục</th>
+                  <th className="p-3.5 bg-slate-50">Giá Bán</th>
+                  <th className="p-3.5 w-[160px] min-w-[160px] bg-slate-50">Trạng Thái Kho</th>
+                  <th className="p-3.5 text-right w-[100px] min-w-[100px] bg-slate-50">Thao Tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {filteredItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={item.id} className="hover:bg-orange-50/40 transition-colors">
                     <td className="p-3.5">
                       <div className="flex items-center gap-3">
                         {item.imageUrl ? (
@@ -498,28 +564,69 @@ export const MenuManagement: React.FC = () => {
 
           {/* Danh Sách Các Danh Mục Hiện Có */}
           <div className="space-y-2 pt-2 border-t border-slate-100">
-            <p className="font-bold text-slate-700">Danh mục hiện có:</p>
-            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-              {categories.map((cat) => (
+            <p className="font-bold text-slate-700">Danh mục hiện có trong Database:</p>
+            <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+              {/* Mục Mặc định Tất cả */}
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                <span className="font-semibold text-slate-800 text-xs">Tất cả</span>
+                <span className="text-[10px] text-slate-400 font-medium bg-slate-200 px-2 py-0.5 rounded">Mặc định</span>
+              </div>
+
+              {/* Danh sách danh mục từ Database */}
+              {categoryItems.map((catItem) => (
                 <div
-                  key={cat}
+                  key={catItem.categoryId}
                   className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200"
                 >
-                  <span className="font-semibold text-slate-800 text-xs">{cat}</span>
-                  {cat !== 'Tất cả' ? (
-                    <Popconfirm
-                      title={`Xóa danh mục "${cat}"?`}
-                      onConfirm={() => handleDeleteCategory(cat)}
-                      okText="Xóa"
-                      cancelText="Hủy"
-                      okButtonProps={{ danger: true }}
-                    >
-                      <button className="text-red-500 hover:text-red-700 p-1 cursor-pointer">
-                        <Trash className="w-3.5 h-3.5" />
+                  {editingCategory?.categoryId === catItem.categoryId ? (
+                    <div className="flex items-center gap-1.5 w-full">
+                      <input
+                        type="text"
+                        value={editCategoryNameInput}
+                        onChange={(e) => setEditCategoryNameInput(e.target.value)}
+                        className="flex-1 p-1.5 border border-orange-400 rounded text-xs bg-white focus:outline-none"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleSaveEditCategory}
+                        className="p-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs cursor-pointer flex items-center gap-0.5"
+                        title="Lưu thay đổi"
+                      >
+                        <Check className="w-3.5 h-3.5" />
                       </button>
-                    </Popconfirm>
+                      <button
+                        onClick={() => setEditingCategory(null)}
+                        className="p-1.5 bg-slate-300 hover:bg-slate-400 text-slate-700 rounded text-xs cursor-pointer flex items-center gap-0.5"
+                        title="Hủy"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   ) : (
-                    <span className="text-[10px] text-slate-400 font-medium">Mặc định</span>
+                    <>
+                      <span className="font-semibold text-slate-800 text-xs">{catItem.categoryName}</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleStartEditCategory(catItem)}
+                          className="text-blue-500 hover:text-blue-700 p-1 cursor-pointer hover:bg-blue-50 rounded"
+                          title="Chỉnh sửa tên danh mục"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <Popconfirm
+                          title={`Xóa danh mục "${catItem.categoryName}"?`}
+                          description="Danh mục rỗng mới có thể xóa. Các danh mục đang có món ăn sẽ bị chặn xóa."
+                          onConfirm={() => handleDeleteCategory(catItem)}
+                          okText="Xóa"
+                          cancelText="Hủy"
+                          okButtonProps={{ danger: true }}
+                        >
+                          <button className="text-red-500 hover:text-red-700 p-1 cursor-pointer hover:bg-red-50 rounded" title="Xóa danh mục">
+                            <Trash className="w-3.5 h-3.5" />
+                          </button>
+                        </Popconfirm>
+                      </div>
+                    </>
                   )}
                 </div>
               ))}

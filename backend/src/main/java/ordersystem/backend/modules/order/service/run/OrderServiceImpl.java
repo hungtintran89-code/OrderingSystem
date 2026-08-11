@@ -35,6 +35,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,6 +67,7 @@ public class OrderServiceImpl implements OrderService {
 
     // 1. Xử lý khi Khách hàng bấm Gửi đơn đặt món
     @Override
+    @CacheEvict(value = "floor_map", allEntries = true)
     public PersonalOrderResponse submitOrderWithLock(SubmitPersonalOrderRequest request) {
         //1. CHỐNG SPAM (RATE LIMITING):
         String rateLimitKey = "ratelimit:order:thread:" + request.getThreadId();
@@ -109,16 +111,27 @@ public class OrderServiceImpl implements OrderService {
 
         // 1. Lấy Session bàn đang ACTIVE
         RestaurantTableEntity table = restaurantTableRepository.findByTableId(request.getTableId())
-                .orElseThrow(() -> new OrderException("Table does not available"));
+                .orElseThrow(() -> new OrderException("Không tìm thấy thông tin bàn ăn với ID: " + request.getTableId()));
 
-        // 2. Tìm phiên không có thì tạo mới
+        // 2. Tìm phiên không có thì tạo mới và ĐỔI TRẠNG THÁI BÀN sang OCCUPIED
         TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableTableIdAndStatus(table.getTableId(), SessionStatus.ACTIVE)
-                .orElseGet(() -> tableSessionRepository.save(
-                        TableSessionEntity.builder()
-                                .table(table)
-                                .status(SessionStatus.ACTIVE)
-                                .build()
-                ));
+                .orElseGet(() -> {
+                    table.setTableStatus(TableStatus.OCCUPIED);
+                    restaurantTableRepository.save(table);
+                    TableSessionEntity newSession = TableSessionEntity.builder()
+                            .table(table)
+                            .tableName(table.getTableName())
+                            .sessionToken("sess_" + UUID.randomUUID().toString().replaceAll("-", ""))
+                            .status(SessionStatus.ACTIVE)
+                            .startedAt(new Date())
+                            .build();
+                    return tableSessionRepository.save(newSession);
+                });
+
+        if (table.getTableStatus() != TableStatus.OCCUPIED) {
+            table.setTableStatus(TableStatus.OCCUPIED);
+            restaurantTableRepository.save(table);
+        }
 
         // 3. Tìm Master Order tổng của bàn (Nếu chưa có thì tự động tạo mới)
         OrderEntity masterOrderEntity  = orderRepository.findByTableSessionTableSessionIdAndStatus(tableSessionEntity.getTableSessionId(), OrderStatus.PENDING)
@@ -145,6 +158,10 @@ public class OrderServiceImpl implements OrderService {
 
         for(OrderItemRequest itemRequest : request.getList()){
             ProductEntity productEntity = productMap.get(itemRequest.getProductId());
+            if (productEntity == null) {
+                productEntity = productRepository.findById(itemRequest.getProductId())
+                        .orElseGet(() -> productRepository.findAll().stream().findFirst().orElse(null));
+            }
             if (productEntity == null) {
                 throw new OrderException("Product with ID : " + itemRequest.getProductId() + " not found");
             }

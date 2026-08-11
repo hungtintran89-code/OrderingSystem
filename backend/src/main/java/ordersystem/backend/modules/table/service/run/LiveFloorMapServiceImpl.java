@@ -57,15 +57,16 @@ public class LiveFloorMapServiceImpl implements LiveFloorMapService {
                 .collect(Collectors.toList());
 
 
-        // add : Truy vấn tổng tiền theo sessionId (chỉ tính đơn khác COMPLETE)
+        // add : Truy vấn tổng tiền theo sessionId (tính tất cả các đơn chưa bị CANCELLED)
         Map<Long, Long> sessionTotalAmountMap = new HashMap<>();
         if (!activeSessionIds.isEmpty()) {
-            List<OrderEntity> orders = orderRepository.findByTableSessionTableSessionIdInAndStatus(
-                    activeSessionIds, OrderStatus.COMPLETED);
+            List<OrderEntity> orders = orderRepository.findByTableSessionTableSessionIdInAndStatusNot(
+                    activeSessionIds, OrderStatus.CANCELLED);
             for (OrderEntity order : orders) {
                 Long sessionId = order.getTableSession().getTableSessionId();
+                Long amt = order.getTotalAmount() != null ? order.getTotalAmount() : 0L;
                 sessionTotalAmountMap.put(sessionId,
-                        sessionTotalAmountMap.getOrDefault(sessionId, 0L) + order.getTotalAmount());
+                        sessionTotalAmountMap.getOrDefault(sessionId, 0L) + amt);
             }
         }
 
@@ -83,6 +84,7 @@ public class LiveFloorMapServiceImpl implements LiveFloorMapService {
                     .tempTotalAmount(tempAmount)
                     .qrUrl(table.getQrUrl())
                     .qrImageBase64(table.getQrImageBase64())
+                    .qrToken(table.getQrToken())
                     .zone(table.getZone() != null ? table.getZone() : "Tầng 1")
                     .capacity(table.getCapacity() != null ? table.getCapacity() : 4)
                     .build();
