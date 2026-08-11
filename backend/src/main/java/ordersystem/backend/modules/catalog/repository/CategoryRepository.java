@@ -13,6 +13,7 @@ public interface CategoryRepository extends JpaRepository<CategoryEntity, Long> 
 
     Optional<CategoryEntity> findByCategoryId (Long CategoryId );
     Optional<CategoryEntity> findByCategoryName ( String CategoryName ) ;
+    Optional<CategoryEntity> findByCategoryNameIgnoreCase ( String CategoryName ) ;
 
     @Query("SELECT DISTINCT c FROM CategoryEntity c LEFT JOIN FETCH c.productEntities p WHERE p.productIsAvailable = true OR p IS NULL")
     List<CategoryEntity> findAllWithProducts();

@@ -371,20 +371,57 @@ export const fetchAdminTablesApi = async (): Promise<AdminTable[]> => {
     if (list && list.length > 0) {
       return list.map((item: any) => ({
         id: String(item.tableId || item.id || `tbl-${Math.random()}`),
-        tableNumber: String(item.tableNumber || item.number || '01'),
+        tableNumber: String(item.tableName || item.tableNumber || item.number || '01'),
         zone: item.zone || 'Tầng 1',
         capacity: Number(item.capacity || 4),
         status: item.status || 'EMPTY',
         currentOrderCode: item.currentOrderCode || undefined,
         occupiedMinutes: item.occupiedMinutes || 0,
-        totalAmount: Number(item.totalAmount || 0),
-        qrUrl: item.qrUrl || item.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=tbl_${item.tableNumber || '01'}`,
+        totalAmount: Number(item.tempTotalAmount || item.totalAmount || 0),
+        qrUrl: item.qrImageBase64 || item.qrUrl || '',
       }));
     }
-    return mockTables;
+    return [];
   } catch {
-    return mockTables;
+    return [];
   }
+};
+
+export const createAdminTableApi = async (data: { tableName: string; zone?: string; capacity?: number }): Promise<AdminTable> => {
+  const res = await apiClient.post<ApiResponse<any>>('/admin/tables', data);
+  const item = res.data?.data;
+  return {
+    id: String(item.tableId || item.id),
+    tableNumber: String(item.tableName || item.tableNumber || data.tableName),
+    zone: item.zone || data.zone || 'Tầng 1',
+    capacity: Number(item.capacity || data.capacity || 4),
+    status: 'EMPTY',
+    occupiedMinutes: 0,
+    totalAmount: 0,
+    qrUrl: item.qrImageBase64 || item.qrUrl || '',
+  };
+};
+
+export const updateAdminTableApi = async (
+  tableId: string,
+  data: { tableName: string; zone?: string; capacity?: number; regenerateQr?: boolean }
+): Promise<AdminTable> => {
+  const res = await apiClient.put<ApiResponse<any>>(`/admin/tables/${tableId}`, data);
+  const item = res.data?.data;
+  return {
+    id: String(item.tableId || item.id || tableId),
+    tableNumber: String(item.tableName || item.tableNumber || data.tableName),
+    zone: item.zone || data.zone || 'Tầng 1',
+    capacity: Number(item.capacity || data.capacity || 4),
+    status: item.tableStatus || 'EMPTY',
+    occupiedMinutes: 0,
+    totalAmount: 0,
+    qrUrl: item.qrImageBase64 || item.qrUrl || '',
+  };
+};
+
+export const deleteAdminTableApi = async (tableId: string): Promise<void> => {
+  await apiClient.delete(`/admin/tables/${tableId}`);
 };
 
 // 8. PATCH /api/v1/admin/tables/{id}/status
@@ -655,4 +692,47 @@ export const updateAdminOrderStatusApi = async (
     if (order.paymentMethod === 'UNPAID') order.paymentMethod = 'CASH';
   }
   return { ...order };
+};
+
+// 13. ADMIN ZONE MANAGEMENT APIS
+export interface AdminZone {
+  zoneId: number;
+  zoneName: string;
+  displayOrder?: number;
+}
+
+export const fetchAdminZonesApi = async (): Promise<AdminZone[]> => {
+  try {
+    const response = await apiClient.get('/admin/zones');
+    if (response.data && response.data.data) {
+      return response.data.data;
+    }
+    return [
+      { zoneId: 1, zoneName: 'Tầng trệt' },
+      { zoneId: 2, zoneName: 'Tầng 1' },
+      { zoneId: 3, zoneName: 'Tầng 2' },
+      { zoneId: 4, zoneName: 'VIP' },
+    ];
+  } catch {
+    return [
+      { zoneId: 1, zoneName: 'Tầng trệt' },
+      { zoneId: 2, zoneName: 'Tầng 1' },
+      { zoneId: 3, zoneName: 'Tầng 2' },
+      { zoneId: 4, zoneName: 'VIP' },
+    ];
+  }
+};
+
+export const createAdminZoneApi = async (zoneName: string): Promise<AdminZone> => {
+  const response = await apiClient.post('/admin/zones', { zoneName });
+  return response.data.data;
+};
+
+export const updateAdminZoneApi = async (zoneId: number, zoneName: string): Promise<AdminZone> => {
+  const response = await apiClient.put(`/admin/zones/${zoneId}`, { zoneName });
+  return response.data.data;
+};
+
+export const deleteAdminZoneApi = async (zoneId: number): Promise<void> => {
+  await apiClient.delete(`/admin/zones/${zoneId}`);
 };

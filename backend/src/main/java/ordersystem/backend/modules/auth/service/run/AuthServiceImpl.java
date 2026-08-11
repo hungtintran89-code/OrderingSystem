@@ -37,7 +37,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse login(LoginRequest loginRequest) {
-        User user = userRepository.findByUsername(loginRequest.getUsername())
+        String cleanUsername = loginRequest.getUsername() != null ? loginRequest.getUsername().trim() : "";
+        User user = userRepository.findByUsernameIgnoreCase(cleanUsername)
                 .orElseThrow(() -> new BadCredentialsException("Incorrect username or password."));
 
         if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPasswordHash())) {

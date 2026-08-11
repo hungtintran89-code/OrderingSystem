@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { Modal, Switch, message, Popconfirm, Image as AntImage } from 'antd';
 import { SmartSearchBar } from '../common/SmartSearchBar';
-import { isVietnameseMatch } from '../../utils/vietnameseSearch';
+import { isVietnameseMatch, filterAndSortByRelevance } from '../../utils/vietnameseSearch';
 
 export const MenuManagement: React.FC = () => {
   const [items, setItems] = useState<AdminMenuItem[]>([]);
@@ -39,10 +39,11 @@ export const MenuManagement: React.FC = () => {
   // Dynamic Categories State
   const [categories, setCategories] = useState<string[]>([
     'Tất cả',
-    'Món nước',
-    'Món nướng',
-    'Món chính',
-    'Đồ uống',
+    'Khai Vị',
+    'Món Chính',
+    'Lẩu & Nướng',
+    'Tráng Miệng',
+    'Đồ Uống',
   ]);
   const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,8 +55,8 @@ export const MenuManagement: React.FC = () => {
   // Modal Create Product State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newProductName, setNewProductName] = useState('');
-  const [newProductCategory, setNewProductCategory] = useState('Món chính');
-  const [newProductPrice, setNewProductPrice] = useState<number>(50000);
+  const [newProductCategory, setNewProductCategory] = useState('Món Chính');
+  const [newProductPrice, setNewProductPrice] = useState<string>('');
   const [newProductDesc, setNewProductDesc] = useState('');
   const [newProductImage, setNewProductImage] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
@@ -64,8 +65,8 @@ export const MenuManagement: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AdminMenuItem | null>(null);
   const [editProductName, setEditProductName] = useState('');
-  const [editProductCategory, setEditProductCategory] = useState('Món chính');
-  const [editProductPrice, setEditProductPrice] = useState<number>(0);
+  const [editProductCategory, setEditProductCategory] = useState('Món Chính');
+  const [editProductPrice, setEditProductPrice] = useState<string>('');
   const [editProductDesc, setEditProductDesc] = useState('');
   const [editProductImage, setEditProductImage] = useState<string>('');
   const [editProductAvailable, setEditProductAvailable] = useState<boolean>(true);
@@ -76,6 +77,13 @@ export const MenuManagement: React.FC = () => {
       setError(null);
       const data = await fetchAdminMenuItemsApi();
       setItems(data);
+      if (Array.isArray(data)) {
+        const apiCats = Array.from(new Set(data.map((i) => i.category).filter(Boolean)));
+        setCategories((prev) => {
+          const merged = Array.from(new Set(['Tất cả', ...apiCats, ...prev.filter((c) => c !== 'Tất cả')]));
+          return merged;
+        });
+      }
     } catch (err) {
       setError('Không thể tải danh sách thực đơn. Vui lòng thử lại.');
     } finally {
@@ -164,6 +172,11 @@ export const MenuManagement: React.FC = () => {
       message.error('Vui lòng nhập tên món ăn');
       return;
     }
+    const priceNum = Number(newProductPrice);
+    if (!newProductPrice || isNaN(priceNum) || priceNum <= 0) {
+      message.error('Vui lòng nhập giá bán hợp lệ (VD: 55000)');
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -171,7 +184,7 @@ export const MenuManagement: React.FC = () => {
         sku: `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
         name: newProductName.trim(),
         category: newProductCategory,
-        price: Number(newProductPrice),
+        price: priceNum,
         imageUrl: newProductImage.trim(),
         description: newProductDesc.trim(),
         isAvailable: true,
@@ -181,12 +194,13 @@ export const MenuManagement: React.FC = () => {
       setIsModalOpen(false);
       // Reset form
       setNewProductName('');
+      setNewProductPrice('');
       setNewProductDesc('');
       setNewProductImage('');
       message.success(`Đã thêm thành công món "${newProductName}" vào Thực đơn!`);
       await loadMenuItems();
     } catch (err: any) {
-      message.error(err?.response?.data?.message || 'Lỗi khi thêm món ăn mới. Vui lòng thử lại.');
+      // Thông báo lỗi đã được Axios Interceptor tại api.ts tự động hiển thị duy nhất 1 lần
     } finally {
       setSubmitting(false);
     }
@@ -197,7 +211,7 @@ export const MenuManagement: React.FC = () => {
     setEditingItem(item);
     setEditProductName(item.name);
     setEditProductCategory(item.category);
-    setEditProductPrice(item.price);
+    setEditProductPrice(String(item.price));
     setEditProductDesc(item.description || '');
     setEditProductImage(item.imageUrl || '');
     setEditProductAvailable(item.isAvailable);
@@ -210,13 +224,18 @@ export const MenuManagement: React.FC = () => {
       message.error('Vui lòng nhập tên món ăn');
       return;
     }
+    const priceNum = Number(editProductPrice);
+    if (!editProductPrice || isNaN(priceNum) || priceNum <= 0) {
+      message.error('Vui lòng nhập giá bán hợp lệ (VD: 55000)');
+      return;
+    }
 
     try {
       setSubmitting(true);
       const updated = await updateProductApi(editingItem.id, {
         name: editProductName.trim(),
         category: editProductCategory,
-        price: Number(editProductPrice),
+        price: priceNum,
         description: editProductDesc.trim(),
         imageUrl: editProductImage.trim(),
         isAvailable: editProductAvailable,
@@ -248,14 +267,7 @@ export const MenuManagement: React.FC = () => {
     }
   };
 
-  const filteredItems = items.filter((item) => {
-    const matchesCategory = selectedCategory === 'Tất cả' || item.category === selectedCategory;
-    const matchesSearch =
-      isVietnameseMatch(item.name, searchQuery) ||
-      isVietnameseMatch(item.sku, searchQuery) ||
-      isVietnameseMatch(item.category, searchQuery);
-    return matchesCategory && matchesSearch;
-  });
+  const filteredItems = filterAndSortByRelevance(items, searchQuery, selectedCategory);
 
   const formatVND = (num: number) => new Intl.NumberFormat('vi-VN').format(num) + ' đ';
 
@@ -368,8 +380,8 @@ export const MenuManagement: React.FC = () => {
                   <th className="p-3.5">Món Ăn & SKU</th>
                   <th className="p-3.5">Danh Mục</th>
                   <th className="p-3.5">Giá Bán</th>
-                  <th className="p-3.5">Trạng Thái Kho</th>
-                  <th className="p-3.5 text-right">Thao Tác</th>
+                  <th className="p-3.5 w-[160px] min-w-[160px]">Trạng Thái Kho</th>
+                  <th className="p-3.5 text-right w-[100px] min-w-[100px]">Thao Tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
@@ -397,17 +409,17 @@ export const MenuManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="p-3.5">
-                      <span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold">
+                      <span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold whitespace-nowrap">
                         {item.category}
                       </span>
                     </td>
                     <td className="p-3.5">
-                      <span className="font-extrabold text-slate-900 text-xs sm:text-sm">
+                      <span className="font-extrabold text-slate-900 text-xs sm:text-sm whitespace-nowrap">
                         {formatVND(item.price)}
                       </span>
                     </td>
-                    <td className="p-3.5">
-                      {/* Optimistic Quick Switcher */}
+                    <td className="p-3.5 w-[160px] min-w-[160px]">
+                      {/* Optimistic Quick Switcher with UI/UX Pro Zero-Shift Layout */}
                       <div className="flex items-center gap-2">
                         <Switch
                           checked={item.isAvailable}
@@ -415,7 +427,7 @@ export const MenuManagement: React.FC = () => {
                           size="small"
                         />
                         <span
-                          className={`text-xs font-semibold ${
+                          className={`text-xs font-semibold inline-block min-w-[95px] transition-colors duration-200 select-none ${
                             item.isAvailable ? 'text-emerald-600' : 'text-slate-400'
                           }`}
                         >
@@ -557,13 +569,17 @@ export const MenuManagement: React.FC = () => {
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Giá bán (VND) *</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 required
-                min={1000}
-                step={5000}
+                placeholder="Nhập giá bán (VD: 55000)..."
                 value={newProductPrice}
-                onChange={(e) => setNewProductPrice(Number(e.target.value))}
-                className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:border-orange-500"
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^\d]/g, '');
+                  const cleaned = raw.replace(/^0+(?=\d)/, '');
+                  setNewProductPrice(cleaned);
+                }}
+                className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:border-orange-500 font-semibold text-slate-900"
               />
             </div>
           </div>
@@ -695,13 +711,17 @@ export const MenuManagement: React.FC = () => {
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Giá bán (VND) *</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 required
-                min={1000}
-                step={5000}
+                placeholder="Nhập giá bán (VD: 55000)..."
                 value={editProductPrice}
-                onChange={(e) => setEditProductPrice(Number(e.target.value))}
-                className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:border-orange-500"
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^\d]/g, '');
+                  const cleaned = raw.replace(/^0+(?=\d)/, '');
+                  setEditProductPrice(cleaned);
+                }}
+                className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:border-orange-500 font-semibold text-slate-900"
               />
             </div>
           </div>
@@ -714,7 +734,9 @@ export const MenuManagement: React.FC = () => {
                 onChange={(val) => setEditProductAvailable(val)}
                 size="small"
               />
-              <span className="font-semibold text-slate-800">
+              <span className={`text-xs font-semibold inline-block min-w-[95px] transition-colors duration-200 select-none ${
+                editProductAvailable ? 'text-emerald-600' : 'text-slate-400'
+              }`}>
                 {editProductAvailable ? 'Còn hàng' : 'Tạm hết hàng'}
               </span>
             </div>

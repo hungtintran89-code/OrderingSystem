@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { AdminTable } from '../../types/admin';
-import { fetchAdminTablesApi } from '../../api/adminApi';
+import {
+  fetchAdminTablesApi,
+  createAdminTableApi,
+  updateAdminTableApi,
+  deleteAdminTableApi,
+  fetchAdminZonesApi,
+  createAdminZoneApi,
+  updateAdminZoneApi,
+  deleteAdminZoneApi,
+  AdminZone
+} from '../../api/adminApi';
+import { formatTableLabel } from '../../utils/tableUtils';
 import {
   QrCode,
   Printer,
@@ -16,12 +27,15 @@ import {
   Plus,
   Edit,
   Trash2,
-  RotateCcw
+  RotateCcw,
+  Settings,
+  FolderPlus
 } from 'lucide-react';
 import { Modal, message, Popconfirm } from 'antd';
 
 export const TableQRManager: React.FC = () => {
   const [tables, setTables] = useState<AdminTable[]>([]);
+  const [zones, setZones] = useState<AdminZone[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedZone, setSelectedZone] = useState<string>('Tất cả');
@@ -31,35 +45,54 @@ export const TableQRManager: React.FC = () => {
   // Modal Create Table & QR State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newTableNumber, setNewTableNumber] = useState('');
-  const [newTableZone, setNewTableZone] = useState('Tầng 1');
-  const [newTableCapacity, setNewTableCapacity] = useState<number>(4);
+  const [newTableZone, setNewTableZone] = useState('Tầng trệt');
+  const [newTableCapacity, setNewTableCapacity] = useState<number | string>(4);
 
   // Modal Edit Table & QR State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<AdminTable | null>(null);
   const [editTableNumber, setEditTableNumber] = useState('');
-  const [editTableZone, setEditTableZone] = useState('Tầng 1');
-  const [editTableCapacity, setEditTableCapacity] = useState<number>(4);
+  const [editTableZone, setEditTableZone] = useState('Tầng trệt');
+  const [editTableCapacity, setEditTableCapacity] = useState<number | string>(4);
   const [editQrUrl, setEditQrUrl] = useState('');
+  const [isRegeneratingQr, setIsRegeneratingQr] = useState(false);
+
+  // Modal Zone Management State
+  const [isZoneModalOpen, setIsZoneModalOpen] = useState(false);
+  const [newZoneNameInput, setNewZoneNameInput] = useState('');
+  const [editingZone, setEditingZone] = useState<AdminZone | null>(null);
+  const [editZoneNameInput, setEditZoneNameInput] = useState('');
 
   const loadTables = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await fetchAdminTablesApi();
-      setTables(data);
-    } catch (err) {
-      setError('Không thể tải sơ đồ bàn và mã QR. Vui lòng thử lại.');
+      const sortedData = [...data].sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+      setTables(sortedData);
+    } catch (err: any) {
+      setError(err.message || 'Không thể tải danh sách bàn ăn');
     } finally {
       setLoading(false);
     }
   };
 
+  const loadZones = async () => {
+    try {
+      const zoneList = await fetchAdminZonesApi();
+      setZones(zoneList);
+      if (zoneList.length > 0 && !newTableZone) {
+        setNewTableZone(zoneList[0].zoneName);
+      }
+    } catch (err) {
+      // Handled by fallback
+    }
+  };
+
   useEffect(() => {
     loadTables();
+    loadZones();
   }, []);
-
-  const zones = ['Tất cả', 'Tầng 1', 'Tầng 2', 'VIP'];
 
   const filteredTables = tables.filter((t) => {
     if (selectedZone === 'Tất cả') return true;
@@ -68,7 +101,7 @@ export const TableQRManager: React.FC = () => {
 
   const toggleSelectTable = (id: string) => {
     setSelectedTableIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
@@ -80,8 +113,8 @@ export const TableQRManager: React.FC = () => {
     }
   };
 
-  // --- CREATE TABLE & QR ACTION ---
-  const handleCreateTable = (e: React.FormEvent) => {
+  // --- CREATE TABLE ACTION ---
+  const handleCreateTable = async (e: React.FormEvent) => {
     e.preventDefault();
     const num = newTableNumber.trim();
     if (!num) {
@@ -89,22 +122,20 @@ export const TableQRManager: React.FC = () => {
       return;
     }
 
-    const qrData = `https://order.restaurant.com/table/${num.toLowerCase()}`;
-    const newQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+    try {
+      await createAdminTableApi({
+        tableName: num,
+        zone: newTableZone,
+        capacity: Number(newTableCapacity) || 4,
+      });
 
-    const newTableItem: AdminTable = {
-      id: `tbl-${Date.now()}`,
-      tableNumber: num,
-      zone: newTableZone,
-      capacity: Number(newTableCapacity),
-      status: 'EMPTY',
-      qrUrl: newQrUrl,
-    };
-
-    setTables((prev) => [newTableItem, ...prev]);
-    setIsCreateModalOpen(false);
-    setNewTableNumber('');
-    message.success(`Đã tạo Bàn ${num} và Mã QR Code mới thành công!`);
+      setIsCreateModalOpen(false);
+      setNewTableNumber('');
+      message.success(`Đã tạo Bàn "${num}" và mã QR Code lưu CSDL thành công!`);
+      await loadTables();
+    } catch (err: any) {
+      // Handled by Axios Interceptor
+    }
   };
 
   // --- EDIT TABLE & QR ACTION ---
@@ -112,44 +143,101 @@ export const TableQRManager: React.FC = () => {
     setEditingTable(table);
     setEditTableNumber(table.tableNumber);
     setEditTableZone(table.zone);
-    setEditTableCapacity(table.capacity);
+    setEditTableCapacity(table.capacity ? Number(table.capacity) : 4);
     setEditQrUrl(table.qrUrl);
+    setIsRegeneratingQr(false);
     setIsEditModalOpen(true);
   };
 
   const handleRegenerateQR = () => {
-    if (!editTableNumber.trim()) return;
-    const qrData = `https://order.restaurant.com/table/${editTableNumber.trim().toLowerCase()}?v=${Date.now()}`;
-    const newQr = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
-    setEditQrUrl(newQr);
-    message.success('Đã sinh mã QR Code mới!');
+    setIsRegeneratingQr(true);
+    message.info('Đã yêu cầu tạo mới thành công vui lòng ấn lưu để cập nhật');
   };
 
-  const handleSaveEditTable = (e: React.FormEvent) => {
+  const handleSaveEditTable = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTable || !editTableNumber.trim()) {
       message.error('Vui lòng nhập tên hoặc số bàn');
       return;
     }
 
-    const updated: AdminTable = {
-      ...editingTable,
-      tableNumber: editTableNumber.trim(),
-      zone: editTableZone,
-      capacity: Number(editTableCapacity),
-      qrUrl: editQrUrl,
-    };
+    try {
+      await updateAdminTableApi(editingTable.id, {
+        tableName: editTableNumber.trim(),
+        zone: editTableZone,
+        capacity: Number(editTableCapacity) || 4,
+        regenerateQr: isRegeneratingQr,
+      });
 
-    setTables((prev) => prev.map((t) => (t.id === editingTable.id ? updated : t)));
-    setIsEditModalOpen(false);
-    message.success(`Đã cập nhật thông tin Bàn ${editTableNumber}!`);
+      setIsEditModalOpen(false);
+      message.success(`Đã cập nhật thành công thông tin ${formatTableLabel(editTableNumber)}`);
+      await loadTables();
+    } catch (err: any) {
+      // Handled by Axios Interceptor
+    }
   };
 
   // --- DELETE TABLE & QR ACTION ---
-  const handleDeleteTable = (tableId: string) => {
-    setTables((prev) => prev.filter((t) => t.id !== tableId));
-    setSelectedTableIds((prev) => prev.filter((id) => id !== tableId));
-    message.success('Đã xóa bàn và mã QR tương ứng!');
+  const handleDeleteTable = async (tableId: string) => {
+    try {
+      await deleteAdminTableApi(tableId);
+      setSelectedTableIds((prev) => prev.filter((id) => id !== tableId));
+      message.success('Đã xóa bàn và mã QR khỏi CSDL thành công!');
+      await loadTables();
+    } catch (err: any) {
+      // Handled by Axios Interceptor
+    }
+  };
+
+  // --- DYNAMIC ZONE MANAGEMENT ACTIONS ---
+  const handleCreateZone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newZoneNameInput.trim();
+    if (!name) {
+      message.error('Vui lòng nhập tên khu vực');
+      return;
+    }
+    try {
+      await createAdminZoneApi(name);
+      setNewZoneNameInput('');
+      message.success(`Đã thêm khu vực "${name}" thành công!`);
+      await loadZones();
+    } catch (err: any) {
+      // Handled by Axios Interceptor
+    }
+  };
+
+  const handleUpdateZone = async (zoneId: number) => {
+    const name = editZoneNameInput.trim();
+    if (!name) {
+      message.error('Tên khu vực không được để trống');
+      return;
+    }
+    try {
+      await updateAdminZoneApi(zoneId, name);
+      setEditingZone(null);
+      setEditZoneNameInput('');
+      message.success(`Đã cập nhật tên khu vực thành "${name}" thành công!`);
+      await loadZones();
+      await loadTables();
+    } catch (err: any) {
+      // Handled by Axios Interceptor
+    }
+  };
+
+  const handleDeleteZone = async (zoneId: number, zoneName: string) => {
+    setEditingZone(null);
+    try {
+      await deleteAdminZoneApi(zoneId);
+      message.success(`Đã xóa khu vực "${zoneName}" thành công! Các bàn thuộc khu vực này đã chuyển về Tầng trệt.`);
+      if (selectedZone === zoneName) {
+        setSelectedZone('Tất cả');
+      }
+      await loadZones();
+      await loadTables();
+    } catch (err: any) {
+      // Handled by Axios Interceptor
+    }
   };
 
   const handleOpenPrintModal = () => {
@@ -172,22 +260,32 @@ export const TableQRManager: React.FC = () => {
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         {/* Zone Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setSelectedZone('Tất cả')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[36px] ${
+              selectedZone === 'Tất cả'
+                ? 'bg-orange-600 text-white shadow-2xs'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Tất cả
+          </button>
           {zones.map((z) => (
             <button
-              key={z}
-              onClick={() => setSelectedZone(z)}
+              key={z.zoneId}
+              onClick={() => setSelectedZone(z.zoneName)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[36px] ${
-                selectedZone === z
+                selectedZone === z.zoneName
                   ? 'bg-orange-600 text-white shadow-2xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              {z}
+              {z.zoneName}
             </button>
           ))}
         </div>
 
-        {/* Multi-select, Create & Print Actions */}
+        {/* Multi-select, Zone Manage, Create & Print Actions */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Select All */}
           <button
@@ -200,6 +298,16 @@ export const TableQRManager: React.FC = () => {
               <Square className="w-4 h-4 text-slate-400" />
             )}
             <span>Chọn tất cả ({selectedTableIds.length})</span>
+          </button>
+
+          {/* Nút Quản Lý Khu Vực (Zone) */}
+          <button
+            onClick={() => setIsZoneModalOpen(true)}
+            className="h-9 px-3.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+            title="Quản lý danh sách Khu Vực (Zone) trong nhà hàng"
+          >
+            <Settings className="w-4 h-4 text-orange-600" />
+            <span>Quản Lý Khu Vực</span>
           </button>
 
           {/* Nút Tạo Bàn & Mã QR Mới */}
@@ -252,7 +360,7 @@ export const TableQRManager: React.FC = () => {
         </div>
       )}
 
-      {/* STATE 1: NORMAL DATA TABLE CARDS GRID */}
+      {/* STATE 4: SUCCESS TABLE CARDS GRID */}
       {!loading && !error && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredTables.map((table) => {
@@ -283,7 +391,7 @@ export const TableQRManager: React.FC = () => {
                     {/* Nút Xóa Mã QR & Bàn */}
                     <Popconfirm
                       title="Xóa Bàn & Mã QR"
-                      description={`Xóa Bàn ${table.tableNumber}?`}
+                      description={`Xóa ${formatTableLabel(table.tableNumber)}?`}
                       onConfirm={() => handleDeleteTable(table.id)}
                       okText="Xóa"
                       cancelText="Hủy"
@@ -315,7 +423,7 @@ export const TableQRManager: React.FC = () => {
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                       {table.zone}
                     </span>
-                    <h3 className="font-extrabold text-lg text-slate-900">Bàn {table.tableNumber}</h3>
+                    <h3 className="font-extrabold text-lg text-slate-900">{formatTableLabel(table.tableNumber)}</h3>
                     <p className="text-[11px] text-slate-500 flex items-center justify-center gap-1 mt-0.5">
                       <Users className="w-3 h-3 text-slate-400" /> {table.capacity} chỗ ngồi
                     </p>
@@ -325,7 +433,7 @@ export const TableQRManager: React.FC = () => {
                   <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 inline-block shadow-2xs">
                     <img
                       src={table.qrUrl}
-                      alt={`QR Bàn ${table.tableNumber}`}
+                      alt={`QR ${formatTableLabel(table.tableNumber)}`}
                       className="w-32 h-32 object-contain mx-auto"
                     />
                   </div>
@@ -368,10 +476,11 @@ export const TableQRManager: React.FC = () => {
                 onChange={(e) => setNewTableZone(e.target.value)}
                 className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:border-orange-500 cursor-pointer"
               >
-                <option value="Tầng 1">Tầng 1</option>
-                <option value="Tầng 2">Tầng 2</option>
-                <option value="VIP">VIP</option>
-                <option value="Sân Thượng">Sân Thượng</option>
+                {zones.map((z) => (
+                  <option key={z.zoneId} value={z.zoneName}>
+                    {z.zoneName}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -380,9 +489,13 @@ export const TableQRManager: React.FC = () => {
               <input
                 type="number"
                 min={1}
-                max={20}
+                max={50}
                 value={newTableCapacity}
-                onChange={(e) => setNewTableCapacity(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') setNewTableCapacity('');
+                  else setNewTableCapacity(parseInt(val, 10) || 1);
+                }}
                 className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:border-orange-500"
               />
             </div>
@@ -442,10 +555,11 @@ export const TableQRManager: React.FC = () => {
                 onChange={(e) => setEditTableZone(e.target.value)}
                 className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:border-orange-500 cursor-pointer"
               >
-                <option value="Tầng 1">Tầng 1</option>
-                <option value="Tầng 2">Tầng 2</option>
-                <option value="VIP">VIP</option>
-                <option value="Sân Thượng">Sân Thượng</option>
+                {zones.map((z) => (
+                  <option key={z.zoneId} value={z.zoneName}>
+                    {z.zoneName}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -454,9 +568,13 @@ export const TableQRManager: React.FC = () => {
               <input
                 type="number"
                 min={1}
-                max={20}
+                max={50}
                 value={editTableCapacity}
-                onChange={(e) => setEditTableCapacity(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') setEditTableCapacity('');
+                  else setEditTableCapacity(parseInt(val, 10) || 1);
+                }}
                 className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:border-orange-500"
               />
             </div>
@@ -492,6 +610,114 @@ export const TableQRManager: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* 4. MODAL QUẢN LÝ DANH SÁCH KHU VỰC (ZONE) NGUYÊN BẢN BACKEND POSTGRESQL */}
+      <Modal
+        title="⚙️ Quản Lý Danh Sách Khu Vực (Zone)"
+        open={isZoneModalOpen}
+        onCancel={() => {
+          setIsZoneModalOpen(false);
+          setEditingZone(null);
+        }}
+        footer={null}
+        width={540}
+      >
+        <div className="space-y-4 pt-2 text-xs">
+          <p className="text-slate-500 border-b border-slate-100 pb-2">
+            Danh sách các khu vực trong <b>hệ thống nhà hàng</b>. Bạn có thể Thêm mới, Chỉnh sửa tên hoặc Xóa khu vực theo nhu cầu quản lý.
+          </p>
+
+          {/* Form Thêm Khu Vực Mới */}
+          <form onSubmit={handleCreateZone} className="flex gap-2">
+            <input
+              type="text"
+              required
+              placeholder="Nhập tên khu vực mới (VD: Tầng trệt, Sân Thượng, VIP 2...)"
+              value={newZoneNameInput}
+              onChange={(e) => setNewZoneNameInput(e.target.value)}
+              className="flex-1 p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:border-orange-500"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-semibold flex items-center gap-1 cursor-pointer whitespace-nowrap shadow-2xs"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Thêm Khu Vực</span>
+            </button>
+          </form>
+
+          {/* Danh Sách Các Khu Vực Hiện Có */}
+          <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-[300px] overflow-y-auto bg-slate-50/50">
+            {zones.map((z) => (
+              <div key={z.zoneId} className="p-3 flex items-center justify-between bg-white hover:bg-slate-50 transition-colors">
+                {editingZone?.zoneId === z.zoneId ? (
+                  <div className="flex items-center gap-2 flex-1 mr-2">
+                    <input
+                      type="text"
+                      value={editZoneNameInput}
+                      onChange={(e) => setEditZoneNameInput(e.target.value)}
+                      className="flex-1 p-1.5 rounded border border-orange-500 text-xs bg-white focus:outline-none"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => handleUpdateZone(z.zoneId)}
+                      className="px-3 py-1 rounded bg-orange-600 text-white font-semibold hover:bg-orange-700 transition-colors text-[11px] cursor-pointer"
+                    >
+                      Lưu
+                    </button>
+                    <button
+                      onClick={() => setEditingZone(null)}
+                      className="px-2 py-1 rounded bg-slate-200 text-slate-700 font-semibold hover:bg-slate-300 transition-colors text-[11px] cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <FolderPlus className="w-4 h-4 text-orange-600" />
+                      <span className="font-bold text-slate-800">{z.zoneName}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setEditingZone(z);
+                          setEditZoneNameInput(z.zoneName);
+                        }}
+                        className="p-1.5 rounded bg-slate-100 hover:bg-orange-50 text-slate-500 hover:text-orange-600 transition-colors cursor-pointer"
+                        title="Sửa tên khu vực"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+
+                      <Popconfirm
+                        title="Xóa Khu Vực"
+                        description={`Xóa khu vực "${z.zoneName}"? Các bàn thuộc khu vực này sẽ được chuyển về "Tầng trệt".`}
+                        onConfirm={() => handleDeleteZone(z.zoneId, z.zoneName)}
+                        onOpenChange={(open) => {
+                          if (open) setEditingZone(null);
+                        }}
+                        okText="Xóa"
+                        cancelText="Hủy"
+                        okButtonProps={{ danger: true }}
+                      >
+                        <button
+                          onClick={() => setEditingZone(null)}
+                          className="p-1.5 rounded bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                          title="Xóa khu vực"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </Popconfirm>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       </Modal>
 
       {/* 3. PRINTABLE QR CODES A6/A7 BATCH EXPORTER MODAL */}

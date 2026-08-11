@@ -1,16 +1,24 @@
 package ordersystem.backend.modules.table.dto.request;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Setter @Getter
+@Data
 @Builder
-@AllArgsConstructor @NoArgsConstructor
+@NoArgsConstructor
+@AllArgsConstructor
 public class UpdateTableRequest {
-
-    @NotBlank (message = "Table Name cannot be blank")
+    @NotBlank(message = "Tên bàn không được để trống")
     private String tableName;
 
-    @NotBlank(message = "Status cannot be blank")
-    private Boolean isActive;
+    private String zone;
+
+    @Min(value = 1, message = "Số chỗ ngồi phải từ 1 trở lên")
+    private Integer capacity;
+
+    private Boolean regenerateQr;
 }

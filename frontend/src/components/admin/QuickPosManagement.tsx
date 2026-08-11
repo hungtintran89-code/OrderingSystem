@@ -26,7 +26,8 @@ import {
   User,
   Phone
 } from 'lucide-react';
-import { Modal, message } from 'antd';
+import { Modal, Radio, Input, Segmented, Popconfirm, message } from 'antd';
+import { filterAndSortByRelevance } from '../../utils/vietnameseSearch';
 
 interface CartItem {
   product: AdminMenuItem;
@@ -98,14 +99,8 @@ export const QuickPosManagement: React.FC = () => {
   const categories = ['all', ...Array.from(new Set(menuItems.map((i) => i.category)))];
   const zones = ['ALL', ...Array.from(new Set(tables.map((t) => t.zone)))];
 
-  // Filtered menu items
-  const filteredMenuItems = menuItems.filter((item) => {
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.sku.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Filtered menu items with Senior Relevance Scoring
+  const filteredMenuItems = filterAndSortByRelevance(menuItems, searchQuery, selectedCategory === 'all' ? 'Tất cả' : selectedCategory);
 
   // Filtered Tables in Modal
   const filteredTables = tables.filter((t) => selectedZoneFilter === 'ALL' || t.zone === selectedZoneFilter);

@@ -10,4 +10,8 @@ import lombok.*;
 public class CreateTableRequest {
     @NotBlank(message = "Table Name cannot be blank")
     private String tableName;
+
+    private String zone;
+
+    private Integer capacity;
 }

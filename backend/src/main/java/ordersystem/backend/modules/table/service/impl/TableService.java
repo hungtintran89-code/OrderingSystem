@@ -8,10 +8,14 @@ import ordersystem.backend.modules.table.dto.response.QRResolveResponse;
 import ordersystem.backend.modules.table.dto.response.TableResponse;
 import ordersystem.backend.modules.table.enums.QRFormat;
 
+import ordersystem.backend.modules.table.dto.request.UpdateTableRequest;
+
 import java.util.List;
 
 public interface TableService {
     TableResponse createTable(CreateTableRequest request);
+    TableResponse updateTable(Long tableId, UpdateTableRequest request);
+    void deleteTable(Long tableId);
     List<CategoryMenuResponse> resolveQrtoken(String qrToken , Long threadId );
     QRCodeExportResponse exportTableQrCode(Long tableId, QRFormat qrFormat);
 }

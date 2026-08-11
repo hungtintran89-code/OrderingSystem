@@ -4,6 +4,7 @@ import {
   removeVietnameseTones,
   isVietnameseMatch,
   getHighlightedSegments,
+  filterAndSortByRelevance,
 } from '../../utils/vietnameseSearch';
 import {
   Search,
@@ -69,28 +70,13 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter Logic:
-  // 1. Contextual Filter within selected category
-  const activeCategoryItems =
-    selectedCategory === 'Tất cả'
-      ? items
-      : items.filter((item) => item.category === selectedCategory);
-
-  let suggestions = activeCategoryItems.filter(
-    (item) =>
-      isVietnameseMatch(item.name, inputValue) ||
-      isVietnameseMatch(item.sku, inputValue) ||
-      isVietnameseMatch(item.category, inputValue)
-  );
+  // Filter & Relevance Ranking Logic using Senior Search Engine
+  let suggestions = filterAndSortByRelevance(items, inputValue, selectedCategory);
 
   // Fallback: If 0 matches in current category, search across all items
   let isCrossCategory = false;
   if (suggestions.length === 0 && selectedCategory !== 'Tất cả' && inputValue.trim().length > 0) {
-    const globalMatches = items.filter(
-      (item) =>
-        isVietnameseMatch(item.name, inputValue) ||
-        isVietnameseMatch(item.sku, inputValue)
-    );
+    const globalMatches = filterAndSortByRelevance(items, inputValue, 'Tất cả');
     if (globalMatches.length > 0) {
       suggestions = globalMatches;
       isCrossCategory = true;

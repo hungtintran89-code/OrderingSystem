@@ -121,11 +121,11 @@ apiClient.interceptors.response.use(
       error.response?.data?.message ||
       (error.code === 'ECONNABORTED'
         ? 'Kết nối API quá thời gian quy định'
-        : 'Có lỗi kết nối đến máy lưu trữ CSDL!');
+        : 'Có lỗi xảy ra khi gọi dịch vụ máy chủ!');
 
     message.error({
       content: errorMessage,
-      duration: 3,
+      duration: 3.5,
     });
 
     return Promise.reject(error);

@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.payload.ApiResponse;
 import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.table.dto.request.CreateTableRequest;
+import ordersystem.backend.modules.table.dto.request.UpdateTableRequest;
 import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
 import ordersystem.backend.modules.table.dto.response.QRCodeExportResponse;
 import ordersystem.backend.modules.table.dto.response.TableResponse;
@@ -36,6 +37,23 @@ public class AdminTableController {
     ResponseEntity<ApiResponse<TableResponse>> createTable(@Valid @RequestBody CreateTableRequest request){
         TableResponse tableResponse = tableService.createTable(request);
         return ResponseEntity.ok(ApiResponse.success("Create Table is success", tableResponse));
+    }
+
+    @PutMapping("/{tableId}")
+    @PreAuthorize("hasRole('MANAGER')")
+    ResponseEntity<ApiResponse<TableResponse>> updateTable(
+            @PathVariable Long tableId,
+            @Valid @RequestBody UpdateTableRequest request
+    ) {
+        TableResponse tableResponse = tableService.updateTable(tableId, request);
+        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật thông tin bàn ăn thành công!", tableResponse));
+    }
+
+    @DeleteMapping("/{tableId}")
+    @PreAuthorize("hasRole('MANAGER')")
+    ResponseEntity<ApiResponse<Void>> deleteTable(@PathVariable Long tableId) {
+        tableService.deleteTable(tableId);
+        return ResponseEntity.ok(ApiResponse.success("Đã xóa bàn ăn và mã QR khỏi hệ thống thành công!", null));
     }
 
     @PreAuthorize("hasRole('MANAGER') or hasRole('STAFF')")

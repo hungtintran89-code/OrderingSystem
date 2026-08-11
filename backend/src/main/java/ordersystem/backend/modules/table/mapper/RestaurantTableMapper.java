@@ -17,6 +17,9 @@ public class RestaurantTableMapper {
                 .tableName(tableInfo.getTableName())
                 .qrToken(tableInfo.getQrToken())
                 .qrUrl(tableInfo.getQrUrl())
+                .qrImageBase64(tableInfo.getQrImageBase64())
+                .zone(tableInfo.getZone() != null ? tableInfo.getZone() : "Tầng 1")
+                .capacity(tableInfo.getCapacity() != null ? tableInfo.getCapacity() : 4)
                 .isActive(tableInfo.getIsActive())
                 .build();
     }

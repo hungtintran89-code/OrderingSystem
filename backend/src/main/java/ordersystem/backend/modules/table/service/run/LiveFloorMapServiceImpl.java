@@ -31,8 +31,8 @@ public class LiveFloorMapServiceImpl implements LiveFloorMapService {
     @Transactional(readOnly = true)
     @Cacheable(value = "floor_map", key = "'all_tables'")
     public List<FloorMapResponse> getLiveFloorMap() {
-        // Bước 1: Lấy tất cả danh sách các bàn trong nhà hàng
-        List<RestaurantTableEntity> tablesInRestaurant = restaurantTableRepository.findAllByIsActiveTrue();
+        // Bước 1: Lấy tất cả danh sách các bàn trong nhà hàng theo thứ tự ID tăng dần cố định
+        List<RestaurantTableEntity> tablesInRestaurant = restaurantTableRepository.findAllByIsActiveTrueOrderByTableIdAsc();
 
         //Nếu danh sách là null thì trả về danh sách rỗng
         if (tablesInRestaurant.isEmpty()) {
@@ -81,6 +81,10 @@ public class LiveFloorMapServiceImpl implements LiveFloorMapService {
                     .tableName(table.getTableName())
                     .status(isOccupied ? TableStatus.OCCUPIED : TableStatus.EMPTY)
                     .tempTotalAmount(tempAmount)
+                    .qrUrl(table.getQrUrl())
+                    .qrImageBase64(table.getQrImageBase64())
+                    .zone(table.getZone() != null ? table.getZone() : "Tầng 1")
+                    .capacity(table.getCapacity() != null ? table.getCapacity() : 4)
                     .build();
         }).collect(Collectors.toList());
     }

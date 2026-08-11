@@ -15,6 +15,7 @@ import { ServiceRequestModal } from '../components/service/ServiceRequestModal';
 
 import { wsService } from '../services/websocket';
 import { Search, Bell, ShoppingBag, CheckCircle2, X, ArrowRight } from 'lucide-react';
+import { filterAndSortByRelevance } from '../../../utils/vietnameseSearch';
 
 export function CustomerApp() {
   const [currentTable] = useState<TableInfo>(MOCK_TABLES[0]);
@@ -171,19 +172,19 @@ export function CustomerApp() {
   const cartTotal = cartItems.reduce((acc, item) => acc + item.productPrice * item.quantity, 0);
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
-  const allFilteredProducts: Product[] = [];
+  const rawProducts: (Product & { name: string; category: string })[] = [];
   categories.forEach((cat) => {
     if (activeCategoryId !== null && cat.categoryId !== activeCategoryId) return;
     cat.products.forEach((p) => {
-      if (
-        !searchQuery.trim() ||
-        p.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      ) {
-        allFilteredProducts.push(p);
-      }
+      rawProducts.push({
+        ...p,
+        name: p.productName,
+        category: cat.categoryName,
+      });
     });
   });
+
+  const allFilteredProducts = filterAndSortByRelevance(rawProducts, searchQuery, 'Tất cả');
 
   return (
     <div className="min-h-screen bg-[#fafaf9] flex flex-col font-body text-gray-900 pb-24">

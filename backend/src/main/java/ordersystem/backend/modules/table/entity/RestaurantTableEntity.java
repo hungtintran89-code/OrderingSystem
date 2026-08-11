@@ -27,6 +27,17 @@ public class RestaurantTableEntity {
     @Column(nullable = false, name = "qr_url")
     private String qrUrl;
 
+    @Column(name = "qr_image_base64", columnDefinition = "TEXT")
+    private String qrImageBase64;
+
+    @Column(name = "zone")
+    @Builder.Default
+    private String zone = "Tầng 1";
+
+    @Column(name = "capacity")
+    @Builder.Default
+    private Integer capacity = 4;
+
     @Column(nullable = false, name = "is_active")
     private Boolean isActive;
 

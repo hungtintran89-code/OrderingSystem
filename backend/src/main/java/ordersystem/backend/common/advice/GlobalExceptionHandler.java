@@ -5,6 +5,7 @@ import ordersystem.backend.common.exception.ResourceNotFoundException;
 import ordersystem.backend.common.payload.ApiResponse;
 import ordersystem.backend.modules.auth.exception.BadCredentialsException;
 import ordersystem.backend.modules.auth.exception.UserAlreadyExistsException;
+import ordersystem.backend.modules.catalog.exception.CatalogException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -24,6 +25,20 @@ import java.util.Map;
 @Slf4j
 public class GlobalExceptionHandler {
 
+
+    // 0. Lỗi 400: Catalog Exception (Trùng món ăn, Danh mục)
+    @ExceptionHandler(CatalogException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCatalogException(CatalogException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage(), 400));
+    }
+
+    // 0b. Lỗi 400: IllegalArgumentException (Nghiệp vụ bàn, khu vực...)
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage(), 400));
+    }
 
     // 1. Lỗi 401: Sai tài khoản/mật khẩu
     @ExceptionHandler(BadCredentialsException.class)
@@ -87,12 +102,25 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Access denied: You do not have permission", 403));
     }
 
-    // 9. Lỗi 500: Lỗi hệ thống không lường trước (Catch-all)
+    // 9. Lỗi CSDL (Dữ liệu quá dài, vi phạm ràng buộc): Trả về thông báo Tiếng Việt sạch sẽ
+    @ExceptionHandler({org.springframework.dao.DataIntegrityViolationException.class, org.hibernate.JDBCException.class})
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(Exception ex) {
+        log.error("[DATABASE ERROR] Data integrity violation: ", ex);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("Dữ liệu hình ảnh hoặc thông tin nhập vào quá dài. Vui lòng chọn hình ảnh có dung lượng nhỏ hơn!", 400));
+    }
+
+    // 10. Lỗi 500: Lỗi hệ thống không lường trước (Catch-all trả về Tiếng Việt mượt mà)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGlobalException(Exception ex) {
         log.error("[SYSTEM ERROR] Unexpected error occurred: ", ex);
-
+        String msg = ex.getMessage();
+        if (msg != null && (msg.contains("value too long") || msg.contains("varying") || msg.contains("statement"))) {
+            msg = "Dữ liệu hình ảnh hoặc thông tin quá dài. Vui lòng chọn ảnh dung lượng nhỏ hơn!";
+        } else {
+            msg = "Đã có lỗi hệ thống xảy ra. Vui lòng thử lại sau!";
+        }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("Internal Server Error: " + ex.getMessage(), 500));
+                .body(ApiResponse.error(msg, 500));
     }
 }

@@ -36,20 +36,20 @@ CREATE INDEX IF NOT EXISTS idx_kitchen_tickets_order ON kitchen_tickets(order_id
 -- -----------------------------------------------------------------------------
 -- 2. SEED: USERS (10 Accounts across MANAGER, CASHIER, STAFF, KITCHEN)
 -- Password for all accounts: admin123
--- BCrypt Hash: $2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4a
+-- BCrypt Hash: $2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4aE
 -- -----------------------------------------------------------------------------
 INSERT INTO users (user_id, username, password_hash, fullname, role, is_active, created_at, phone)
 VALUES
-    (1, 'admin',     '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4a', 'Quản Lý Hệ Thống',   'MANAGER', true, CURRENT_TIMESTAMP, '0901234561'),
-    (2, 'manager1',  '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4a', 'Trần Văn Quản Lý',   'MANAGER', true, CURRENT_TIMESTAMP, '0901234562'),
-    (3, 'cashier1',  '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4a', 'Lê Thị Thu Ngân 1',  'CASHIER', true, CURRENT_TIMESTAMP, '0901234563'),
-    (4, 'cashier2',  '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4a', 'Phạm Văn Thu Ngân 2','CASHIER', true, CURRENT_TIMESTAMP, '0901234564'),
-    (5, 'staff1',    '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4a', 'Nguyễn Văn Phục Vụ 1','STAFF',   true, CURRENT_TIMESTAMP, '0901234565'),
-    (6, 'staff2',    '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4a', 'Hoàng Thị Phục Vụ 2','STAFF',   true, CURRENT_TIMESTAMP, '0901234566'),
-    (7, 'staff3',    '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4a', 'Vũ Văn Phục Vụ 3',   'STAFF',   true, CURRENT_TIMESTAMP, '0901234567'),
-    (8, 'kitchen1',  '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4a', 'Đỗ Văn Đầu Bếp 1',   'KITCHEN', true, CURRENT_TIMESTAMP, '0901234568'),
-    (9, 'kitchen2',  '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4a', 'Ngô Thị Đầu Bếp 2',  'KITCHEN', true, CURRENT_TIMESTAMP, '0901234569'),
-    (10,'kitchen3',  '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4a', 'Bùi Văn Đầu Bếp 3',  'KITCHEN', true, CURRENT_TIMESTAMP, '0901234570')
+    (1, 'admin',     '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4aE', 'Quản Lý Hệ Thống',   'MANAGER', true, CURRENT_TIMESTAMP, '0901234561'),
+    (2, 'manager1',  '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4aE', 'Trần Văn Quản Lý',   'MANAGER', true, CURRENT_TIMESTAMP, '0901234562'),
+    (3, 'cashier1',  '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4aE', 'Lê Thị Thu Ngân 1',  'CASHIER', true, CURRENT_TIMESTAMP, '0901234563'),
+    (4, 'cashier2',  '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4aE', 'Phạm Văn Thu Ngân 2','CASHIER', true, CURRENT_TIMESTAMP, '0901234564'),
+    (5, 'staff1',    '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4aE', 'Nguyễn Văn Phục Vụ 1','STAFF',   true, CURRENT_TIMESTAMP, '0901234565'),
+    (6, 'staff2',    '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4aE', 'Hoàng Thị Phục Vụ 2','STAFF',   true, CURRENT_TIMESTAMP, '0901234566'),
+    (7, 'staff3',    '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4aE', 'Vũ Văn Phục Vụ 3',   'STAFF',   true, CURRENT_TIMESTAMP, '0901234567'),
+    (8, 'kitchen1',  '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4aE', 'Đỗ Văn Đầu Bếp 1',   'KITCHEN', true, CURRENT_TIMESTAMP, '0901234568'),
+    (9, 'kitchen2',  '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4aE', 'Ngô Thị Đầu Bếp 2',  'KITCHEN', true, CURRENT_TIMESTAMP, '0901234569'),
+    (10,'kitchen3',  '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xD0R1v52W.yA3e4aE', 'Bùi Văn Đầu Bếp 3',  'KITCHEN', true, CURRENT_TIMESTAMP, '0901234570')
 ON CONFLICT (user_id) DO UPDATE SET
     username = EXCLUDED.username,
     password_hash = EXCLUDED.password_hash,

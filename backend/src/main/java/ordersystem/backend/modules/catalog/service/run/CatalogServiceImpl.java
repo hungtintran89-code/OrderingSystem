@@ -80,22 +80,31 @@ public class CatalogServiceImpl implements CatalogService {
     @CacheEvict( value = "categories" , allEntries = true)
     public ProductResponse addProductIntoCategory (CreateProductRequest request ){
 
-        CategoryEntity categoryEntity = categoryRepository.findByCategoryName( request.getCategoryName())
-                .orElseThrow( ()-> new CatalogException("The category not exsit")) ;
+        String cleanCatName = request.getCategoryName() != null ? request.getCategoryName().trim() : "";
+        CategoryEntity categoryEntity = categoryRepository.findByCategoryNameIgnoreCase(cleanCatName)
+                .orElseGet(() -> categoryRepository.findByCategoryName(cleanCatName)
+                        .orElseGet(() -> categoryRepository.save(CategoryEntity.builder().categoryName(cleanCatName).build())));
+
+        String cleanProductName = request.getProductName() != null ? request.getProductName().trim() : "Món ăn";
+        if (productRepository.findByProductName(cleanProductName).isPresent()) {
+            throw new CatalogException("Món ăn '" + cleanProductName + "' đã có trong thực đơn. Vui lòng nhập tên khác!");
+        }
+
+        Boolean isAvail = request.getIsAvailbale();
+        if (isAvail == null) {
+            isAvail = true;
+        }
 
         ProductEntity productEntity = ProductEntity.builder()
-                .productName( request.getProductName())
-                .productPrice( request.getProductPrice())
-                .productIsAvailable( request.getIsAvailbale())
-                .productDescription( request.getDescription())
-                .productImageUrl( request.getImageUrl())
-                .category( categoryEntity )
+                .productName(cleanProductName)
+                .productPrice(request.getProductPrice())
+                .productIsAvailable(isAvail)
+                .productDescription(request.getDescription())
+                .productImageUrl(request.getImageUrl())
+                .category(categoryEntity)
                 .build();
 
-        if( productRepository.findByProductName( productEntity.getProductName()).isPresent()){
-            throw new CatalogException("This product already exists!") ;
-        }
-        return productMapper.toProductResponse( productRepository.save( productEntity) ) ;
+        return productMapper.toProductResponse(productRepository.save(productEntity));
     }
 
     @Override

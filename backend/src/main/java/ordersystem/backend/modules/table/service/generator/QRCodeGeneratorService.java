@@ -54,6 +54,18 @@ public class QRCodeGeneratorService {
     }
 
     /**
+     * Sinh chuỗi Data URL Base64 của ảnh QR Code PNG (dùng hiển thị trực tiếp trên giao diện Frontend).
+     */
+    public String generateQrBase64(String qrUrl) {
+        try {
+            byte[] pngBytes = generatePng(qrUrl, DEFAULT_QR_WIDTH, DEFAULT_QR_HEIGHT);
+            return "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(pngBytes);
+        } catch (Exception e) {
+            throw new QrGenerationException("Failed to generate Base64 QR Code string", e);
+        }
+    }
+
+    /**
      * Sinh Byte Array cho ảnh PNG từ chuỗi QR URL.
      */
     public byte[] generatePng(String qrUrl, int width, int height) {

@@ -23,7 +23,10 @@ public class ProductEntity {
     @Column(nullable = false, name = "product_price")
     private Long productPrice;
 
+    @Column(name = "product_image_url", columnDefinition = "TEXT")
     private String productImageUrl;
+
+    @Column(name = "product_description", columnDefinition = "TEXT")
     private String productDescription;
 
     @Column(nullable = false)
