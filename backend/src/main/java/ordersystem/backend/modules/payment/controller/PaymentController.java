@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.payload.ApiResponse;
 import ordersystem.backend.modules.payment.dto.request.CreatePaymentLinkRequest;
 import ordersystem.backend.modules.payment.dto.response.PaymentLinkResponse;
+import ordersystem.backend.modules.payment.dto.response.PaymentStatusResponse;
 import ordersystem.backend.modules.payment.service.impl.PayOSService;
 import ordersystem.backend.modules.payment.service.impl.PaymentService;
 import org.springframework.http.ResponseEntity;
@@ -26,7 +27,7 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.success("VietQr code generated successfully", response));
     }
 
-    @PostMapping("/payos_transfer_handler")
+    @PostMapping({"/payos_transfer_handler", "/payos-webhook", "/payos_webhook"})
     public ResponseEntity<ApiResponse<Void>> handlePayOSWebhook(@RequestBody Webhook webhookBody){
         try {
             paymentService.processPayOSWebhook(webhookBody);
@@ -36,19 +37,35 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.success("Webhook processed successfully", null));
     }
 
+    @GetMapping({"/check-status/{payosOrderCode}", "/check-status"})
+    public ResponseEntity<ApiResponse<PaymentStatusResponse>> checkPaymentStatus(
+            @PathVariable(required = false) Long payosOrderCode,
+            @RequestParam(required = false) Long tableSessionId) {
+        PaymentStatusResponse response = paymentService.checkAndSyncPaymentStatus(payosOrderCode, tableSessionId);
+        return ResponseEntity.ok(ApiResponse.success("Checked payment status successfully", response));
+    }
+
+    @PostMapping({"/confirm-success/{tableSessionId}", "/confirm-success"})
+    public ResponseEntity<ApiResponse<PaymentStatusResponse>> confirmPaymentSuccess(
+            @PathVariable(required = false) Long tableSessionId,
+            @RequestParam(required = false) Long session) {
+        Long targetSessionId = (tableSessionId != null) ? tableSessionId : session;
+        PaymentStatusResponse response = paymentService.confirmPaymentSuccess(targetSessionId);
+        return ResponseEntity.ok(ApiResponse.success("Payment confirmed successfully", response));
+    }
+
     @GetMapping("/cancel")
     public ResponseEntity<ApiResponse<Void>> handleCancelCallback(
             @RequestParam("orderCode") Long orderCode,
             @RequestParam(value = "status", required = false) String status) {
-        // Gọi service cập nhật transaction với orderCode này sang CANCELLED
         return ResponseEntity.ok(ApiResponse.success("Payment cancelled by user", null));
     }
 
     @GetMapping("/success")
-    public ResponseEntity<ApiResponse<Void>> handleSuccessCallback(
+    public ResponseEntity<ApiResponse<PaymentStatusResponse>> handleSuccessCallback(
             @RequestParam("orderCode") Long orderCode,
             @RequestParam(value = "status", required = false) String status) {
-        // Gọi service cập nhật transaction với orderCode này sang SUCCESS
-        return ResponseEntity.ok(ApiResponse.success("Payment successed by user", null));
+        PaymentStatusResponse response = paymentService.checkAndSyncPaymentStatus(orderCode, null);
+        return ResponseEntity.ok(ApiResponse.success("Payment succeeded", response));
     }
 }

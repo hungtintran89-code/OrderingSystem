@@ -623,21 +623,17 @@ export const deleteStaffApi = async (staffId: string): Promise<void> => {
 // 10. POST /api/v1/payments/create-vietqr
 export const createVietQrPaymentApi = async (
   tableNumber: string,
-  totalAmount: number
+  totalAmount: number,
+  tableId?: number | string,
+  tableSessionId?: number
 ): Promise<{ checkoutUrl: string; qrDataUrl: string; payosOrderCode: number }> => {
   try {
     const res = await apiClient.post<ApiResponse<{ checkoutUrl: string; qrDataUrl: string; payosOrderCode: number }>>(
       '/payments/create-vietqr',
-      { tableNumber, totalAmount }
+      { tableNumber, totalAmount, tableId, tableSessionId }
     );
     if (res.data && res.data.data) {
-      const data = res.data.data;
-      const cleanTable = tableNumber.replace(/^bàn\s+/i, '').trim() || '01';
-      const realVietQrUrl = `https://img.vietqr.io/image/MB-0388888888-compact2.png?amount=${totalAmount}&addInfo=${encodeURIComponent(`TT BAN ${cleanTable}`)}`;
-      return {
-        ...data,
-        qrDataUrl: realVietQrUrl,
-      };
+      return res.data.data;
     }
   } catch (err) {
     console.warn('Error calling create-vietqr backend endpoint, using VietQR QuickLink fallback:', err);
@@ -647,8 +643,38 @@ export const createVietQrPaymentApi = async (
   const payosOrderCode = Math.floor(100000 + Math.random() * 900000);
   const cleanTable = tableNumber.replace(/^bàn\s+/i, '').trim() || '01';
   const checkoutUrl = `https://pay.payos.vn/web/${payosOrderCode}?amount=${totalAmount}&table=${cleanTable}`;
-  const qrDataUrl = `https://img.vietqr.io/image/MB-0388888888-compact2.png?amount=${totalAmount}&addInfo=${encodeURIComponent(`TT BAN ${cleanTable}`)}`;
+  const qrDataUrl = `https://img.vietqr.io/image/MB-0866739857-compact2.png?amount=${totalAmount}&addInfo=${encodeURIComponent(`TT BAN ${cleanTable}`)}&accountName=${encodeURIComponent('TRAN HUNG TIN')}`;
   return { checkoutUrl, qrDataUrl, payosOrderCode };
+};
+
+export const checkPayOSPaymentStatusApi = async (
+  payosOrderCode?: number,
+  tableSessionId?: number
+): Promise<{ status: string; tableName?: string; tableId?: number }> => {
+  try {
+    const url = payosOrderCode
+      ? `/payments/check-status/${payosOrderCode}${tableSessionId ? `?tableSessionId=${tableSessionId}` : ''}`
+      : `/payments/check-status?tableSessionId=${tableSessionId}`;
+    const res = await apiClient.get<ApiResponse<{ status: string; tableName?: string; tableId?: number }>>(url);
+    if (res.data && res.data.data) {
+      return res.data.data;
+    }
+  } catch (err) {
+    // Silent catch for background polling
+  }
+  return { status: 'PENDING' };
+};
+
+export const confirmPaymentSuccessApi = async (
+  tableSessionId: number
+): Promise<boolean> => {
+  try {
+    const res = await apiClient.post<ApiResponse<any>>(`/payments/confirm-success/${tableSessionId}`);
+    return res.data?.success ?? true;
+  } catch (err) {
+    console.error('Error confirming payment:', err);
+    return false;
+  }
 };
 
 // 11. GET /api/v1/admin/orders/history

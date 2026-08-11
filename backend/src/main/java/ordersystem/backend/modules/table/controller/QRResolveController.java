@@ -27,12 +27,11 @@ public class QRResolveController {
             @RequestParam(required = false) String format,
             @RequestHeader(value = HttpHeaders.ACCEPT, required = false) String acceptHeader
     ) {
-        // Chỉ Redirect 302 khi trình duyệt mở URL trực tiếp (Accept có text/html và KHÔNG có application/json)
-        boolean isBrowserHtmlNavigation = acceptHeader != null 
-                && acceptHeader.contains("text/html") 
-                && !acceptHeader.contains("application/json");
+        // Mặc định luôn Redirect 302 về giao diện Đặt món Frontend khi quét QR (trừ khi client chủ động truyền format=json)
+        boolean isExplicitJsonCall = "json".equalsIgnoreCase(format)
+                || (acceptHeader != null && acceptHeader.contains("application/json") && !acceptHeader.contains("text/html"));
 
-        if (!"json".equalsIgnoreCase(format) && isBrowserHtmlNavigation) {
+        if (!isExplicitJsonCall) {
             HttpHeaders headers = new HttpHeaders();
             headers.setLocation(URI.create("http://localhost:3000/menu?tableToken=" + qr_token));
             return new ResponseEntity<>(headers, HttpStatus.FOUND);

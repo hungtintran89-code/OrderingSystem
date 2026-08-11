@@ -9,9 +9,13 @@ import ordersystem.backend.modules.payment.entity.PaymentConfigEntity;
 import org.springframework.transaction.annotation.Transactional;
 import vn.payos.model.webhooks.Webhook;
 
+import ordersystem.backend.modules.payment.dto.response.PaymentStatusResponse;
+
 public interface PaymentService {
     CashConfirmResponse confirmCashPayment(CashConfirmRequest request);
     void processPayOSWebhook(Webhook webhookBody);
     PaymentConfigEntity savePayOSConfig(PayOSConfigSaveRequest request);
     PayOSConfigResponse getPayOSConfig();
+    PaymentStatusResponse checkAndSyncPaymentStatus(Long payosOrderCode, Long tableSessionId);
+    PaymentStatusResponse confirmPaymentSuccess(Long tableSessionId);
 }

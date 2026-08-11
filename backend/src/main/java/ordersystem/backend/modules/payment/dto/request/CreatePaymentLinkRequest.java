@@ -8,6 +8,7 @@ import lombok.*;
 @NoArgsConstructor @AllArgsConstructor
 public class CreatePaymentLinkRequest {
     private Long tableSessionId;
+    private Long tableId;
     private String tableNumber;
     private Long totalAmount;
     private Long amount;

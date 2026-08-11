@@ -5,7 +5,9 @@ import {
   updateTableStatusApi,
   createVietQrPaymentApi,
   checkoutTableApi,
-  fetchMasterTableOrderApi
+  fetchMasterTableOrderApi,
+  checkPayOSPaymentStatusApi,
+  confirmPaymentSuccessApi
 } from '../../api/adminApi';
 import { wsService } from '../../modules/client/services/websocket';
 import {
@@ -29,7 +31,7 @@ import {
   Building2,
   Ban
 } from 'lucide-react';
-import { Drawer, Modal, Tabs, message, Image as AntImage } from 'antd';
+import { Drawer, Modal, Tabs, message, notification, Image as AntImage } from 'antd';
 
 interface OrderedItem {
   name: string;
@@ -43,6 +45,12 @@ const formatTableName = (tableName?: string): string => {
   if (!tableName) return 'Bàn 01';
   const clean = tableName.replace(/^bàn\s+/i, '').trim();
   return clean ? `Bàn ${clean}` : tableName;
+};
+
+// Format Currency VND Helper
+const formatVND = (num?: number): string => {
+  if (num === undefined || num === null) return '0 đ';
+  return new Intl.NumberFormat('vi-VN').format(num) + ' đ';
 };
 
 // Mock Items for active tables (Fallback)
@@ -96,33 +104,135 @@ export const StaffTableMap: React.FC = () => {
   const [qrCodeImageUrl, setQrCodeImageUrl] = useState<string>('');
   const [qrPaymentStatus, setQrPaymentStatus] = useState<'PENDING' | 'SUCCESS' | 'FAILED'>('PENDING');
 
-  const loadTables = async () => {
+  const loadTables = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       setError(null);
       const data = await fetchAdminTablesApi();
       setTables(data);
     } catch (err) {
       setError('Không thể tải sơ đồ bàn phục vụ. Vui lòng thử lại.');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadTables();
 
-    // Lắng nghe kênh WebSocket Realtime khi khách đặt món để đổi màu bàn tức thì không cần F5
-    const unsub = wsService.subscribe('/topic/tables/floor-map', (data) => {
+    // 1. Lắng nghe kênh WebSocket Realtime khi khách đặt món hoặc thanh toán để đổi màu bàn tức thì không cần F5
+    const unsubFloorMap = wsService.subscribe('/topic/tables/floor-map', (data) => {
       if (data) {
-        loadTables();
+        setTables((prevTables) => {
+          if (!prevTables || prevTables.length === 0) return prevTables;
+
+          const updates = Array.isArray(data) ? data : [data];
+          let updatedAny = false;
+
+          const newTables = prevTables.map((tbl) => {
+            const match = updates.find(
+              (u) =>
+                (u.tableId && String(u.tableId) === tbl.id) ||
+                (u.tableName && formatTableName(u.tableName) === formatTableName(tbl.tableNumber)) ||
+                (u.tableName && u.tableName === tbl.tableNumber)
+            );
+
+            if (match) {
+              updatedAny = true;
+              return {
+                ...tbl,
+                status: match.status || tbl.status,
+                totalAmount:
+                  match.tempTotalAmount !== undefined && match.tempTotalAmount !== null
+                    ? Number(match.tempTotalAmount)
+                    : tbl.totalAmount,
+                zone: match.zone || tbl.zone,
+                capacity: match.capacity ? Number(match.capacity) : tbl.capacity,
+              };
+            }
+            return tbl;
+          });
+
+          return updatedAny ? newTables : prevTables;
+        });
+
+        setTimeout(() => {
+          loadTables(false);
+        }, 300);
+      }
+    });
+
+    // 2. Lắng nghe kênh WebSocket Alerts khi nhận Webhook thanh toán thành công
+    const unsubAlerts = wsService.subscribe('/topic/admin/tables/alerts', (data) => {
+      if (data && data.type === 'PAYMENT_SUCCESS') {
+        notification.success({
+          message: 'Thanh Toán Thành Công! 🎉',
+          description: data.message || `Đã nhận khoản thanh toán từ ${data.tableName}`,
+          duration: 5,
+          placement: 'topRight',
+        });
+
+        setIsCheckoutModalOpen((isOpen) => {
+          if (isOpen) {
+            setSelectedCheckoutTable(null);
+            setCheckoutUrl('');
+            setQrCodeImageUrl('');
+          }
+          return false;
+        });
+
+        loadTables(false);
       }
     });
 
     return () => {
-      if (unsub) unsub();
+      if (unsubFloorMap) unsubFloorMap();
+      if (unsubAlerts) unsubAlerts();
     };
   }, []);
+
+  // 3. Tự động Polling kiểm tra trạng thái thanh toán PayOS mỗi 2 giây khi Modal VietQR đang mở
+  useEffect(() => {
+    let timer: any = null;
+    let payosCode: number | null = null;
+    const tableSessionId = activeTableOrder?.tableSessionId || selectedCheckoutTable?.tableSessionId;
+
+    if (isCheckoutModalOpen && checkoutUrl) {
+      const match = checkoutUrl.match(/\/web\/(\d+)/);
+      if (match && match[1]) {
+        payosCode = Number(match[1]);
+      }
+    }
+
+    if (isCheckoutModalOpen && (payosCode || tableSessionId)) {
+      timer = setInterval(async () => {
+        const targetSessionId = tableSessionId ? Number(tableSessionId) : undefined;
+        const res = await checkPayOSPaymentStatusApi(payosCode || undefined, targetSessionId);
+        if (res && (res.status === 'SUCCESS' || res.status === 'PAID')) {
+          clearInterval(timer);
+          const tableName = selectedCheckoutTable?.tableNumber || res.tableName || 'bàn';
+          notification.success({
+            message: 'Thanh Toán Thành Công! 🎉',
+            description: `${formatTableName(tableName)} đã chuyển khoản thành công và chuyển sang trạng thái Trống.`,
+            duration: 5,
+            placement: 'topRight',
+          });
+
+          setIsCheckoutModalOpen(false);
+          setSelectedCheckoutTable(null);
+          setCheckoutUrl('');
+          setQrCodeImageUrl('');
+          setQrPaymentStatus('PENDING');
+
+          await loadTables(false);
+        }
+      }, 2000);
+    }
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isCheckoutModalOpen, checkoutUrl, selectedCheckoutTable, activeTableOrder]);
 
   const loadActiveTableOrder = async (tableId: string) => {
     setFetchingOrder(true);
@@ -137,7 +247,12 @@ export const StaffTableMap: React.FC = () => {
     }
   };
 
-  const formatVND = (num: number) => new Intl.NumberFormat('vi-VN').format(num) + ' đ';
+  const handleManualSyncConfirm = async () => {
+    const tableSessionId = activeTableOrder?.tableSessionId || selectedCheckoutTable?.tableSessionId;
+    if (tableSessionId) {
+      await confirmPaymentSuccessApi(Number(tableSessionId));
+    }
+  };
 
   // --- OPEN DETAIL MODAL ---
   const handleOpenDetailModal = (table: AdminTable) => {
@@ -172,8 +287,23 @@ export const StaffTableMap: React.FC = () => {
     try {
       const recvAmount = typeof cashReceived === 'number' ? cashReceived : undefined;
       await checkoutTableApi(tableId, paymentMethod, recvAmount);
-      message.success('Đã hoàn tất thanh toán & giải phóng bàn trong DB thành công!');
+
+      const tableName = selectedCheckoutTable?.tableNumber || tableId;
+      notification.success({
+        message: 'Thanh Toán Thành Công! 🎉',
+        description: `${formatTableName(tableName)} đã được hoàn tất thanh toán và tự động đóng phiên làm việc thành công.`,
+        duration: 4.5,
+        placement: 'topRight',
+      });
+
+      // Tắt Modal và reset trạng thái lập tức
       setIsCheckoutModalOpen(false);
+      setSelectedCheckoutTable(null);
+      setCheckoutUrl('');
+      setQrCodeImageUrl('');
+      setCashReceived('');
+      setQrPaymentStatus('PENDING');
+
       await loadTables();
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Lỗi khi thanh toán đơn hàng';
@@ -186,16 +316,22 @@ export const StaffTableMap: React.FC = () => {
     if (!selectedCheckoutTable) return;
     try {
       setIsGeneratingQr(true);
-      const totalAmt = activeTableOrder?.totalPrice || selectedCheckoutTable.totalAmount || 340000;
+      const totalAmt = activeTableOrder?.totalPrice || selectedCheckoutTable.totalAmount || 0;
       
-      const response = await createVietQrPaymentApi(selectedCheckoutTable.tableNumber, totalAmt);
+      const response = await createVietQrPaymentApi(
+        selectedCheckoutTable.tableNumber,
+        totalAmt,
+        selectedCheckoutTable.id,
+        selectedCheckoutTable.session?.tableSessionId
+      );
       
       setCheckoutUrl(response.checkoutUrl);
       setQrCodeImageUrl(response.qrDataUrl);
       setQrPaymentStatus('PENDING');
       message.success('Đã tạo mã QR thanh toán PayOS VietQR!');
-    } catch (err) {
-      message.error('Không thể tạo mã QR thanh toán VietQR');
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.message || err?.message || 'Không thể tạo mã QR thanh toán VietQR';
+      message.error(errorMsg);
     } finally {
       setIsGeneratingQr(false);
     }
@@ -225,20 +361,21 @@ export const StaffTableMap: React.FC = () => {
   };
 
   // Get orders list for a table (Real DB items with mock fallback)
-  const getOrdersForTable = (tableNumber: string): OrderedItem[] => {
-    if (activeTableOrder && Array.isArray(activeTableOrder.allTableItems) && activeTableOrder.allTableItems.length > 0) {
-      return activeTableOrder.allTableItems.map((item: any) => ({
+  const getOrdersForTable = (tableNumber?: string): OrderedItem[] => {
+    const itemList = activeTableOrder?.allTableItems || activeTableOrder?.items;
+    if (Array.isArray(itemList) && itemList.length > 0) {
+      return itemList.map((item: any) => ({
         name: item.productName || item.name || 'Món ăn',
         quantity: Number(item.quantity || 1),
-        price: Number(item.priceProduct || item.price || 0),
-        note: item.note || ''
+        price: Number(item.priceProduct || item.price || item.unitPrice || 0),
+        note: item.note || item.notes || ''
       }));
     }
-    const cleanNum = tableNumber.replace(/^bàn\s+/i, '').trim();
+    const cleanNum = tableNumber ? tableNumber.replace(/^bàn\s+/i, '').trim() : '01';
     return (
-      mockTableOrders[cleanNum] || mockTableOrders[tableNumber] || [
-        { name: 'Món ăn thực đơn (Phần tiêu chuẩn)', quantity: 2, price: 65000 },
-        { name: 'Đồ uống gọi thêm', quantity: 2, price: 25000 },
+      mockTableOrders[cleanNum] || (tableNumber ? mockTableOrders[tableNumber] : null) || [
+        { name: 'Phở Bò Đặc Biệt (Bát Lớn)', quantity: 2, price: 85000 },
+        { name: 'Quẩy Giòn Chiên Nóng', quantity: 2, price: 10000 },
       ]
     );
   };
@@ -290,7 +427,7 @@ export const StaffTableMap: React.FC = () => {
           <AlertTriangle className="w-8 h-8 text-red-600 mx-auto" />
           <h3 className="text-sm font-bold text-red-900">{error}</h3>
           <button
-            onClick={loadTables}
+            onClick={() => loadTables()}
             className="h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -623,7 +760,7 @@ export const StaffTableMap: React.FC = () => {
                         <h4 className="font-bold text-slate-900 text-sm">Thanh Toán Qua Mã QR VietQR / PayOS</h4>
                         <p className="text-slate-500 text-xs mt-1 max-w-sm mx-auto">
                           Bấm nút bên dưới để tạo mã QR thanh toán theo đúng số tiền{' '}
-                          <strong className="text-slate-900">{formatVND(activeTableOrder?.totalPrice || selectedCheckoutTable.totalAmount || 340000)}</strong> của bàn.
+                          <strong className="text-slate-900">{formatVND(activeTableOrder?.totalPrice || selectedCheckoutTable.totalAmount || 0)}</strong> của bàn.
                         </p>
                       </div>
 
@@ -659,13 +796,16 @@ export const StaffTableMap: React.FC = () => {
                           </div>
 
                           <div className="space-y-1 text-xs text-slate-600">
+                            <p className="font-bold text-slate-800 text-xs">
+                              Chủ TK: <span className="text-slate-900 font-extrabold">TRAN HUNG TIN</span> • MBBank: <span className="text-slate-900 font-mono font-bold">0866739857</span>
+                            </p>
                             <p className="font-bold text-sm text-slate-900">
-                              Số tiền: <span className="text-emerald-600 font-extrabold text-base">{formatVND(activeTableOrder?.totalPrice || selectedCheckoutTable.totalAmount || 340000)}</span>
+                              Số tiền: <span className="text-emerald-600 font-extrabold text-base">{formatVND(activeTableOrder?.totalPrice || selectedCheckoutTable.totalAmount || 0)}</span>
                             </p>
                           </div>
 
                           <div className="pt-2 border-t border-slate-200 text-slate-600 font-medium text-xs">
-                            Đang chờ hệ thống xác nhận chuyển khoản...
+                            <p>Đang chờ hệ thống xác nhận chuyển khoản...</p>
                           </div>
 
                           {/* NÚT HỦY GIAO DỊCH QR */}

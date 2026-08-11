@@ -189,6 +189,8 @@ public class OrderServiceImpl implements OrderService {
                 .tableName(tableSessionEntity.getTableName())
                 .status(TableStatus.OCCUPIED)
                 .tempTotalAmount(masterOrderEntity.getTotalAmount().doubleValue())
+                .zone(tableSessionEntity.getTable().getZone())
+                .capacity(tableSessionEntity.getTable().getCapacity())
                 .build();
         webSocketPublisher.notifyFloorMapUpdate(updatedTableMap);
         // 5. Xóa toàn bộ giỏ hàng khi đặt món
@@ -199,7 +201,9 @@ public class OrderServiceImpl implements OrderService {
                 .map(orderMapper::toItemResponse)
                 .collect(Collectors.toList());
 
-        List<OrderSubmittedEvent.OrderItemInfo> itemInfos = newOrderItemEntity.stream()
+        List<OrderItemEntity> savedItems = orderItemRepository.saveAll(newOrderItemEntity);
+
+        List<OrderSubmittedEvent.OrderItemInfo> itemInfos = savedItems.stream()
                 .map(item -> new OrderSubmittedEvent.OrderItemInfo(
                         item.getOrderItemId(),
                         item.getProduct().getProductId(),
