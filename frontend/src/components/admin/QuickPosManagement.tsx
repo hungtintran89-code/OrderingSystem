@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { AdminMenuItem, AdminTable } from '../../types/admin';
-import { fetchAdminMenuItemsApi, fetchAdminTablesApi, createVietQrPaymentApi, updateTableStatusApi, checkoutTableApi } from '../../api/adminApi';
+import { 
+  fetchAdminMenuItemsApi, 
+  fetchAdminTablesApi, 
+  createVietQrPaymentApi, 
+  updateTableStatusApi, 
+  checkoutTableApi,
+  submitQuickPosOrderApi 
+} from '../../api/adminApi';
 import {
   UtensilsCrossed,
   Search,
@@ -24,15 +31,34 @@ import {
   ChevronDown,
   Layers,
   User,
-  Phone
+  Phone,
+  FileText,
+  Eye,
+  Send
 } from 'lucide-react';
 import { Modal, Radio, Input, Segmented, Popconfirm, message } from 'antd';
 import { filterAndSortByRelevance } from '../../utils/vietnameseSearch';
+import { PaymentCheckoutModal } from '../payment/PaymentCheckoutModal';
 
 interface CartItem {
   product: AdminMenuItem;
   quantity: number;
   note?: string;
+}
+
+export interface TakeawayRound {
+  roundNumber: number;
+  sentTime: string;
+  items: CartItem[];
+}
+
+export interface TakeawayOrderTicket {
+  id: string;
+  orderCode: string;
+  rounds: TakeawayRound[];
+  totalAmount: number;
+  status: 'PENDING_KDS' | 'COOKING' | 'COMPLETED';
+  createdTime: string;
 }
 
 export const QuickPosManagement: React.FC = () => {
@@ -49,9 +75,14 @@ export const QuickPosManagement: React.FC = () => {
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
   const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>('ALL');
 
-  // Takeaway Customer Info
-  const [takeawayName, setTakeawayName] = useState('');
-  const [takeawayPhone, setTakeawayPhone] = useState('');
+  // Takeaway Order Tickets & Active Ticket State
+  const [takeawayTickets, setTakeawayTickets] = useState<TakeawayOrderTicket[]>([]);
+  const [activeTakeawayTicketId, setActiveTakeawayTicketId] = useState<string | null>(null);
+  const [selectedTakeawayTicketForDetail, setSelectedTakeawayTicketForDetail] = useState<TakeawayOrderTicket | null>(null);
+  const [isTakeawayDetailModalOpen, setIsTakeawayDetailModalOpen] = useState(false);
+
+  // Order Submission State
+  const [submittingOrder, setSubmittingOrder] = useState(false);
 
   // Category Filter & Search
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -67,7 +98,17 @@ export const QuickPosManagement: React.FC = () => {
   const [isGeneratingQr, setIsGeneratingQr] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState<string>('');
   const [qrCodeImageUrl, setQrCodeImageUrl] = useState<string>('');
-  const [qrPaymentStatus, setQrPaymentStatus] = useState<'PENDING' | 'SUCCESS' | 'FAILED'>('PENDING');
+  const [qrPaymentStatus, setQrPaymentStatus] = useState<'IDLE' | 'PENDING' | 'SUCCESS' | 'FAILED'>('IDLE');
+  const [accountInfo, setAccountInfo] = useState<any>(undefined);
+
+  useEffect(() => {
+    if (!isCheckoutModalOpen) {
+      setCheckoutUrl('');
+      setQrCodeImageUrl('');
+      setQrPaymentStatus('IDLE');
+      setAccountInfo(undefined);
+    }
+  }, [isCheckoutModalOpen]);
 
   const loadData = async () => {
     try {
@@ -94,6 +135,14 @@ export const QuickPosManagement: React.FC = () => {
   }, []);
 
   const formatVND = (num: number) => new Intl.NumberFormat('vi-VN').format(num) + ' đ';
+
+  const formatTableName = (num: string | number) => {
+    const str = String(num || '').trim();
+    if (str.toLowerCase().startsWith('bàn')) {
+      return str;
+    }
+    return `Bàn ${str}`;
+  };
 
   // Categories & Zones list
   const categories = ['all', ...Array.from(new Set(menuItems.map((i) => i.category)))];
@@ -147,11 +196,29 @@ export const QuickPosManagement: React.FC = () => {
     message.info('Đã xóa toàn bộ món khỏi đơn tạm');
   };
 
+  // Helper: Tạo đơn mang về mới (#TV-01, #TV-02...)
+  const handleCreateNewTakeawayTicket = (): TakeawayOrderTicket => {
+    const nextSeq = takeawayTickets.length + 1;
+    const ticketId = `TV-${String(nextSeq).padStart(2, '0')}`;
+    const newTicket: TakeawayOrderTicket = {
+      id: ticketId,
+      orderCode: `POS-MANGVE-${nextSeq}`,
+      rounds: [],
+      totalAmount: 0,
+      status: 'PENDING_KDS',
+      createdTime: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    };
+    setTakeawayTickets((prev) => [newTicket, ...prev]);
+    setActiveTakeawayTicketId(ticketId);
+    message.success(`Đã tạo Đơn mang về mới #${ticketId}`);
+    return newTicket;
+  };
+
   // Calculate totals
   const totalAmount = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
-  // Send Order to Kitchen
-  const handleSendToKitchen = () => {
+  // Send Order to Kitchen (Gọi API lưu DB & Bắn Realtime KDS)
+  const handleSendToKitchen = async () => {
     if (orderType === 'DINE_IN' && !selectedTable) {
       message.error('Vui lòng chọn bàn ăn trước khi gửi đơn!');
       return;
@@ -160,8 +227,73 @@ export const QuickPosManagement: React.FC = () => {
       message.error('Giỏ món ăn đang trống!');
       return;
     }
-    const targetInfo = orderType === 'TAKEAWAY' ? `🛍️ ĐƠN MANG VỀ (${takeawayName || 'Khách lẻ'})` : `Bàn ${selectedTable?.tableNumber}`;
-    message.success(`🔥 Đã gửi đơn ${cart.length} món của ${targetInfo} xuống Bếp KDS thành công!`);
+
+    try {
+      setSubmittingOrder(true);
+      const tableId = orderType === 'TAKEAWAY' ? (tables[0]?.id || 1) : selectedTable?.id || 1;
+
+      let targetTicket: TakeawayOrderTicket | null = null;
+      if (orderType === 'TAKEAWAY') {
+        const existing = takeawayTickets.find((t) => t.id === activeTakeawayTicketId);
+        targetTicket = existing || handleCreateNewTakeawayTicket();
+      }
+
+      const roundLabel = targetTicket ? `Đợt ${targetTicket.rounds.length + 1}` : '';
+      const payloadNote = orderType === 'TAKEAWAY'
+        ? `Đơn mang về #${targetTicket?.id || 'Khách lẻ'} - ${roundLabel}`
+        : undefined;
+
+      const payload = {
+        tableId,
+        threadId: Math.floor(100000 + Math.random() * 900000),
+        note: payloadNote,
+        list: cart.map((item) => ({
+          productId: Number(item.product.id) || 1,
+          quantity: item.quantity,
+          note: item.note || '',
+        })),
+      };
+
+      await submitQuickPosOrderApi(payload);
+
+      // Cập nhật thẻ đơn mang về với đợt món mới
+      if (orderType === 'TAKEAWAY' && targetTicket) {
+        const nowTime = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        const newRound: TakeawayRound = {
+          roundNumber: targetTicket.rounds.length + 1,
+          sentTime: nowTime,
+          items: [...cart],
+        };
+        const roundAmount = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+
+        setTakeawayTickets((prev) =>
+          prev.map((t) =>
+            t.id === targetTicket!.id
+              ? {
+                  ...t,
+                  rounds: [...t.rounds, newRound],
+                  totalAmount: t.totalAmount + roundAmount,
+                  status: 'PENDING_KDS',
+                }
+              : t
+          )
+        );
+      }
+
+      const targetInfo = orderType === 'TAKEAWAY'
+        ? `Đơn Mang Về #${targetTicket?.id || ''} (${roundLabel})`
+        : `Bàn ${selectedTable?.tableNumber}`;
+
+      message.success(`Đã gửi ${cart.length} món của ${targetInfo} xuống Bếp KDS thành công!`);
+
+      // Xóa sạch giỏ hàng tạm tính để chuẩn bị chọn đợt món mới
+      setCart([]);
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || 'Không thể gửi đơn xuống Bếp KDS';
+      message.error(errMsg);
+    } finally {
+      setSubmittingOrder(false);
+    }
   };
 
   // Open Checkout Payment Modal
@@ -192,9 +324,19 @@ export const QuickPosManagement: React.FC = () => {
       setCheckoutUrl(response.checkoutUrl);
       setQrCodeImageUrl(response.qrDataUrl);
       setQrPaymentStatus('PENDING');
+      if (response.accountName || response.accountNumber) {
+        setAccountInfo({
+          bankName: response.bankName || 'Ngân hàng TMCP Quân đội (MBBank)',
+          accountName: response.accountName || 'PAYOS MERCHANT',
+          accountNumber: response.accountNumber || '',
+        });
+      }
       message.success('Đã tạo mã QR thanh toán VietQR thành công!');
-    } catch (err) {
-      message.error('Không thể khởi tạo mã QR thanh toán');
+    } catch (err: any) {
+      // Reset QR state khi lỗi - KHÔNG fallback QR giả (Toast lỗi đã được apiClient interceptor hiển thị tập trung)
+      setCheckoutUrl('');
+      setQrCodeImageUrl('');
+      setQrPaymentStatus('IDLE');
     } finally {
       setIsGeneratingQr(false);
     }
@@ -239,66 +381,66 @@ export const QuickPosManagement: React.FC = () => {
 
   return (
     <div className="space-y-4 font-sans max-w-7xl mx-auto">
-      {/* 1. POS TOPBAR TOOLBAR (BỔ SUNG NÚT CHỌN LOẠI ĐƠN ÂN TẠI BÀN VS MANG VỀ & NÚT CHỌN BÀN TRỰC QUAN) */}
+      {/* 1. POS TOPBAR TOOLBAR */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-600 shadow-2xs flex-shrink-0">
             <UtensilsCrossed className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="font-extrabold text-base text-slate-900 tracking-tight">Đặt Món Nhanh Tại Bàn (Quick POS 1-Touch)</h2>
+            <h2 className="font-bold text-base text-slate-900 tracking-tight">Đặt Món Nhanh Tại Bàn (Quick POS)</h2>
             <p className="text-xs text-slate-500 mt-0.5">Hỗ trợ Phục vụ & Thu ngân gọi món nhanh tại bàn hoặc mang về</p>
           </div>
         </div>
 
-        {/* CỤM LOẠI ĐƠN & BẢN ĐỒ CHỌN BÀN CHỐNG NHẦM LẪN KHI ĐÔNG KHÁCH */}
+        {/* CỤM LOẠI ĐƠN & SƠ ĐỒ CHỌN BÀN */}
         <div className="flex flex-wrap items-center gap-2.5">
           
           {/* LOẠI ĐƠN SWITCHER: ĂN TẠI BÀN vs MANG VỀ */}
           <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
               onClick={() => setOrderType('DINE_IN')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 orderType === 'DINE_IN'
                   ? 'bg-white text-orange-600 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Utensils className="w-3.5 h-3.5" />
-              <span>🍽️ Ăn Tại Bàn</span>
+              <span>Ăn Tại Bàn</span>
             </button>
 
             <button
               onClick={() => setOrderType('TAKEAWAY')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 orderType === 'TAKEAWAY'
                   ? 'bg-purple-600 text-white shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <ShoppingBag className="w-3.5 h-3.5" />
-              <span>🛍️ Mang Về (Takeaway)</span>
+              <span>Mang Về (Takeaway)</span>
             </button>
           </div>
 
-          {/* CHỌN BÀN ĂN (CHỈ HIỆN KHI ĂN TẠI BÀN) - NÚT BẤM MỞ SƠ ĐỒ CHỌN BÀN TRỰC QUAN */}
+          {/* CHỌN BÀN ĂN (CHỈ HIỆN KHI ĂN TẠI BÀN) */}
           {orderType === 'DINE_IN' ? (
             <button
               onClick={() => setIsTableModalOpen(true)}
-              className="h-10 px-3.5 rounded-xl border border-orange-300 bg-orange-50/90 hover:bg-orange-100 text-orange-950 font-black text-xs flex items-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-98"
+              className="h-10 px-3.5 rounded-xl border border-orange-300 bg-orange-50/90 hover:bg-orange-100 text-orange-950 font-bold text-xs flex items-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-98"
               title="Mở sơ đồ bàn để chọn chính xác tránh nhầm lẫn"
             >
               <MapPin className="w-4 h-4 text-orange-600" />
-              <span>{selectedTable ? `Bàn ${selectedTable.tableNumber} (${selectedTable.zone})` : 'Chọn Bàn'}</span>
-              <span className="px-2 py-0.5 rounded-md bg-white text-emerald-700 font-extrabold text-[10px] border border-slate-200">
-                {selectedTable?.status === 'EMPTY' ? '🟢 Trống' : '🟠 Đang ăn'}
+              <span>{selectedTable ? `${formatTableName(selectedTable.tableNumber)} (${selectedTable.zone})` : 'Chọn Bàn'}</span>
+              <span className="px-2 py-0.5 rounded-md bg-white text-emerald-700 font-bold text-[10px] border border-slate-200">
+                {selectedTable?.status === 'EMPTY' ? 'Trống' : 'Đang ăn'}
               </span>
               <ChevronDown className="w-4 h-4 text-orange-600" />
             </button>
           ) : (
-            <div className="h-10 px-3.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 font-bold text-xs flex items-center gap-2">
+            <div className="h-10 px-3.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 font-semibold text-xs flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-purple-600" />
-              <span>🛍️ Đơn Mang Về (Takeaway)</span>
+              <span>Đơn Mang Về (Takeaway)</span>
             </div>
           )}
 
@@ -376,210 +518,180 @@ export const QuickPosManagement: React.FC = () => {
                         : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
                     }`}
                   >
-                    {cat === 'all' ? '🍽️ Tất cả món' : cat}
+                    {cat === 'all' ? 'Tất cả món' : cat}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* PRODUCT CARDS TOUCH GRID */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-3.5">
-              {filteredMenuItems.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => handleAddToCart(item)}
-                  className={`bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-2xs hover:shadow-md transition-all cursor-pointer select-none flex flex-col justify-between group active:scale-98 ${
-                    !item.isAvailable ? 'opacity-50 grayscale' : ''
-                  }`}
-                >
-                  <div className="relative h-28 w-full bg-slate-100 overflow-hidden">
-                    <img
-                      src={item.imageUrl}
-                      alt={item.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white font-mono text-[10px] font-bold">
-                      {item.sku}
-                    </span>
-                    {!item.isAvailable && (
-                      <span className="absolute inset-0 bg-black/50 text-white font-bold text-xs flex items-center justify-center">
-                        Tạm hết hàng
+            {/* PRODUCT CARDS TOUCH GRID WITH INTERNAL SCROLLBAR */}
+            <div className="max-h-[calc(100vh-240px)] min-h-[500px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                {filteredMenuItems.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => handleAddToCart(item)}
+                    className={`bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-2xs hover:shadow-md transition-all cursor-pointer select-none flex flex-col justify-between group active:scale-98 ${
+                      !item.isAvailable ? 'opacity-50 grayscale' : ''
+                    }`}
+                  >
+                    <div className="relative h-28 w-full bg-slate-100 overflow-hidden">
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white font-mono text-[10px] font-bold">
+                        {item.sku}
                       </span>
-                    )}
-                  </div>
-
-                  <div className="p-3 space-y-1.5">
-                    <h4 className="font-bold text-slate-900 text-xs line-clamp-1 group-hover:text-orange-600 transition-colors">
-                      {item.name}
-                    </h4>
-                    
-                    <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                      <span className="font-black text-slate-900 text-xs sm:text-sm">
-                        {formatVND(item.price)}
-                      </span>
-                      <button
-                        type="button"
-                        className="w-7 h-7 rounded-lg bg-orange-50 hover:bg-orange-600 text-orange-600 hover:text-white flex items-center justify-center transition-colors shadow-2xs font-bold text-xs"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* RIGHT COLUMN: REALTIME ORDER CART & BILL OPERATIONS PANEL (5 COLS ON LARGE) */}
-          <div className="lg:col-span-5 xl:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-4 space-y-4 sticky top-4">
-            
-            {/* Cart Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5 text-orange-600" />
-                <div>
-                  <h3 className="font-bold text-sm text-slate-900">Giỏ Đơn Tạm Tính</h3>
-                  {orderType === 'DINE_IN' && selectedTable && (
-                    <p className="text-[11px] text-orange-600 font-bold">
-                      Bàn {selectedTable.tableNumber} • {selectedTable.zone}
-                    </p>
-                  )}
-                  {orderType === 'TAKEAWAY' && (
-                    <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-900 font-bold text-[10px]">
-                      🛍️ ĐƠN MANG VỀ (TAKEAWAY)
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {cart.length > 0 && (
-                <button
-                  onClick={handleClearCart}
-                  className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
-                  title="Xóa giỏ món"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Takeaway Info Input Fields (Only visible in Takeaway mode) */}
-            {orderType === 'TAKEAWAY' && (
-              <div className="bg-purple-50/80 p-3 rounded-xl border border-purple-200 space-y-2">
-                <p className="font-bold text-purple-950 text-xs flex items-center gap-1">
-                  <User className="w-3.5 h-3.5 text-purple-600" /> Thông tin khách nhận đơn mang về:
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    placeholder="Tên khách (VD: A. Hùng)"
-                    value={takeawayName}
-                    onChange={(e) => setTakeawayName(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-purple-200 bg-white text-xs outline-none focus:border-purple-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Số ĐT (VD: 0912...)"
-                    value={takeawayPhone}
-                    onChange={(e) => setTakeawayPhone(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-purple-200 bg-white text-xs outline-none focus:border-purple-500"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Cart Items List */}
-            {cart.length === 0 ? (
-              <div className="py-12 text-center space-y-2 border-2 border-dashed border-slate-100 rounded-xl">
-                <ShoppingBag className="w-10 h-10 text-slate-300 mx-auto" />
-                <p className="text-xs text-slate-500 font-medium">Chạm chọn món ăn bên trái để thêm vào đơn</p>
-              </div>
-            ) : (
-              <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                {cart.map((item) => (
-                  <div key={item.product.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-0.5">
-                        <p className="font-bold text-slate-900 text-xs">{item.product.name}</p>
-                        <p className="text-[11px] font-mono text-slate-500">{formatVND(item.product.price)} / phần</p>
-                      </div>
-
-                      {/* Stepper Quantity */}
-                      <div className="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-slate-200">
-                        <button
-                          onClick={() => handleUpdateQuantity(item.product.id, -1)}
-                          className="w-5 h-5 rounded hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer font-bold"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="font-black text-xs text-slate-900 px-1">{item.quantity}</span>
-                        <button
-                          onClick={() => handleUpdateQuantity(item.product.id, 1)}
-                          className="w-5 h-5 rounded hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer font-bold"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
+                      {!item.isAvailable && (
+                        <span className="absolute inset-0 bg-black/50 text-white font-bold text-xs flex items-center justify-center">
+                          Tạm hết hàng
+                        </span>
+                      )}
                     </div>
 
-                    {/* Inline Note Input */}
-                    <input
-                      type="text"
-                      placeholder="Ghi chú món (Ít cay, bánh mềm...)"
-                      value={item.note || ''}
-                      onChange={(e) => handleUpdateItemNote(item.product.id, e.target.value)}
-                      className="w-full p-1.5 rounded-md border border-slate-200 bg-white text-[11px] focus:border-orange-500 outline-none"
-                    />
-
-                    <div className="text-right pt-1 border-t border-slate-200/60 font-black text-slate-900 text-xs">
-                      {formatVND(item.product.price * item.quantity)}
+                    <div className="p-3 space-y-1.5">
+                      <h4 className="font-bold text-slate-900 text-xs line-clamp-1 group-hover:text-orange-600 transition-colors">
+                        {item.name}
+                      </h4>
+                      
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                        <span className="font-semibold text-slate-900 text-xs sm:text-sm">
+                          {formatVND(item.price)}
+                        </span>
+                        <button
+                          type="button"
+                          className="w-7 h-7 rounded-lg bg-orange-50 hover:bg-orange-600 text-orange-600 hover:text-white flex items-center justify-center transition-colors shadow-2xs font-bold text-xs"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-
-            {/* Total Amount Summary */}
-            <div className="pt-3 border-t border-slate-200/80 space-y-2">
-              <div className="flex justify-between items-center text-xs text-slate-600 font-medium">
-                <span>Số lượng món:</span>
-                <span className="font-bold text-slate-900">{cart.reduce((s, i) => s + i.quantity, 0)} món</span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-orange-50 border border-orange-200 flex justify-between items-center">
-                <span className="font-bold text-orange-950 text-xs">TỔNG CẦN THANH TOÁN:</span>
-                <span className="font-black text-lg text-orange-600">{formatVND(totalAmount)}</span>
-              </div>
-            </div>
-
-            {/* 3 BOTTOM TOUCH OPERATION BUTTONS (MINIMUM 48PX ERGONOMIC TOUCH) */}
-            <div className="space-y-2 pt-2">
-              {/* Button 1: Gửi Đơn Bếp KDS */}
-              <button
-                onClick={handleSendToKitchen}
-                disabled={cart.length === 0}
-                className={`w-full h-12 rounded-xl font-bold text-white text-xs flex items-center justify-center gap-2 shadow-sm transition-all min-h-[48px] cursor-pointer ${
-                  cart.length > 0 ? 'bg-orange-600 hover:bg-orange-700 active:scale-98' : 'bg-slate-300 cursor-not-allowed'
-                }`}
-              >
-                <ChefHat className="w-5 h-5" />
-                <span>🔥 Gửi Đơn Bếp KDS</span>
-              </button>
-
-              {/* Button 2: Thanh Toán Ngay */}
-              <button
-                onClick={handleOpenCheckoutModal}
-                disabled={cart.length === 0}
-                className={`w-full h-12 rounded-xl font-bold text-white text-xs flex items-center justify-center gap-2 shadow-sm transition-all min-h-[48px] cursor-pointer ${
-                  cart.length > 0 ? 'bg-emerald-600 hover:bg-emerald-700 active:scale-98' : 'bg-slate-300 cursor-not-allowed'
-                }`}
-              >
-                <CreditCard className="w-5 h-5" />
-                <span>💳 Thanh Toán Hóa Đơn</span>
-              </button>
             </div>
           </div>
 
+          {/* RIGHT COLUMN: CART & TAKEAWAY LIVE ORDERS QUEUE PANEL */}
+          <div className="lg:col-span-5 xl:col-span-4 space-y-4">
+            
+            {/* CARD 1: GIỎ ĐƠN TẠM TÍNH (ĐANG CHỌN CHO ĐỢT MÓN MỚI) */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-4 sticky top-4">
+              
+              {/* Cart Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="w-5 h-5 text-orange-600" />
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900">Giỏ Đơn Tạm Tính</h3>
+                    {orderType === 'DINE_IN' && selectedTable && (
+                      <p className="text-[11px] text-orange-600 font-semibold">
+                        {formatTableName(selectedTable.tableNumber)} • {selectedTable.zone}
+                      </p>
+                    )}
+                    {orderType === 'TAKEAWAY' && (
+                      <p className="text-[11px] text-purple-700 font-semibold flex items-center gap-1">
+                        <span>Đơn mang về {activeTakeawayTicketId ? `#${activeTakeawayTicketId}` : '(Đơn mới)'}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {cart.length > 0 && (
+                  <button
+                    onClick={handleClearCart}
+                    className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                    title="Xóa giỏ món"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Cart Items List */}
+              {cart.length === 0 ? (
+                <div className="py-8 text-center space-y-2 border-2 border-dashed border-slate-100 rounded-xl">
+                  <ShoppingBag className="w-8 h-8 text-slate-300 mx-auto" />
+                  <p className="text-xs text-slate-500 font-medium">Chạm chọn món ăn bên trái để thêm vào giỏ</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                  {cart.map((item) => (
+                    <div key={item.product.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-0.5">
+                          <p className="font-semibold text-slate-900 text-xs">{item.product.name}</p>
+                          <p className="text-[11px] font-mono text-slate-500">{formatVND(item.product.price)} / phần</p>
+                        </div>
+
+                        {/* Stepper Quantity */}
+                        <div className="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-slate-200">
+                          <button
+                            onClick={() => handleUpdateQuantity(item.product.id, -1)}
+                            className="w-5 h-5 rounded hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer font-bold"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="font-bold text-xs text-slate-900 px-1">{item.quantity}</span>
+                          <button
+                            onClick={() => handleUpdateQuantity(item.product.id, 1)}
+                            className="w-5 h-5 rounded hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer font-bold"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Inline Note Input */}
+                      <input
+                        type="text"
+                        placeholder="Ghi chú món (Ít cay, bánh mềm...)"
+                        value={item.note || ''}
+                        onChange={(e) => handleUpdateItemNote(item.product.id, e.target.value)}
+                        className="w-full p-1.5 rounded-md border border-slate-200 bg-white text-[11px] focus:border-orange-500 outline-none"
+                      />
+
+                      <div className="text-right pt-1 border-t border-slate-200/60 font-semibold text-slate-900 text-xs">
+                        {formatVND(item.product.price * item.quantity)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Total Amount Summary */}
+              <div className="pt-3 border-t border-slate-200/80 space-y-2">
+                <div className="flex justify-between items-center text-xs text-slate-600 font-medium">
+                  <span>Số lượng món tạm tính:</span>
+                  <span className="font-bold text-slate-900">{cart.reduce((s, i) => s + i.quantity, 0)} món</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-orange-50 border border-orange-200 flex justify-between items-center">
+                  <span className="font-semibold text-orange-950 text-xs">TỔNG TẠM TÍNH:</span>
+                  <span className="font-bold text-lg text-orange-600">{formatVND(totalAmount)}</span>
+                </div>
+              </div>
+
+              {/* OPERATION BUTTON (CHỈ HIỂN THỊ DUY NHẤT NÚT THANH TOÁN HÓA ĐƠN KHI CHỌN MÓN) */}
+              <div className="pt-2">
+                <button
+                  onClick={handleOpenCheckoutModal}
+                  disabled={cart.length === 0}
+                  className={`w-full h-12 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-all min-h-[48px] ${
+                    cart.length > 0
+                      ? 'bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white cursor-pointer shadow-sm'
+                      : 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}
+                >
+                  <CreditCard className="w-5 h-5" />
+                  <span>Thanh Toán Hóa Đơn</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
         </div>
       )}
 
@@ -588,7 +700,7 @@ export const QuickPosManagement: React.FC = () => {
         title={
           <div className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-orange-600" />
-            <span>🗺️ Sơ Đồ Chọn Bàn Phục Vụ (Tránh Nhầm Bàn Khi Đông Khách)</span>
+            <span className="font-bold text-base text-slate-800">Sơ Đồ Chọn Bàn Phục Vụ</span>
           </div>
         }
         open={isTableModalOpen}
@@ -635,7 +747,7 @@ export const QuickPosManagement: React.FC = () => {
                   onClick={() => {
                     setSelectedTable(tbl);
                     setIsTableModalOpen(false);
-                    message.success(`Đã chọn Bàn ${tbl.tableNumber} (${tbl.zone})`);
+                    message.success(`Đã chọn ${formatTableName(tbl.tableNumber)} (${tbl.zone})`);
                   }}
                   className={`p-4 rounded-xl border-2 transition-all cursor-pointer shadow-2xs space-y-2 select-none ${
                     isCurrentSelected
@@ -646,7 +758,7 @@ export const QuickPosManagement: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-base text-slate-900">Bàn {tbl.tableNumber}</span>
+                    <span className="font-bold text-base text-slate-900">{formatTableName(tbl.tableNumber)}</span>
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white border border-slate-200">
                       {tbl.zone}
                     </span>
@@ -665,175 +777,91 @@ export const QuickPosManagement: React.FC = () => {
         </div>
       </Modal>
 
-      {/* 2. INTEGRATED CHECKOUT PAYMENT MODAL FOR QUICK POS */}
+      {/* 2. INTEGRATED CHECKOUT PAYMENT MODAL FOR QUICK POS REFACTORED */}
+      {selectedTable && (
+        <PaymentCheckoutModal
+          isOpen={isCheckoutModalOpen}
+          onClose={() => setIsCheckoutModalOpen(false)}
+          tableName={orderType === 'TAKEAWAY' ? (activeTakeawayTicketId ? `Đơn Mang Về #${activeTakeawayTicketId}` : 'Mang Về (Khách lẻ)') : `Bàn ${selectedTable.tableNumber}`}
+          totalAmount={totalAmount}
+          orderItems={cart.map(c => ({ name: c.product.name, quantity: c.quantity, price: c.product.price }))}
+          orderCode={`POS-${selectedTable.tableNumber}`}
+          onConfirmCashPayment={(received) => {
+            setCashReceived(received);
+            handleConfirmCompletePayment();
+          }}
+          onGenerateQr={handleGenerateVietQR}
+          checkoutUrl={checkoutUrl}
+          qrCodeImageUrl={qrCodeImageUrl}
+          qrPaymentStatus={qrPaymentStatus}
+          onCancelQrPayment={handleCancelQrPayment}
+          onSimulateQrResult={handleSimulateQrResult}
+          accountInfo={accountInfo}
+        />
+      )}
+
+      {/* 3. MODAL XEM CHI TIẾT CÁC ĐỢT MÓN MANG VỀ (TAKEAWAY ROUNDS DETAIL MODAL) */}
       <Modal
         title={
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-emerald-600" />
-            <span>
-              💳 Thanh Toán Hóa Đơn POS -{' '}
-              {orderType === 'TAKEAWAY' ? '🛍️ ĐƠN MANG VỀ' : `Bàn ${selectedTable?.tableNumber}`}
+          <div className="flex items-center gap-2 text-slate-800">
+            <FileText className="w-5 h-5 text-purple-600" />
+            <span className="font-bold text-base">
+              Chi Tiết Các Đợt Món - Đơn Mang Về #{selectedTakeawayTicketForDetail?.id || ''}
             </span>
           </div>
         }
-        open={isCheckoutModalOpen}
-        onCancel={() => setIsCheckoutModalOpen(false)}
-        width={620}
+        open={isTakeawayDetailModalOpen}
+        onCancel={() => setIsTakeawayDetailModalOpen(false)}
         footer={null}
+        width={560}
       >
-        {selectedTable && (
+        {selectedTakeawayTicketForDetail && (
           <div className="space-y-4 pt-2 text-xs font-sans">
-            {/* Ordered Items Summary */}
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-1.5">
-                <span className="font-bold text-slate-900 text-xs">Chi tiết đơn POS:</span>
-                <span className="font-bold text-orange-600">
-                  {orderType === 'TAKEAWAY' ? `🛍️ MANG VỀ (${takeawayName || 'Khách lẻ'})` : `Bàn ${selectedTable.tableNumber}`}
-                </span>
+            <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 flex justify-between items-center">
+              <div>
+                <p className="text-slate-500 font-medium">Mã đơn hàng:</p>
+                <p className="font-bold text-purple-950 text-sm">{selectedTakeawayTicketForDetail.orderCode}</p>
               </div>
-
-              <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
-                {cart.map((item) => (
-                  <div key={item.product.id} className="flex justify-between items-center text-xs">
-                    <span className="font-semibold text-slate-800">
-                      {item.product.name} <span className="text-orange-600 font-bold">x{item.quantity}</span>
-                    </span>
-                    <span className="font-bold text-slate-900">{formatVND(item.product.price * item.quantity)}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
-                <span className="font-bold text-slate-900">TỔNG TIỀN HÓA ĐƠN:</span>
-                <span className="font-black text-base text-emerald-600">{formatVND(totalAmount)}</span>
+              <div className="text-right">
+                <p className="text-slate-500 font-medium">Thời gian tạo đơn:</p>
+                <p className="font-bold text-slate-800">{selectedTakeawayTicketForDetail.createdTime}</p>
               </div>
             </div>
 
-            {/* Payment Tabs */}
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethodTab('CASH')}
-                  className={`p-3 rounded-xl border font-bold flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                    paymentMethodTab === 'CASH'
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <DollarSign className="w-5 h-5 text-emerald-600" />
-                  <span>1. Tiền Mặt</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethodTab('QR')}
-                  className={`p-3 rounded-xl border font-bold flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                    paymentMethodTab === 'QR'
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <QrCode className="w-5 h-5 text-orange-600" />
-                  <span>2. Mã QR VietQR</span>
-                </button>
-              </div>
-
-              {/* View 1: Cash Payment */}
-              {paymentMethodTab === 'CASH' && (
-                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-4">
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Số tiền nhận của khách (VND) *</label>
-                    <input
-                      type="number"
-                      placeholder="VD: 500000"
-                      value={cashReceived}
-                      onChange={(e) => setCashReceived(e.target.value ? Number(e.target.value) : '')}
-                      className="w-full p-3 rounded-xl border border-slate-300 font-extrabold text-slate-900 text-sm focus:border-emerald-500 outline-none"
-                    />
+            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+              {selectedTakeawayTicketForDetail.rounds.map((round) => (
+                <div key={round.roundNumber} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <div className="flex justify-between items-center border-b border-slate-200/80 pb-2">
+                    <span className="font-bold text-purple-900 text-xs flex items-center gap-1">
+                      <Layers className="w-3.5 h-3.5 text-purple-600" />
+                      Đợt {round.roundNumber}
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-medium">{round.sentTime}</span>
                   </div>
 
-                  {cashReceived !== '' && (
-                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex justify-between items-center">
-                      <span className="font-bold text-emerald-950">TIỀN THỪA TRẢ LẠI:</span>
-                      <span className="font-black text-base text-emerald-700">
-                        {Number(cashReceived) >= totalAmount
-                          ? formatVND(Number(cashReceived) - totalAmount)
-                          : 'Khách đưa thiếu tiền'}
-                      </span>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handleConfirmCompletePayment}
-                    className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer min-h-[48px]"
-                  >
-                    Xác Nhận Đã Nhận Tiền Mặt & Clear Bàn
-                  </button>
-                </div>
-              )}
-
-              {/* View 2: QR Payment */}
-              {paymentMethodTab === 'QR' && (
-                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-4 text-center">
-                  {!checkoutUrl ? (
-                    <div className="py-6 space-y-3">
-                      <QrCode className="w-10 h-10 text-orange-600 mx-auto" />
-                      <h4 className="font-bold text-slate-900 text-xs">Thanh Toán Mã QR VietQR / PayOS</h4>
-                      <button
-                        type="button"
-                        onClick={handleGenerateVietQR}
-                        className="h-10 px-5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <QrCode className="w-4 h-4" />
-                        <span>Tạo Mã QR Thanh Toán</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {qrPaymentStatus === 'PENDING' && (
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 inline-block w-full max-w-sm">
-                          <img src={qrCodeImageUrl} alt="Mã QR PayOS" className="w-44 h-44 mx-auto border border-slate-200 p-2 bg-white rounded-xl" />
-                          <p className="text-[11px] text-slate-600 font-bold">Số tiền: {formatVND(totalAmount)}</p>
-
-                          <div className="flex justify-center gap-2 pt-2 border-t border-slate-200">
-                            <button
-                              type="button"
-                              onClick={() => handleSimulateQrResult('SUCCESS')}
-                              className="px-2 py-1 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold"
-                            >
-                              [Giả Lập Thành Công]
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleSimulateQrResult('FAILED')}
-                              className="px-2 py-1 rounded bg-red-100 text-red-800 text-[10px] font-bold"
-                            >
-                              [Giả Lập Thất Bại]
-                            </button>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={handleCancelQrPayment}
-                            className="w-full h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs cursor-pointer flex items-center justify-center gap-1"
-                          >
-                            <Ban className="w-3.5 h-3.5 text-slate-500" />
-                            <span>Hủy Giao Dịch QR</span>
-                          </button>
+                  <div className="space-y-1.5 pt-1">
+                    {round.items.map((it, idx) => (
+                      <div key={idx} className="flex justify-between items-center text-xs">
+                        <div>
+                          <span className="font-semibold text-slate-900">{it.product.name}</span>
+                          {it.note && <span className="text-[11px] text-orange-600 block font-medium">Ghi chú: {it.note}</span>}
                         </div>
-                      )}
-
-                      {qrPaymentStatus === 'SUCCESS' && (
-                        <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-5 text-center space-y-2">
-                          <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
-                          <h3 className="font-bold text-base text-emerald-900">Thanh toán thành công</h3>
+                        <div className="text-right font-mono">
+                          <span className="font-bold text-slate-800">x{it.quantity}</span>
+                          <span className="text-slate-500 text-[11px] ml-2">{formatVND(it.product.price * it.quantity)}</span>
                         </div>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )}
+              ))}
+            </div>
+
+            <div className="pt-3 border-t border-slate-200 flex justify-between items-center text-sm">
+              <span className="font-bold text-slate-700">TỔNG TIỀN ĐƠN MANG VỀ:</span>
+              <span className="font-bold text-orange-600 text-base">
+                {formatVND(selectedTakeawayTicketForDetail.totalAmount)}
+              </span>
             </div>
           </div>
         )}

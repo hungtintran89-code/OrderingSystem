@@ -1,6 +1,7 @@
 package ordersystem.backend.modules.payment.service.run;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import ordersystem.backend.modules.order.entity.OrderEntity;
 import ordersystem.backend.modules.order.enums.OrderStatus;
 import ordersystem.backend.modules.order.exception.OrderException;
@@ -20,6 +21,7 @@ import ordersystem.backend.modules.table.exception.TableException;
 import ordersystem.backend.modules.table.repository.RestaurantTableRepository;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import vn.payos.PayOS;
@@ -33,6 +35,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class PayOSServiceImpl implements PayOSService {
@@ -43,16 +46,29 @@ public class PayOSServiceImpl implements PayOSService {
     private final OrderRepository orderRepository;
     private final PaymentTransactionRepository transactionRepository;
 
+    @Value("${app.payment.bank-code:MB}")
+    private String bankCode;
+
+    @Value("${app.payment.account-no:0387894981}")
+    private String accountNo;
+
+    @Value("${app.payment.account-name:NGUYEN TRI THONG}")
+    private String accountName;
+
+    /**
+     * Luồng chính: Tạo VietQR Payment Link qua PayOS SDK cho 1 Table Session cụ thể.
+     * KHÔNG CÓ FALLBACK HARDCODED - nếu PayOS lỗi sẽ throw exception rõ ràng.
+     */
     @Override
     @Transactional
-    public PaymentLinkResponse createVietQrPaymentLink(Long tableSessionId){
+    public PaymentLinkResponse createVietQrPaymentLink(Long tableSessionId) {
         PayOS payOS = payOSConfig.getPayOSInstance();
 
-        //Kiểm tra table session có hợp lệ không
+        // Kiểm tra table session có hợp lệ không
         TableSessionEntity session = tableSessionRepository.findById(tableSessionId)
-                .orElseThrow( () -> new TableException("Session ID not found: " + tableSessionId));
+                .orElseThrow(() -> new TableException("Session ID not found: " + tableSessionId));
 
-        //Lấy danh sách các đơn hàng chưa bị HỦY của table session này để tính tổng tiền chuẩn 100%
+        // Lấy danh sách các đơn hàng chưa bị HỦY của table session này để tính tổng tiền chuẩn 100%
         List<OrderEntity> sessionOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(tableSessionId, OrderStatus.CANCELLED);
         if (sessionOrders.isEmpty()) {
             throw new OrderException("No active orders found for table session: " + session.getTableSessionId());
@@ -74,13 +90,17 @@ public class PayOSServiceImpl implements PayOSService {
         }
 
         // =========================================================================
-        // TẠO BẢN GHI TRANSACTION TRƯỚC ĐỂ LẤY PRIMARY KEY DUY NHẤT
+        // HỦY TẤT CẢ transaction PENDING cũ của session này (không chỉ 1 cái)
         // =========================================================================
-        // Nếu trước đó có mã QR bị CANCELLED/FAILED, ta hủy nốt các transaction PENDING cũ của session này
-        transactionRepository.findByTableSessionTableSessionIdAndPaymentStatus(tableSessionId, PaymentStatus.PENDING)
-                .ifPresent(oldTx -> {
-                    oldTx.setPaymentStatus(PaymentStatus.CANCELLED);
-                });
+        List<PaymentTransactionEntity> oldPendingTxList = transactionRepository
+                .findAllByTableSessionTableSessionIdAndPaymentStatus(tableSessionId, PaymentStatus.PENDING);
+        if (!oldPendingTxList.isEmpty()) {
+            log.info("[PayOS] Hủy {} transaction(s) PENDING cũ của session {}", oldPendingTxList.size(), tableSessionId);
+            for (PaymentTransactionEntity oldTx : oldPendingTxList) {
+                oldTx.setPaymentStatus(PaymentStatus.CANCELLED);
+            }
+            transactionRepository.saveAll(oldPendingTxList);
+        }
 
         // Tạo Transaction MỚI cho LẦN THỬ thanh toán này
         PaymentTransactionEntity newTransaction = PaymentTransactionEntity.builder()
@@ -99,7 +119,7 @@ public class PayOSServiceImpl implements PayOSService {
         newTransaction.setPayosOrderCode(payosOrderCode);
         newTransaction = transactionRepository.saveAndFlush(newTransaction);
 
-        //Tạo thông tin gửi sang PayOS
+        // Tạo thông tin gửi sang PayOS
         String description = "TT BAN " + session.getTableName();
         if (description.length() > 25) {
             description = description.substring(0, 25);
@@ -121,9 +141,12 @@ public class PayOSServiceImpl implements PayOSService {
                 .build();
 
         try {
-            // 4. Gọi API PayOS tạo link QR mới (PayOS SDK 2.0.1)
+            // Gọi API PayOS tạo link QR mới (PayOS SDK 2.0.1)
+            log.info("[PayOS] Gọi PayOS SDK tạo QR cho session {} - orderCode={} - amount={}",
+                    tableSessionId, payosOrderCode, grandTotal);
             CreatePaymentLinkResponse responseData = payOS.paymentRequests().create(paymentData);
-            // 5. Cập nhật QR URL vào Transaction
+
+            // Cập nhật QR URL vào Transaction
             newTransaction.setQrUrl(responseData.getQrCode());
 
             String qrImgUrl;
@@ -131,14 +154,23 @@ public class PayOSServiceImpl implements PayOSService {
                 if (responseData.getQrCode().startsWith("http")) {
                     qrImgUrl = responseData.getQrCode();
                 } else {
-                    qrImgUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" 
+                    qrImgUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data="
                             + java.net.URLEncoder.encode(responseData.getQrCode(), java.nio.charset.StandardCharsets.UTF_8);
                 }
             } else {
-                qrImgUrl = "https://img.vietqr.io/image/MB-0866739857-compact2.png?amount=" + grandTotal 
-                        + "&addInfo=" + java.net.URLEncoder.encode(description, java.nio.charset.StandardCharsets.UTF_8) 
-                        + "&accountName=TRAN%20HUNG%20TIN";
+                // PayOS trả QR code null → dùng VietQR QuickLink từ config (KHÔNG phải hardcoded)
+                qrImgUrl = buildVietQrUrlFromConfig(grandTotal, description);
             }
+
+            log.info("[PayOS] Tạo QR thành công. checkoutUrl={}, qrDataUrl={}",
+                    responseData.getCheckoutUrl(), qrImgUrl.substring(0, Math.min(80, qrImgUrl.length())) + "...");
+
+            String respAccountName = (responseData.getAccountName() != null && !responseData.getAccountName().isBlank())
+                    ? responseData.getAccountName() : this.accountName;
+            String respAccountNo = (responseData.getAccountNumber() != null && !responseData.getAccountNumber().isBlank())
+                    ? responseData.getAccountNumber() : this.accountNo;
+            String respBankName = (responseData.getBin() != null && !responseData.getBin().isBlank())
+                    ? ("Ngân hàng (BIN " + responseData.getBin() + ")") : ("Ngân hàng (" + this.bankCode + ")");
 
             return PaymentLinkResponse.builder()
                     .tableSessionId(tableSessionId)
@@ -147,25 +179,29 @@ public class PayOSServiceImpl implements PayOSService {
                     .transferContent(description)
                     .qrDataUrl(qrImgUrl)
                     .checkoutUrl(responseData.getCheckoutUrl())
+                    .bankName(respBankName)
+                    .accountName(respAccountName)
+                    .accountNumber(respAccountNo)
                     .build();
+
         } catch (Exception e) {
-            // Fallback: Tạo mã VietQR QuickLink chuẩn ngân hàng MBBank - 0866739857 - TRAN HUNG TIN
-            String vietQrUrl = "https://img.vietqr.io/image/MB-0866739857-compact2.png?amount=" + grandTotal 
-                    + "&addInfo=" + java.net.URLEncoder.encode(description, java.nio.charset.StandardCharsets.UTF_8) 
-                    + "&accountName=TRAN%20HUNG%20TIN";
-            String checkoutUrl = "https://pay.payos.vn/web/" + payosOrderCode + "?amount=" + grandTotal + "&table=" + session.getTableName();
-            
-            return PaymentLinkResponse.builder()
-                    .tableSessionId(tableSessionId)
-                    .payosOrderCode(payosOrderCode)
-                    .totalAmount(grandTotal)
-                    .transferContent(description)
-                    .qrDataUrl(vietQrUrl)
-                    .checkoutUrl(checkoutUrl)
-                    .build();
+            // KHÔNG FALLBACK HARDCODED - Log error chi tiết và throw exception rõ ràng
+            log.error("[PayOS] GỌI PAYOS SDK THẤT BẠI cho session {} - orderCode={}: {}",
+                    tableSessionId, payosOrderCode, e.getMessage(), e);
+
+            // Đánh dấu transaction là FAILED
+            newTransaction.setPaymentStatus(PaymentStatus.FAILED);
+            transactionRepository.save(newTransaction);
+
+            throw new PaymentException(
+                    "Không thể tạo mã QR qua PayOS. Vui lòng kiểm tra cấu hình API Key PayOS. Chi tiết: " + e.getMessage());
         }
     }
 
+    /**
+     * Luồng phụ: Tạo VietQR Payment Link từ CreatePaymentLinkRequest (có thể chứa tableSessionId, tableId, hoặc tableNumber).
+     * Tìm session ACTIVE rồi delegate sang luồng chính.
+     */
     @Override
     @Transactional
     public PaymentLinkResponse createVietQrPaymentLink(ordersystem.backend.modules.payment.dto.request.CreatePaymentLinkRequest request) {
@@ -180,7 +216,7 @@ public class PayOSServiceImpl implements PayOSService {
             if (session == null && request.getTableNumber() != null) {
                 String cleanName = request.getTableNumber().replaceAll("(?i)^bàn\\s+", "").trim();
                 session = tableSessionRepository.findAllByStatus(SessionStatus.ACTIVE).stream()
-                        .filter(s -> s.getTableName().equalsIgnoreCase(cleanName) 
+                        .filter(s -> s.getTableName().equalsIgnoreCase(cleanName)
                                 || s.getTableName().equalsIgnoreCase(request.getTableNumber())
                                 || s.getTableName().endsWith(cleanName))
                         .findFirst()
@@ -193,7 +229,7 @@ public class PayOSServiceImpl implements PayOSService {
             return createVietQrPaymentLink(session.getTableSessionId());
         }
 
-        // NẾU BÀN ĐANG CÓ KHÁCH NHƯNG CHƯA CÓ SESSION ACTIVE -> TÌM BÀN VÀ TỰ ĐỘNG MỞ/KHÔI PHỤC SESSION ACTIVE
+        // NẾU BÀN ĐANG CÓ KHÁCH NHƯNG CHƯA CÓ SESSION ACTIVE -> TÌM BÀN VÀ TỰ ĐỘNG MỞ SESSION
         RestaurantTableEntity table = null;
         if (request != null) {
             if (request.getTableId() != null) {
@@ -219,41 +255,10 @@ public class PayOSServiceImpl implements PayOSService {
             return createVietQrPaymentLink(session.getTableSessionId());
         }
 
-        // CAM KẾT 100% LƯU BẢN GHI PAYMENT_TRANSACTION VÀO POSTGRESQL CHO TẤT CẢ CÁC TRƯỜNG HỢP FALLBACK
-        Long totalAmt = (request != null && request.getTotalAmount() != null && request.getTotalAmount() > 0) 
-                ? request.getTotalAmount() 
-                : ((request != null && request.getAmount() != null && request.getAmount() > 0) ? request.getAmount() : 35000L);
-
-        PaymentTransactionEntity newTx = PaymentTransactionEntity.builder()
-                .invoiceCode("INV_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                .tableSession(session)
-                .totalAmount(totalAmt)
-                .paymentMethod(PaymentMethod.VIETQR)
-                .paymentStatus(PaymentStatus.PENDING)
-                .build();
-        newTx = transactionRepository.saveAndFlush(newTx);
-
-        Long payosOrderCode = newTx.getPaymentId();
-        newTx.setPayosOrderCode(payosOrderCode);
-        transactionRepository.saveAndFlush(newTx);
-
-        String tableLabel = (request != null && request.getTableNumber() != null) ? request.getTableNumber() : "01";
-        String transferContent = "TT BAN " + tableLabel;
-        if (transferContent.length() > 25) transferContent = transferContent.substring(0, 25);
-
-        String vietQrUrl = "https://img.vietqr.io/image/MB-0866739857-compact2.png?amount=" + totalAmt 
-                + "&addInfo=" + java.net.URLEncoder.encode(transferContent, java.nio.charset.StandardCharsets.UTF_8) 
-                + "&accountName=TRAN%20HUNG%20TIN";
-        String checkoutUrl = "https://pay.payos.vn/web/" + payosOrderCode + "?amount=" + totalAmt + "&table=" + tableLabel;
-
-        return PaymentLinkResponse.builder()
-                .tableSessionId(null)
-                .payosOrderCode(payosOrderCode)
-                .totalAmount(totalAmt)
-                .transferContent(transferContent)
-                .qrDataUrl(vietQrUrl)
-                .checkoutUrl(checkoutUrl)
-                .build();
+        // Không tìm thấy bàn hay session nào → throw error rõ ràng
+        throw new PaymentException(
+                "Không tìm thấy phiên bàn (Table Session) hoạt động để tạo QR thanh toán. "
+                + "Vui lòng kiểm tra bàn đã được mở phiên chưa.");
     }
 
     @Override
@@ -264,5 +269,16 @@ public class PayOSServiceImpl implements PayOSService {
         } catch (Exception e) {
             throw new RuntimeException("Invalid PayOS Webhook Signature!");
         }
+    }
+
+    /**
+     * Helper: Tạo VietQR QuickLink URL từ cấu hình application.properties
+     * (KHÔNG BAO GIỜ hardcode số tài khoản - luôn đọc từ config)
+     */
+    private String buildVietQrUrlFromConfig(Long amount, String addInfo) {
+        return "https://img.vietqr.io/image/" + bankCode + "-" + accountNo + "-compact2.png"
+                + "?amount=" + amount
+                + "&addInfo=" + java.net.URLEncoder.encode(addInfo, java.nio.charset.StandardCharsets.UTF_8)
+                + "&accountName=" + java.net.URLEncoder.encode(accountName, java.nio.charset.StandardCharsets.UTF_8);
     }
 }

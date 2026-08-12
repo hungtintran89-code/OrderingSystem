@@ -662,31 +662,31 @@ export const deleteStaffApi = async (staffId: string): Promise<void> => {
   }
 };
 
+export interface VietQrPaymentResponse {
+  checkoutUrl: string;
+  qrDataUrl: string;
+  payosOrderCode: number;
+  bankName?: string;
+  accountName?: string;
+  accountNumber?: string;
+}
+
 // 10. POST /api/v1/payments/create-vietqr
+// KHÔNG BAO GIỜ fallback tạo QR giả - luôn throw error nếu backend lỗi
 export const createVietQrPaymentApi = async (
   tableNumber: string,
   totalAmount: number,
   tableId?: number | string,
   tableSessionId?: number
-): Promise<{ checkoutUrl: string; qrDataUrl: string; payosOrderCode: number }> => {
-  try {
-    const res = await apiClient.post<ApiResponse<{ checkoutUrl: string; qrDataUrl: string; payosOrderCode: number }>>(
-      '/payments/create-vietqr',
-      { tableNumber, totalAmount, tableId, tableSessionId }
-    );
-    if (res.data && res.data.data) {
-      return res.data.data;
-    }
-  } catch (err) {
-    console.warn('Error calling create-vietqr backend endpoint, using VietQR QuickLink fallback:', err);
+): Promise<VietQrPaymentResponse> => {
+  const res = await apiClient.post<ApiResponse<VietQrPaymentResponse>>(
+    '/payments/create-vietqr',
+    { tableNumber, totalAmount, tableId, tableSessionId }
+  );
+  if (res.data && res.data.data) {
+    return res.data.data;
   }
-
-  await delay(300);
-  const payosOrderCode = Math.floor(100000 + Math.random() * 900000);
-  const cleanTable = tableNumber.replace(/^bàn\s+/i, '').trim() || '01';
-  const checkoutUrl = `https://pay.payos.vn/web/${payosOrderCode}?amount=${totalAmount}&table=${cleanTable}`;
-  const qrDataUrl = `https://img.vietqr.io/image/MB-0866739857-compact2.png?amount=${totalAmount}&addInfo=${encodeURIComponent(`TT BAN ${cleanTable}`)}&accountName=${encodeURIComponent('TRAN HUNG TIN')}`;
-  return { checkoutUrl, qrDataUrl, payosOrderCode };
+  throw new Error('Backend trả về response không hợp lệ khi tạo QR thanh toán');
 };
 
 export const checkPayOSPaymentStatusApi = async (
@@ -705,6 +705,26 @@ export const checkPayOSPaymentStatusApi = async (
     // Silent catch for background polling
   }
   return { status: 'PENDING' };
+};
+
+export interface SubmitQuickPosOrderPayload {
+  tableId: number;
+  threadId: number;
+  note?: string;
+  list: {
+    productId: number;
+    quantity: number;
+    note?: string;
+  }[];
+}
+
+// Submit Order from Quick POS -> POST /api/v1/orders
+export const submitQuickPosOrderApi = async (payload: SubmitQuickPosOrderPayload): Promise<any> => {
+  const res = await apiClient.post<ApiResponse<any>>('/orders', payload);
+  if (res.data && res.data.data) {
+    return res.data.data;
+  }
+  return res.data;
 };
 
 export const confirmPaymentSuccessApi = async (

@@ -10,6 +10,9 @@ public class PaymentLinkResponse {
     private Long payosOrderCode;
     private Long totalAmount;
     private String transferContent;
-    private String qrDataUrl; //Chua ma qr thanh toan
-    private String checkoutUrl; // Link trang thanh toan PayOS
+    private String qrDataUrl; // Contains QR code image URL or EMVCo QR code
+    private String checkoutUrl; // Link to PayOS checkout page
+    private String bankName;
+    private String accountName;
+    private String accountNumber;
 }

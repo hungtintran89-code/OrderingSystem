@@ -14,6 +14,38 @@
   }
 }
 
+/* ========================================================================== */
+/* GLOBAL MODAL BACKDROP (ĐỔI NHẸ MÀU NỀN, KHÔNG LÀM MỜ TRANG WEB PHÍA SAU)   */
+/* ========================================================================== */
+
+/* 1. Ant Design Modal Backdrop Mask (Đổi nhẹ màu nền 45% opacity, KHÔNG làm mờ phông đằng sau) */
+.ant-modal-root .ant-modal-mask {
+  background-color: rgba(15, 23, 42, 0.45) !important; /* Soft Slate 900 45% tint */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 2. Ant Design Drawer Backdrop Mask */
+.ant-drawer-root .ant-drawer-mask {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 3. Ant Design Modal Content Card Premium Style */
+.ant-modal-content {
+  border-radius: 1.25rem !important; /* rounded-2xl */
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important; /* shadow-2xl */
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+}
+
+/* 4. Custom Portal Backdrop Overlays */
+.modal-backdrop-overlay {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 body {
   font-family: 'Inter', sans-serif;
   background-color: #F8FAFC;

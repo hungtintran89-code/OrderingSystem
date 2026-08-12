@@ -28,4 +28,7 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
 
     // Danh sách giao dịch theo session
     List<PaymentTransactionEntity> findByTableSessionTableSessionId(Long tableSessionId);
+
+    // Tìm TẤT CẢ transactions theo session và trạng thái (VD: hủy hết PENDING cũ khi tạo QR mới)
+    List<PaymentTransactionEntity> findAllByTableSessionTableSessionIdAndPaymentStatus(Long tableSessionId, PaymentStatus status);
 }
