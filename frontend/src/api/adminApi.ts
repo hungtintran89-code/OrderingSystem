@@ -720,37 +720,49 @@ export const confirmPaymentSuccessApi = async (
 };
 
 // 11. GET /api/v1/admin/orders/history
-export const fetchAdminOrdersApi = async (): Promise<AdminOrder[]> => {
+export const fetchAdminOrdersApi = async (status?: string, date?: string): Promise<AdminOrder[]> => {
   try {
-    const res = await apiClient.get<ApiResponse<any>>('/admin/orders/history');
+    const params: any = {};
+    if (status && status !== 'ALL') params.status = status;
+    if (date && date !== 'ALL') params.date = date;
+
+    const res = await apiClient.get<ApiResponse<any>>('/admin/orders/history', { params });
     const raw = res.data?.data;
     let list: any[] = [];
     if (Array.isArray(raw)) list = raw;
     else if (raw && Array.isArray(raw.content)) list = raw.content;
 
     if (list && list.length > 0) {
-      return list.map((item: any) => ({
-        id: String(item.orderId || item.id || `ord-${Math.random()}`),
-        orderCode: item.orderCode || `#ORD-${item.orderId || Math.floor(1000 + Math.random() * 9000)}`,
-        tableNumber: String(item.tableNumber || item.tableId || '01'),
-        zone: item.zone || 'Tầng 1',
-        createdAt: item.createdAt ? new Date(item.createdAt).toLocaleTimeString('vi-VN') : 'Vừa xong',
-        status: item.status || 'PENDING',
-        paymentStatus: item.paymentStatus || 'UNPAID',
-        paymentMethod: item.paymentMethod || 'UNPAID',
-        totalAmount: Number(item.totalAmount || 0),
-        items: Array.isArray(item.items)
-          ? item.items.map((i: any) => ({
-              id: String(i.id || Math.random()),
+      return list.map((item: any) => {
+        const rawItems = item.allTableItems || item.items || [];
+        const items = Array.isArray(rawItems)
+          ? rawItems.map((i: any) => ({
+              id: String(i.orderItemId || i.id || Math.random()),
               name: i.productName || i.name || 'Món ăn',
               quantity: Number(i.quantity || 1),
-              price: Number(i.price || 0),
+              price: Number(i.priceProduct ?? i.price ?? 0),
               note: i.note || '',
             }))
-          : [],
-        customerNote: item.customerNote || '',
-        staffName: item.staffName || '',
-      }));
+          : [];
+
+        const calculatedTotal = items.reduce((sum: number, it: any) => sum + (it.price * it.quantity), 0);
+        const orderIdStr = String(item.orderId || item.tableSessionId || item.id || `ord-${Math.random()}`);
+
+        return {
+          id: orderIdStr,
+          orderCode: item.orderCode || `#ORD-${orderIdStr}`,
+          tableNumber: String(item.tableName || item.tableNumber || item.tableId || '01'),
+          zone: item.zone || 'Tầng 1',
+          createdAt: item.openedAt || item.createdAt ? new Date(item.openedAt || item.createdAt).toLocaleTimeString('vi-VN') : 'Vừa xong',
+          status: item.status || 'PENDING',
+          paymentStatus: item.paymentStatus || 'UNPAID',
+          paymentMethod: item.paymentMethod || 'UNPAID',
+          totalAmount: Number(item.totalPrice ?? item.totalAmount ?? calculatedTotal),
+          items: items,
+          customerNote: item.customerNote || '',
+          staffName: item.staffName || '',
+        };
+      });
     }
     return mockAdminOrders;
   } catch {

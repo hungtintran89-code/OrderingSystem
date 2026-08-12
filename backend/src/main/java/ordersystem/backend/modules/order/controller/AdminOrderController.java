@@ -36,9 +36,10 @@ public class AdminOrderController {
     @PreAuthorize("hasAnyRole('MANAGER', 'STAFF')")
     public ResponseEntity<ApiResponse<?>> getOrderHistory(
             @RequestParam(required = false) OrderStatus status,
+            @RequestParam(required = false) String date,
             Pageable pageable) {
-        PageResponse<MasterTableOrderResponse> history = orderService.getOrderHistory(status , pageable ) ;
+        PageResponse<MasterTableOrderResponse> history = orderService.getOrderHistory(status, date, pageable);
 
-        return ResponseEntity.ok( ApiResponse.success("Order history retrieved successfully" , history)) ;
+        return ResponseEntity.ok(ApiResponse.success("Order history retrieved successfully", history));
     }
 }

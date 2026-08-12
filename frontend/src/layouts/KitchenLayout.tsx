@@ -99,7 +99,7 @@ export const KitchenLayout: React.FC<KitchenLayoutProps> = ({
 
       {/* 2. MAIN KITCHEN KIOSK DISPLAY AREA */}
       <main className="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full">
-        {children || <Outlet /> || <KitchenKiosk />}
+        {children ? children : <Outlet />}
       </main>
 
       {/* USER PROFILE & PASSWORD CHANGE MODAL FOR KITCHEN CHEF */}

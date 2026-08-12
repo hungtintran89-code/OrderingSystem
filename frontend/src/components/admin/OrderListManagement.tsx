@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AdminOrder, AdminOrderStatus } from '../../types/admin';
 import { fetchAdminOrdersApi, updateAdminOrderStatusApi } from '../../api/adminApi';
+import { wsService } from '../../modules/client/services/websocket';
 import {
   Receipt,
   Search,
@@ -19,9 +20,27 @@ import {
   List,
   User,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Calendar
 } from 'lucide-react';
 import { Modal, message, Popconfirm } from 'antd';
+
+const getTodayString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getYesterdayString = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export const OrderListManagement: React.FC = () => {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -30,6 +49,7 @@ export const OrderListManagement: React.FC = () => {
 
   // Filters State
   const [statusFilter, setStatusFilter] = useState<AdminOrderStatus | 'ALL'>('ALL');
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'TABLE' | 'GRID'>('TABLE');
 
@@ -40,22 +60,42 @@ export const OrderListManagement: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  const loadOrders = async () => {
+  const loadOrders = async (showSpinner = true) => {
     try {
-      setLoading(true);
+      if (showSpinner) setLoading(true);
       setError(null);
-      const data = await fetchAdminOrdersApi();
+      const data = await fetchAdminOrdersApi(undefined, selectedDate);
       setOrders(data);
     } catch (err) {
-      setError('Không thể tải danh sách đơn hàng phục vụ. Vui lòng thử lại.');
+      if (showSpinner) setError('Không thể tải danh sách đơn hàng phục vụ. Vui lòng thử lại.');
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadOrders();
-  }, []);
+    loadOrders(true);
+
+    // 1. STOMP Realtime Subscriber: Auto update live orders list when customer places an order
+    const unsubKitchen = wsService.subscribe('/topic/kitchen/orders', () => {
+      loadOrders(false);
+    });
+
+    const unsubFloorMap = wsService.subscribe('/topic/floor-map/update', () => {
+      loadOrders(false);
+    });
+
+    // 2. Dual-Layer Auto-Polling (3s Interval for 100% Realtime Guarantee)
+    const pollInterval = setInterval(() => {
+      loadOrders(false);
+    }, 3000);
+
+    return () => {
+      unsubKitchen();
+      unsubFloorMap();
+      clearInterval(pollInterval);
+    };
+  }, [selectedDate]);
 
   const formatVND = (num: number) => new Intl.NumberFormat('vi-VN').format(num) + ' đ';
 
@@ -215,6 +255,64 @@ export const OrderListManagement: React.FC = () => {
             />
           </div>
         </div>
+
+        {/* 3. DATE FILTER BAR */}
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100 text-xs">
+          <span className="font-bold text-slate-700 flex items-center gap-1.5 min-w-[100px]">
+            <Calendar className="w-4 h-4 text-orange-600" /> Ngày xem đơn:
+          </span>
+
+          <div className="flex items-center gap-2 flex-wrap flex-1">
+            <button
+              onClick={() => setSelectedDate(getTodayString())}
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer text-xs ${
+                selectedDate === getTodayString()
+                  ? 'bg-orange-600 text-white shadow-2xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/80'
+              }`}
+            >
+              Hôm nay
+            </button>
+
+            <button
+              onClick={() => setSelectedDate(getYesterdayString())}
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer text-xs ${
+                selectedDate === getYesterdayString()
+                  ? 'bg-orange-600 text-white shadow-2xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/80'
+              }`}
+            >
+              Hôm qua
+            </button>
+
+            <button
+              onClick={() => setSelectedDate('ALL')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer text-xs ${
+                selectedDate === 'ALL'
+                  ? 'bg-orange-600 text-white shadow-2xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/80'
+              }`}
+            >
+              Tất cả các ngày
+            </button>
+
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-1 shadow-2xs">
+              <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Chọn ngày:</span>
+              <input
+                type="date"
+                value={selectedDate === 'ALL' ? '' : selectedDate}
+                onChange={(e) => {
+                  if (e.target.value) setSelectedDate(e.target.value);
+                }}
+                className="bg-transparent text-xs font-bold text-slate-900 outline-none cursor-pointer"
+              />
+            </div>
+
+            <span className="text-[11px] font-semibold text-slate-400 ml-auto">
+              Đang hiển thị: <strong className="text-slate-800">{selectedDate === 'ALL' ? 'Tất cả' : selectedDate === getTodayString() ? 'Hôm nay' : selectedDate === getYesterdayString() ? 'Hôm qua' : selectedDate}</strong>
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* 4 UI STATES HANDLING */}
@@ -261,163 +359,102 @@ export const OrderListManagement: React.FC = () => {
       {/* VIEW MODE 1: REDESIGNED APPLE/STRIPE-GRADE COMMERCIAL DATA TABLE */}
       {!loading && !error && filteredOrders.length > 0 && viewMode === 'TABLE' && (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="max-h-[calc(100vh-320px)] min-h-[380px] overflow-y-auto overflow-x-auto custom-scrollbar">
             <table className="w-full text-left text-xs text-slate-700 border-collapse">
-              <thead className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-bold uppercase text-[10px] tracking-wider whitespace-nowrap">
+              <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 font-bold uppercase text-[10px] tracking-wider whitespace-nowrap sticky top-0 z-10 shadow-2xs">
                 <tr>
-                  <th className="py-3.5 px-4">Mã Đơn & Vị Trí</th>
-                  <th className="py-3.5 px-4">Thời Gian</th>
-                  <th className="py-3.5 px-4">Danh Sách Món Đã Đặt</th>
-                  <th className="py-3.5 px-4">Tổng Tiền</th>
-                  <th className="py-3.5 px-4">Thanh Toán</th>
-                  <th className="py-3.5 px-4">Trạng Thái Bếp</th>
-                  <th className="py-3.5 px-4 text-right">Thao Tác</th>
+                  <th className="py-3.5 px-4 bg-slate-50">Mã Đơn & Vị Trí</th>
+                  <th className="py-3.5 px-4 bg-slate-50">Thời Gian</th>
+                  <th className="py-3.5 px-4 bg-slate-50">Danh Sách Món Đã Đặt</th>
+                  <th className="py-3.5 px-4 bg-slate-50">Tổng Tiền</th>
+                  <th className="py-3.5 px-4 bg-slate-50">Thanh Toán</th>
+                  <th className="py-3.5 px-4 bg-slate-50">Trạng Thái Bếp</th>
+                  <th className="py-3.5 px-4 text-right bg-slate-50">Thao Tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {filteredOrders.map((ord) => {
                   const badge = getStatusBadge(ord.status);
-                  const isExpanded = !!expandedOrders[ord.id];
+                  const cleanTableName = ord.tableNumber.toLowerCase().startsWith('bàn')
+                    ? ord.tableNumber
+                    : `Bàn ${ord.tableNumber}`;
 
                   return (
-                    <React.Fragment key={ord.id}>
-                      <tr className="hover:bg-slate-50/70 transition-colors">
-                        {/* Order Code & Table */}
-                        <td className="py-4 px-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2.5">
-                            <button
-                              onClick={() => toggleExpandOrder(ord.id)}
-                              className="w-6 h-6 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
-                              title="Xem chi tiết món"
-                            >
-                              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                            </button>
-
-                            <div>
-                              <span className="font-mono font-extrabold text-slate-900 text-sm block">{ord.orderCode}</span>
-                              <span className="px-2 py-0.5 rounded-md bg-orange-50 text-orange-700 font-bold text-[11px] border border-orange-200/80 inline-block mt-0.5">
-                                Bàn {ord.tableNumber} • {ord.zone}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Created At */}
-                        <td className="py-4 px-4 whitespace-nowrap font-mono text-slate-600 text-[11px]">
-                          <span className="font-bold text-slate-900 flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-slate-400" /> {ord.createdAt}
+                    <tr key={ord.id} className="hover:bg-slate-50/70 transition-colors">
+                      {/* Order Code & Table */}
+                      <td className="py-4 px-4 whitespace-nowrap">
+                        <div>
+                          <span className="font-mono font-extrabold text-slate-900 text-sm block">{ord.orderCode}</span>
+                          <span className="px-2 py-0.5 rounded-md bg-orange-50 text-orange-700 font-bold text-[11px] border border-orange-200/80 inline-block mt-0.5">
+                            {cleanTableName} • {ord.zone}
                           </span>
-                          <span className="text-[10px] text-slate-400 block mt-0.5">{ord.staffName || 'Khách quét QR'}</span>
-                        </td>
+                        </div>
+                      </td>
 
-                        {/* Items Preview */}
-                        <td className="py-4 px-4 min-w-[220px] max-w-xs">
-                          <div className="space-y-0.5">
-                            <p className="font-semibold text-slate-800 line-clamp-1">
-                              {ord.items.map((i) => `${i.name} (${i.quantity})`).join(', ')}
-                            </p>
-                            <p className="text-[11px] text-slate-400 font-medium">Tổng {ord.items.length} món ăn</p>
-                          </div>
-                        </td>
+                      {/* Created At */}
+                      <td className="py-4 px-4 whitespace-nowrap font-mono text-slate-600 text-[11px]">
+                        <span className="font-bold text-slate-900 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-400" /> {ord.createdAt}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">{ord.staffName || 'Khách quét QR'}</span>
+                      </td>
 
-                        {/* Total Amount */}
-                        <td className="py-4 px-4 whitespace-nowrap font-black text-slate-900 text-sm">
-                          {formatVND(ord.totalAmount)}
-                        </td>
+                      {/* Items Preview */}
+                      <td className="py-4 px-4 min-w-[220px] max-w-xs">
+                        <div className="space-y-0.5">
+                          <p className="font-semibold text-slate-800 line-clamp-1">
+                            {ord.items.map((i) => `${i.name} (${i.quantity})`).join(', ')}
+                          </p>
+                          <p className="text-[11px] text-slate-400 font-medium">Tổng {ord.items.length} món ăn</p>
+                        </div>
+                      </td>
 
-                        {/* Payment Status (Whitespace Nowrap Clean Badge) */}
-                        <td className="py-4 px-4 whitespace-nowrap">
-                          {ord.paymentStatus === 'PAID' ? (
-                            <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold text-[11px] inline-flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" /> VietQR / Đã trả
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200 font-semibold text-[11px] inline-flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-slate-400" /> Chưa thanh toán
-                            </span>
-                          )}
-                        </td>
+                      {/* Total Amount */}
+                      <td className="py-4 px-4 whitespace-nowrap font-black text-slate-900 text-sm">
+                        {formatVND(ord.totalAmount)}
+                      </td>
 
-                        {/* Kitchen Status Badge (Whitespace Nowrap Clean Badge) */}
-                        <td className="py-4 px-4 whitespace-nowrap">
-                          <span className={`px-2.5 py-1 rounded-md text-[11px] border inline-block ${badge.style}`}>
-                            {badge.label}
+                      {/* Payment Status (Whitespace Nowrap Clean Badge) */}
+                      <td className="py-4 px-4 whitespace-nowrap">
+                        {ord.paymentStatus === 'PAID' ? (
+                          <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold text-[11px] inline-flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> VietQR / Đã trả
                           </span>
-                        </td>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200 font-semibold text-[11px] inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-slate-400" /> Chưa thanh toán
+                          </span>
+                        )}
+                      </td>
 
-                        {/* Actions (Clean Minimalist Button Group) */}
-                        <td className="py-4 px-4 whitespace-nowrap text-right space-x-1.5">
+                      {/* Kitchen Status Badge (Whitespace Nowrap Clean Badge) */}
+                      <td className="py-4 px-4 whitespace-nowrap">
+                        <span className={`px-2.5 py-1 rounded-md text-[11px] border inline-block ${badge.style}`}>
+                          {badge.label}
+                        </span>
+                      </td>
+
+                      {/* Actions (Clean Minimalist Button Group) */}
+                      <td className="py-4 px-4 whitespace-nowrap text-right space-x-1.5">
+                        <button
+                          onClick={() => handleOpenDetailModal(ord)}
+                          className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
+                        >
+                          <Receipt className="w-3.5 h-3.5 text-orange-600" />
+                          <span>Chi tiết</span>
+                        </button>
+
+                        {ord.status === 'PREPARING' && (
                           <button
-                            onClick={() => handleOpenDetailModal(ord)}
-                            className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
+                            onClick={() => handleUpdateStatus(ord.id, 'SERVED')}
+                            className="h-8 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-all cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
                           >
-                            <Receipt className="w-3.5 h-3.5 text-orange-600" />
-                            <span>Chi tiết</span>
+                            <Utensils className="w-3.5 h-3.5" />
+                            <span>Đã Lên Món</span>
                           </button>
-
-                          {ord.status === 'PENDING' && (
-                            <button
-                              onClick={() => handleUpdateStatus(ord.id, 'PREPARING')}
-                              className="h-8 px-3 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs transition-all cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
-                            >
-                              <ChefHat className="w-3.5 h-3.5" />
-                              <span>Gửi Bếp</span>
-                            </button>
-                          )}
-
-                          {ord.status === 'PREPARING' && (
-                            <button
-                              onClick={() => handleUpdateStatus(ord.id, 'SERVED')}
-                              className="h-8 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-all cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
-                            >
-                              <Utensils className="w-3.5 h-3.5" />
-                              <span>Đã Lên Món</span>
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-
-                      {/* EXPANDED ACCORDION ROW FOR ITEM DETAILS & NOTES */}
-                      {isExpanded && (
-                        <tr className="bg-slate-50/70 border-b border-slate-200/80">
-                          <td colSpan={7} className="p-4">
-                            <div className="bg-white p-4 rounded-xl border border-slate-200/80 space-y-3 shadow-2xs">
-                              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                <h5 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                                  <Sparkles className="w-3.5 h-3.5 text-orange-600" /> Chi tiết các món đặt trong đơn {ord.orderCode}:
-                                </h5>
-                                <span className="text-[11px] text-slate-400 font-mono">Bàn {ord.tableNumber}</span>
-                              </div>
-
-                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                                {ord.items.map((it) => (
-                                  <div key={it.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 flex justify-between items-center text-xs">
-                                    <div>
-                                      <p className="font-bold text-slate-900">{it.name}</p>
-                                      {it.note && (
-                                        <p className="text-[10px] text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded mt-0.5 inline-block">
-                                          Ghi chú: {it.note}
-                                        </p>
-                                      )}
-                                    </div>
-                                    <div className="text-right ml-2 flex-shrink-0">
-                                      <span className="font-bold text-orange-600">x{it.quantity}</span>
-                                      <p className="font-mono font-bold text-[11px] text-slate-900">{formatVND(it.price * it.quantity)}</p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-
-                              {ord.customerNote && (
-                                <p className="text-[11px] text-amber-900 bg-amber-50/90 p-2.5 rounded-lg border border-amber-200/80 font-medium">
-                                  📌 Ghi chú chung của khách: <strong>{ord.customerNote}</strong>
-                                </p>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
+                        )}
+                      </td>
+                    </tr>
                   );
                 })}
               </tbody>
@@ -428,7 +465,8 @@ export const OrderListManagement: React.FC = () => {
 
       {/* VIEW MODE 2: KANBAN GRID CARDS */}
       {!loading && !error && filteredOrders.length > 0 && viewMode === 'GRID' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="max-h-[calc(100vh-320px)] min-h-[380px] overflow-y-auto pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {filteredOrders.map((ord) => {
             const badge = getStatusBadge(ord.status);
             return (
@@ -479,7 +517,8 @@ export const OrderListManagement: React.FC = () => {
             );
           })}
         </div>
-      )}
+      </div>
+    )}
 
       {/* DETAILED ORDER MODAL & SIMULATED THERMAL SLIP */}
       <Modal

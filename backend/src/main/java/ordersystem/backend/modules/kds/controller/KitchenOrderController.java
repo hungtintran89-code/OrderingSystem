@@ -40,7 +40,7 @@ public class KitchenOrderController {
     @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER')")
     @Operation(summary = "Lấy danh sách món cá nhân đầu bếp đang nấu (COOKING)")
     public ResponseEntity<ApiResponse<List<KitchenTicketResponse>>> getMyCookingTickets(Principal principal) {
-        List<KitchenTicketResponse> tickets = kitchenTicketService.getMyCookingTickets(Long.parseLong(principal.getName()));
+        List<KitchenTicketResponse> tickets = kitchenTicketService.getMyCookingTickets(principal);
         return ResponseEntity.ok(ApiResponse.success("Successfully downloaded personal list of dishes currently being cooked.", tickets));
     }
 
@@ -62,7 +62,7 @@ public class KitchenOrderController {
     public ResponseEntity<ApiResponse<KitchenTicketResponse>> completeTicket(
             @PathVariable Long ticketId,
             Principal principal) {
-        KitchenTicketResponse response = kitchenTicketService.completeTicket(ticketId, Long.parseLong(principal.getName()));
+        KitchenTicketResponse response = kitchenTicketService.completeTicket(ticketId, principal);
         return ResponseEntity.ok(ApiResponse.success("Dish successfully completed! It has been updated to the general history.", response));
     }
 
@@ -71,7 +71,7 @@ public class KitchenOrderController {
     @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER')")
     @Operation(summary = "Lấy lịch sử món đã nấu xong của cá nhân đầu bếp")
     public ResponseEntity<ApiResponse<ChefWorkHistoryResponse>> getMyWorkHistory(Principal principal) {
-        ChefWorkHistoryResponse history = kitchenTicketService.getCookWorkHistory(Long.parseLong(principal.getName()));
+        ChefWorkHistoryResponse history = kitchenTicketService.getCookWorkHistory(principal);
         return ResponseEntity.ok(ApiResponse.success("Successfully download personal work history.", history));
     }
 

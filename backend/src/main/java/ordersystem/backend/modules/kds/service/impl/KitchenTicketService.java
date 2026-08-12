@@ -16,13 +16,13 @@ public interface KitchenTicketService {
 
     List<KitchenTicketResponse> getPendingTickets();
 
-    List<KitchenTicketResponse> getMyCookingTickets(Long cookUserId);
+    List<KitchenTicketResponse> getMyCookingTickets(Principal principal);
 
     KitchenTicketResponse claimTicket(Long ticketId, Principal principal);
 
-    KitchenTicketResponse completeTicket(Long ticketId, Long cookUserId);
+    KitchenTicketResponse completeTicket(Long ticketId, Principal principal);
 
-    ChefWorkHistoryResponse getCookWorkHistory(Long cookUserId);
+    ChefWorkHistoryResponse getCookWorkHistory(Principal principal);
 
     List<KitchenTicketResponse> getSharedCompletedHistory(int limit);
 

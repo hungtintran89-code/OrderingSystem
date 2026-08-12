@@ -314,18 +314,38 @@ public class OrderServiceImpl implements OrderService {
 
     // 5. Xem lịch sử Đơn hàng
     @Override
-    @Transactional( readOnly = true)
-    public PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, Pageable pageable) {
+    @Transactional(readOnly = true)
+    public PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, String date, Pageable pageable) {
+        Date startDate = null;
+        Date endDate = null;
 
-        Page<OrderEntity> orderPage ;
-        if (status != null) {
-            orderPage = orderRepository.findByStatus(status, pageable);
+        if (date != null && !date.trim().isEmpty() && !"ALL".equalsIgnoreCase(date.trim())) {
+            try {
+                java.time.LocalDate localDate = java.time.LocalDate.parse(date.trim());
+                java.time.LocalDateTime startLdt = localDate.atStartOfDay();
+                java.time.LocalDateTime endLdt = localDate.atTime(java.time.LocalTime.MAX);
+                startDate = Date.from(startLdt.atZone(java.time.ZoneId.systemDefault()).toInstant());
+                endDate = Date.from(endLdt.atZone(java.time.ZoneId.systemDefault()).toInstant());
+            } catch (Exception ignored) {}
+        }
+
+        Page<OrderEntity> orderPage;
+        if (startDate != null && endDate != null) {
+            if (status != null) {
+                orderPage = orderRepository.findWithDetailsByStatusAndCreatedAtBetween(status, startDate, endDate, pageable);
+            } else {
+                orderPage = orderRepository.findWithDetailsByCreatedAtBetween(startDate, endDate, pageable);
+            }
         } else {
-            orderPage = orderRepository.findAllWithDetails(pageable);
+            if (status != null) {
+                orderPage = orderRepository.findWithDetailsByStatus(status, pageable);
+            } else {
+                orderPage = orderRepository.findAllWithDetails(pageable);
+            }
         }
 
         List<MasterTableOrderResponse> responses = orderPage.getContent().stream()
-                .map(orderEntity ->{
+                .map(orderEntity -> {
                     List<OrderItemResponse> itemResponses = orderEntity.getItems().stream()
                             .map(orderMapper::toItemResponse)
                             .collect(Collectors.toList());
@@ -335,10 +355,10 @@ public class OrderServiceImpl implements OrderService {
 
         return PageResponse.<MasterTableOrderResponse>builder()
                 .content(responses)
-                .page(orderPage.getNumber() + 1 )
-                .size(orderPage.getSize() )
+                .page(orderPage.getNumber() + 1)
+                .size(orderPage.getSize())
                 .totalPages(orderPage.getTotalPages())
                 .totalElements(orderPage.getTotalElements())
-                .build() ;
+                .build();
     }
 }

@@ -228,9 +228,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans">
-      {/* DESKTOP SIDEBAR */}
+      {/* DESKTOP SIDEBAR - STICKY FIXED LEFT SIDEBAR */}
       <aside
-        className={`relative z-30 hidden md:block transition-[width] duration-300 ease-in-out ${
+        className={`sticky top-0 h-screen z-30 hidden md:block flex-shrink-0 transition-[width] duration-300 ease-in-out ${
           collapsed ? 'w-20' : 'w-64'
         }`}
       >

@@ -79,59 +79,141 @@ let mockCompletedHistory: KdsHistoryLogItem[] = [
   },
 ];
 
+const groupTicketsToOrders = (tickets: any[]): KitchenOrder[] => {
+  if (!Array.isArray(tickets) || tickets.length === 0) return [];
+
+  const map = new Map<string, KitchenOrder>();
+
+  tickets.forEach((t: any) => {
+    const orderIdStr = String(t.orderId || t.kitchenTicketId || `kds-${Math.random()}`);
+
+    let tblStr = t.tableNumber ? String(t.tableNumber) : '';
+    if (tblStr.startsWith('Bàn ')) tblStr = tblStr.replace(/^Bàn\s+/, '');
+    const cleanTable = tblStr ? `Bàn ${tblStr}${t.areaName ? ` • ${t.areaName}` : ''}` : (t.tableName || 'Bàn Phục Vụ');
+
+    const itemObj: KitchenOrderItem = {
+      id: String(t.kitchenTicketId || t.orderItemId || Math.random()),
+      name: t.productName || t.name || 'Món ăn',
+      quantity: Number(t.quantity || 1),
+      note: t.note || '',
+      category: t.category || 'all',
+      isCompleted: t.status === 'COMPLETED',
+    };
+
+    if (map.has(orderIdStr)) {
+      const existing = map.get(orderIdStr)!;
+      existing.items.push(itemObj);
+    } else {
+      map.set(orderIdStr, {
+        id: orderIdStr,
+        orderCode: t.orderCode || `#ORD-${orderIdStr}`,
+        tableName: cleanTable,
+        status: t.status === 'COMPLETED' ? 'COMPLETED' : t.status === 'COOKING' ? 'IN_PROGRESS' : 'PENDING',
+        createdAt: t.createdAt || new Date().toISOString(),
+        items: [itemObj],
+      });
+    }
+  });
+
+  return Array.from(map.values());
+};
+
 export const fetchKitchenOrders = async (): Promise<KitchenOrder[]> => {
   try {
-    const res = await apiClient.get<ApiResponse<KitchenOrder[]>>('/kitchen/tickets/pending');
-    if (res.data && res.data.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
-      return res.data.data;
+    const res = await apiClient.get<ApiResponse<any>>('/kitchen/tickets/pending');
+    if (res.data && res.data.success) {
+      const raw = res.data.data;
+      let list: any[] = [];
+      if (Array.isArray(raw)) list = raw;
+      else if (raw && Array.isArray(raw.content)) list = raw.content;
+
+      if (list && list.length > 0) {
+        const grouped = groupTicketsToOrders(list);
+        if (grouped.length > 0) return grouped;
+      }
+      return [];
     }
-    return mockKdsOrders;
+    return [];
   } catch {
-    return mockKdsOrders;
+    return [];
   }
 };
 
 export const fetchKitchenHistoryLog = async (): Promise<KdsHistoryLogItem[]> => {
   try {
-    const res = await apiClient.get<ApiResponse<KdsHistoryLogItem[]>>('/kitchen/tickets/history');
-    if (res.data && res.data.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
-      return res.data.data;
+    const res = await apiClient.get<ApiResponse<any>>('/kitchen/tickets/completed-history');
+    if (res.data && res.data.success) {
+      const raw = res.data.data;
+      let list: any[] = [];
+      if (Array.isArray(raw)) list = raw;
+      else if (raw && Array.isArray(raw.content)) list = raw.content;
+
+      if (list && list.length > 0) {
+        const map = new Map<string, KdsHistoryLogItem>();
+        list.forEach((t: any) => {
+          const idStr = String(t.orderId || t.kitchenTicketId || `hist-${Math.random()}`);
+          let tblStr = t.tableNumber ? String(t.tableNumber) : '';
+          if (tblStr.startsWith('Bàn ')) tblStr = tblStr.replace(/^Bàn\s+/, '');
+          const cleanTable = tblStr ? `Bàn ${tblStr}${t.areaName ? ` • ${t.areaName}` : ''}` : (t.tableName || 'Bàn Phục Vụ');
+
+          const itemObj = {
+            id: String(t.kitchenTicketId || t.orderItemId || Math.random()),
+            name: t.productName || t.name || 'Món ăn',
+            quantity: Number(t.quantity || 1),
+            note: t.note || '',
+          };
+
+          if (map.has(idStr)) {
+            map.get(idStr)!.items.push(itemObj);
+          } else {
+            map.set(idStr, {
+              id: idStr,
+              orderCode: t.orderCode || `#ORD-${idStr}`,
+              tableName: cleanTable,
+              completedAt: t.completedAt ? new Date(t.completedAt).toLocaleTimeString('vi-VN') : 'Vừa xong',
+              prepDurationMinutes: Number(t.prepDurationMinutes || 10),
+              items: [itemObj],
+            });
+          }
+        });
+        return Array.from(map.values());
+      }
+      return [];
     }
-    return mockCompletedHistory;
+    return [];
   } catch {
-    return mockCompletedHistory;
+    return [];
   }
 };
 
-export const updateOrderStatusApi = async (orderId: string, newStatus: OrderStatus): Promise<KitchenOrder[]> => {
+export const updateOrderStatusApi = async (orderId: string, newStatus: OrderStatus, targetItems?: KitchenOrderItem[]): Promise<KitchenOrder[]> => {
   try {
-    if (newStatus === 'IN_PROGRESS') {
-      await apiClient.post<ApiResponse<string>>(`/kitchen/tickets/${orderId}/claim`);
-    } else if (newStatus === 'COMPLETED') {
-      await apiClient.post<ApiResponse<string>>(`/kitchen/tickets/${orderId}/complete`);
+    if (targetItems && targetItems.length > 0) {
+      // Loop over actual kitchenTicketIds under this order
+      for (const item of targetItems) {
+        const ticketId = item.id;
+        if (ticketId && !ticketId.startsWith('kds-')) {
+          if (newStatus === 'IN_PROGRESS') {
+            await apiClient.post<ApiResponse<any>>(`/kitchen/tickets/${ticketId}/claim`);
+          } else if (newStatus === 'COMPLETED' || newStatus === 'READY') {
+            await apiClient.post<ApiResponse<any>>(`/kitchen/tickets/${ticketId}/complete`);
+          }
+        }
+      }
+    } else if (orderId && !orderId.startsWith('kds-')) {
+      if (newStatus === 'IN_PROGRESS') {
+        await apiClient.post<ApiResponse<any>>(`/kitchen/tickets/${orderId}/claim`);
+      } else if (newStatus === 'COMPLETED' || newStatus === 'READY') {
+        await apiClient.post<ApiResponse<any>>(`/kitchen/tickets/${orderId}/complete`);
+      }
     }
+    message.success(newStatus === 'IN_PROGRESS' ? 'Đã nhận chế biến đơn hàng!' : 'Đã hoàn thành đơn hàng!');
   } catch {
-    // Graceful fallback
+    message.error('Không thể cập nhật trạng thái đơn hàng. Vui lòng kiểm tra lại!');
   }
 
-  // Local State Update
-  const target = mockKdsOrders.find((o) => o.id === orderId);
-  if (target) {
-    target.status = newStatus;
-    if (newStatus === 'COMPLETED') {
-      mockKdsOrders = mockKdsOrders.filter((o) => o.id !== orderId);
-      mockCompletedHistory.unshift({
-        id: `hist-${Date.now()}`,
-        orderCode: target.orderCode,
-        tableName: target.tableName,
-        completedAt: new Date().toLocaleTimeString('vi-VN'),
-        prepDurationMinutes: 10,
-        items: target.items,
-      });
-      message.success(`Đã Bump xong đơn ${target.orderCode}!`);
-    }
-  }
-  return [...mockKdsOrders];
+  // Refetch live list from backend
+  return await fetchKitchenOrders();
 };
 
 export const toggleItemCompletionApi = async (orderId: string, itemId: string): Promise<KitchenOrder[]> => {

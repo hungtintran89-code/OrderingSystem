@@ -39,10 +39,10 @@ export const KitchenTicketCard: React.FC<KitchenTicketCardProps> = ({
     ? 'bg-amber-50 text-amber-800 border border-amber-200/80 font-bold'
     : 'bg-slate-100 text-slate-600 border border-slate-200 font-medium';
 
-  const completedCount = order.items.filter((i) => i.isCompleted).length;
-  const totalCount = order.items.length;
+  const completedCount = (order?.items || []).filter((i) => i.isCompleted).length;
+  const totalCount = (order?.items || []).length;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-  const allItemsCompleted = completedCount === totalCount;
+  const allItemsCompleted = totalCount > 0 && completedCount === totalCount;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col justify-between overflow-hidden transition-all hover:shadow-md">
@@ -79,9 +79,9 @@ export const KitchenTicketCard: React.FC<KitchenTicketCardProps> = ({
 
       {/* 2. Ticket Items List - Clean Minimalist Spacing */}
       <div className="p-3.5 space-y-2 flex-1 overflow-y-auto max-h-80 divide-y divide-slate-100">
-        {order.items.map((item) => (
+        {(order?.items || []).map((item, idx) => (
           <div
-            key={item.id}
+            key={`ticket-item-${order.id}-${item.id}-${idx}`}
             onClick={() => onToggleItem(order.id, item.id)}
             className={`pt-2 first:pt-0 space-y-1 cursor-pointer select-none transition-all ${
               item.isCompleted

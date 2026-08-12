@@ -34,6 +34,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { message } from 'antd';
+import { wsService } from '../../modules/client/services/websocket';
 
 export const KitchenKiosk: React.FC = () => {
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
@@ -51,7 +52,6 @@ export const KitchenKiosk: React.FC = () => {
   // Load KDS Orders & History Log
   const loadData = async () => {
     try {
-      setLoading(true);
       setError(null);
       const [ordersData, historyData] = await Promise.all([
         fetchKitchenOrders(),
@@ -68,18 +68,44 @@ export const KitchenKiosk: React.FC = () => {
 
   useEffect(() => {
     loadData();
+
+    // 1. STOMP Real-Time Subscriber: Instant Order Notification when Customer Submits Order
+    const unsubscribeNewOrders = wsService.subscribe('/topic/kitchen/orders', () => {
+      playNewOrderSound();
+      message.info({
+        content: '🔔 Có đơn hàng mới gửi đến nhà bếp chế biến!',
+        key: 'new-kitchen-order-alert',
+      });
+      loadData();
+    });
+
+    const unsubscribeHistory = wsService.subscribe('/topic/kitchen/completed-history', () => {
+      loadData();
+    });
+
+    // 2. Dual-Layer Auto-Polling Fallback (3s Interval for 100% Reliability)
+    const pollInterval = setInterval(() => {
+      loadData();
+    }, 3000);
+
+    return () => {
+      unsubscribeNewOrders();
+      unsubscribeHistory();
+      clearInterval(pollInterval);
+    };
   }, []);
 
   // Update Status Action
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus) => {
-    const updated = await updateOrderStatusApi(orderId, newStatus);
+    const targetOrder = orders.find((o) => o.id === orderId);
+    const updated = await updateOrderStatusApi(orderId, newStatus, targetOrder?.items);
     setOrders(updated);
 
     // Refresh history log
     const updatedHistory = await fetchKitchenHistoryLog();
     setHistoryLog(updatedHistory);
 
-    if (newStatus === 'READY') {
+    if (newStatus === 'READY' || newStatus === 'COMPLETED') {
       message.success('Đã hoàn thành đơn hàng & chuyển sang Lịch sử KDS!');
       setRecalledOrderNotice('Đơn hàng vừa được bump xong. Bạn có thể xem lại trong Lịch Sử Dọc.');
       setTimeout(() => setRecalledOrderNotice(null), 10000);
@@ -125,14 +151,14 @@ export const KitchenKiosk: React.FC = () => {
   // Aggregated Dish Quantities Matrix across ALL active orders
   const aggregatedDishes = useMemo(() => {
     const map = new Map<string, { name: string; totalQty: number; category: string }>();
-    orders.forEach((ord) => {
-      ord.items.forEach((it) => {
+    (orders || []).forEach((ord) => {
+      (ord?.items || []).forEach((it) => {
         if (!it.isCompleted) {
           const existing = map.get(it.name);
           if (existing) {
             existing.totalQty += it.quantity;
           } else {
-            map.set(it.name, { name: it.name, totalQty: it.quantity, category: it.category });
+            map.set(it.name, { name: it.name, totalQty: it.quantity, category: it.category || 'all' });
           }
         }
       });
@@ -141,20 +167,20 @@ export const KitchenKiosk: React.FC = () => {
   }, [orders]);
 
   // Filter Active Orders
-  const filteredOrders = orders
+  const filteredOrders = (orders || [])
     .filter((order) => {
       if (filterCategory === 'all') return true;
-      return order.items.some((item) => item.category === filterCategory);
+      return (order?.items || []).some((item) => item.category === filterCategory);
     })
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   // Filtered History Log
-  const filteredHistoryLog = historyLog.filter((h) => {
+  const filteredHistoryLog = (historyLog || []).filter((h) => {
     const query = historySearchQuery.toLowerCase();
     return (
-      h.orderCode.toLowerCase().includes(query) ||
-      h.tableName.toLowerCase().includes(query) ||
-      h.items.some((i) => i.name.toLowerCase().includes(query))
+      (h?.orderCode || '').toLowerCase().includes(query) ||
+      (h?.tableName || '').toLowerCase().includes(query) ||
+      (h?.items || []).some((i) => (i?.name || '').toLowerCase().includes(query))
     );
   });
 
@@ -342,9 +368,9 @@ export const KitchenKiosk: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredOrders.map((order) => (
+              {filteredOrders.map((order, orderIdx) => (
                 <KitchenTicketCard
-                  key={order.id}
+                  key={`kds-order-${order.id}-${orderIdx}`}
                   order={order}
                   onUpdateStatus={handleUpdateStatus}
                   onToggleItem={handleToggleItem}
@@ -388,10 +414,10 @@ export const KitchenKiosk: React.FC = () => {
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                   <input
                     type="text"
-                    placeholder="Tìm theo số bàn, mã đơn..."
+                    placeholder="Tìm mã đơn, tên bàn, tên món..."
                     value={historySearchQuery}
                     onChange={(e) => setHistorySearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 outline-none focus:bg-white focus:border-slate-400 transition-all"
+                    className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:border-orange-500 outline-none transition-all"
                   />
                 </div>
               </div>
@@ -409,8 +435,8 @@ export const KitchenKiosk: React.FC = () => {
             </div>
           ) : (
             <div className="relative border-l-2 border-slate-200/80 ml-4 md:ml-6 pl-6 space-y-6">
-              {filteredHistoryLog.map((log) => (
-                <div key={log.id} className="relative group">
+              {filteredHistoryLog.map((log, logIdx) => (
+                <div key={`hist-log-${log.id}-${logIdx}`} className="relative group">
                   
                   {/* TIMELINE NODE DOT MARKER */}
                   <div className="absolute -left-[41px] top-1.5 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center border-4 border-slate-50 shadow-2xs font-bold flex-shrink-0">
@@ -446,8 +472,8 @@ export const KitchenKiosk: React.FC = () => {
                         Danh sách các món ăn đã chế biến xong:
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                        {log.items.map((it) => (
-                          <div key={it.id} className="p-2.5 rounded-xl bg-white border border-slate-200/80 flex justify-between items-center text-xs">
+                        {(log.items || []).map((it, itIdx) => (
+                          <div key={`hist-item-${log.id}-${it.id}-${itIdx}`} className="p-2.5 rounded-xl bg-white border border-slate-200/80 flex justify-between items-center text-xs">
                             <div>
                               <p className="font-semibold text-slate-900">{it.name}</p>
                               {it.note && <p className="text-[10px] text-amber-800 font-medium mt-0.5">Ghi chú: {it.note}</p>}

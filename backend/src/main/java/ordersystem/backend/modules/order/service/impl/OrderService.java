@@ -24,8 +24,8 @@ public interface OrderService {
     // 4. Bếp/Nhân viên cập nhật trạng thái đơn hàng (PENDING -> PREPARING -> SERVED)
     void updateOrderStatus(Long orderId, OrderStatus status);
 
-    // 5.Lấy tổng lịch sử order
-    PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, Pageable pageable) ;
+    // 5. Lấy tổng lịch sử order theo trạng thái & ngày
+    PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, String date, Pageable pageable);
 
 
 }
