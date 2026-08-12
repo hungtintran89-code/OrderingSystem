@@ -134,29 +134,31 @@ public class OrderServiceImpl implements OrderService {
         }
 
         // 3. Tìm Master Order tổng của bàn (Nếu chưa có thì tự động tạo mới)
-        OrderEntity masterOrderEntity  = orderRepository.findByTableSessionTableSessionIdAndStatus(tableSessionEntity.getTableSessionId(), OrderStatus.PENDING)
-                .orElseGet(()->{
-                    return orderRepository.save(OrderEntity.builder()
-                            .orderCode("ORD-" + UUID.randomUUID().toString().substring(0,8).toUpperCase())
-                            .tableSession(tableSessionEntity)
-                            .status(OrderStatus.PENDING)
-                            .totalAmount(0L)
-                            .build()) ;
-                });
-        Long additonalTotal = 0L ;
-        List<OrderItemEntity> newOrderItemEntity = new ArrayList<>() ;
+        List<OrderEntity> pendingOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatus(tableSessionEntity.getTableSessionId(), OrderStatus.PENDING);
+        OrderEntity masterOrderEntity;
+        if (!pendingOrders.isEmpty()) {
+            masterOrderEntity = pendingOrders.get(0);
+        } else {
+            masterOrderEntity = orderRepository.save(OrderEntity.builder()
+                    .orderCode("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                    .tableSession(tableSessionEntity)
+                    .status(OrderStatus.PENDING)
+                    .totalAmount(0L)
+                    .build());
+        }
 
-        // 4. Tạo danh sách các món khách đợt này vừa đặt (Đính kèm threadId)
+        List<OrderItemEntity> newOrderItemEntity = new ArrayList<>();
+
+        // 4. Tạo danh sách các món khách đợt này vừa đặt (Cộng dồn nếu đã có món cùng productId + note)
         List<Long> produtIds = request.getList().stream()
                 .map(OrderItemRequest::getProductId)
                 .toList();
 
-        List<ProductEntity> productEntities = productRepository.findAllById(produtIds) ;
-        Map<Long , ProductEntity> productMap = productEntities.stream()
-                .collect(Collectors.toMap(ProductEntity::getProductId , p -> p)) ;
+        List<ProductEntity> productEntities = productRepository.findAllById(produtIds);
+        Map<Long, ProductEntity> productMap = productEntities.stream()
+                .collect(Collectors.toMap(ProductEntity::getProductId, p -> p));
 
-
-        for(OrderItemRequest itemRequest : request.getList()){
+        for (OrderItemRequest itemRequest : request.getList()) {
             ProductEntity productEntity = productMap.get(itemRequest.getProductId());
             if (productEntity == null) {
                 productEntity = productRepository.findById(itemRequest.getProductId())
@@ -165,24 +167,42 @@ public class OrderServiceImpl implements OrderService {
             if (productEntity == null) {
                 throw new OrderException("Product with ID : " + itemRequest.getProductId() + " not found");
             }
-            OrderItemEntity orderItemEntity = OrderItemEntity.builder()
-                    .order(masterOrderEntity)
-                    .product(productEntity)
-                    .quantity(itemRequest.getQuantity())
-                    .price(productEntity.getProductPrice())
-                    .note((itemRequest.getNote()))
-                    .createdByThread(request.getThreadId())
-                    .build();
-            orderItemEntity.calculatePrice();
-            newOrderItemEntity.add(orderItemEntity);
-            additonalTotal += orderItemEntity.getTotalPrice();
+
+            String reqNote = itemRequest.getNote() != null ? itemRequest.getNote().trim() : "";
+            final Long targetProdId = productEntity.getProductId();
+
+            Optional<OrderItemEntity> existingItemOpt = masterOrderEntity.getItems().stream()
+                    .filter(item -> item.getProduct().getProductId().equals(targetProdId)
+                            && ((item.getNote() == null ? "" : item.getNote().trim()).equalsIgnoreCase(reqNote)))
+                    .findFirst();
+
+            OrderItemEntity targetItem;
+            if (existingItemOpt.isPresent()) {
+                targetItem = existingItemOpt.get();
+                targetItem.setQuantity(targetItem.getQuantity() + itemRequest.getQuantity());
+                targetItem.calculatePrice();
+            } else {
+                targetItem = OrderItemEntity.builder()
+                        .order(masterOrderEntity)
+                        .product(productEntity)
+                        .quantity(itemRequest.getQuantity())
+                        .price(productEntity.getProductPrice())
+                        .note(itemRequest.getNote())
+                        .createdByThread(request.getThreadId())
+                        .build();
+                targetItem.calculatePrice();
+                masterOrderEntity.getItems().add(targetItem);
+            }
+            newOrderItemEntity.add(targetItem);
         }
 
-        // 4. Cộng dồn số tiền vào Master Order chung của cả bàn
-        Long currentTotal = (masterOrderEntity.getTotalAmount() != null) ? masterOrderEntity.getTotalAmount() : 0L;
-        masterOrderEntity.setTotalAmount(currentTotal + additonalTotal);
-        masterOrderEntity.getItems().addAll(newOrderItemEntity);
+        // TÍNH LẠI TỔNG TIỀN MASTER ORDER TỪ TẤT CẢ CÁC MÓN CHUẨN XÁC
+        Long recalculatedTotal = masterOrderEntity.getItems().stream()
+                .mapToLong(item -> item.getTotalPrice() != null ? item.getTotalPrice() : 0L)
+                .sum();
+        masterOrderEntity.setTotalAmount(recalculatedTotal);
         OrderEntity savedOrderEntity = orderRepository.save(masterOrderEntity);
+
         // Bắn thông báo cập nhật Sơ đồ bàn Real-time cho Nhân viên
         FloorMapResponse updatedTableMap = FloorMapResponse.builder()
                 .tableId(tableSessionEntity.getTable().getTableId())
@@ -193,17 +213,16 @@ public class OrderServiceImpl implements OrderService {
                 .capacity(tableSessionEntity.getTable().getCapacity())
                 .build();
         webSocketPublisher.notifyFloorMapUpdate(updatedTableMap);
+
         // 5. Xóa toàn bộ giỏ hàng khi đặt món
-        cartService.clearCart( tableSessionEntity.getTableSessionId() , request.getThreadId()) ;
+        cartService.clearCart(tableSessionEntity.getTableSessionId(), request.getThreadId());
 
         // 6. Trả về cho thiết bị khách danh sách các món điện thoại này vừa đặt thành công
         List<OrderItemResponse> newItemsResponses = newOrderItemEntity.stream()
                 .map(orderMapper::toItemResponse)
                 .collect(Collectors.toList());
 
-        List<OrderItemEntity> savedItems = orderItemRepository.saveAll(newOrderItemEntity);
-
-        List<OrderSubmittedEvent.OrderItemInfo> itemInfos = savedItems.stream()
+        List<OrderSubmittedEvent.OrderItemInfo> itemInfos = newOrderItemEntity.stream()
                 .map(item -> new OrderSubmittedEvent.OrderItemInfo(
                         item.getOrderItemId(),
                         item.getProduct().getProductId(),
@@ -226,41 +245,52 @@ public class OrderServiceImpl implements OrderService {
 
     // 2. Khách mở điện thoại cá nhân lên xem -> CHỈ HIỂN THỊ MÓN DO THREAD ĐÓ ĐẶT
     @Override
-    @Transactional( readOnly = true)
-    public PersonalOrderResponse getPersonalOrder(Long tableSessionId, Long threadId){
+    @Transactional(readOnly = true)
+    public PersonalOrderResponse getPersonalOrder(Long tableSessionId, Long threadId) {
 
-        List<OrderItemEntity> orderItemResponseList = orderItemRepository.findByOrderTableSessionTableSessionIdAndCreatedByThread(tableSessionId , threadId);
+        List<OrderItemEntity> orderItemResponseList = orderItemRepository.findByOrderTableSessionTableSessionIdAndCreatedByThread(tableSessionId, threadId);
 
         List<OrderItemResponse> responseList = orderItemResponseList.stream()
                 .map(orderMapper::toItemResponse)
-                .collect(Collectors.toList()) ;
+                .collect(Collectors.toList());
 
         TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableSessionId(tableSessionId)
-                .orElseThrow(()->new OrderException("Table Session ID does not exist: " + tableSessionId));
+                .orElseThrow(() -> new OrderException("Table Session ID does not exist: " + tableSessionId));
         return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), threadId, responseList);
     }
 
-    // 3. XEM TỔNG BÀN (Lấy Master Order chứa tất cả các món của mọi Thread gom lại)
+    // 3. XEM TỔNG BÀN (Lấy tất cả các món từ mọi Order chưa bị CANCELLED của phiên bàn)
     @Override
-    @Transactional( readOnly = true)
-    public MasterTableOrderResponse getMasterTableOrder(Long tableId ) {
+    @Transactional(readOnly = true)
+    public MasterTableOrderResponse getMasterTableOrder(Long tableId) {
 
         // Bước 1: Tìm Session đang ACTIVE của bàn đó
-        TableSessionEntity tableSession = tableSessionRepository.findByTableTableIdAndStatus(tableId , SessionStatus.ACTIVE)
-                .orElseThrow(()-> new OrderException("No active session found for table ID: " + tableId)) ;
+        TableSessionEntity tableSession = tableSessionRepository.findByTableTableIdAndStatus(tableId, SessionStatus.ACTIVE)
+                .orElseThrow(() -> new OrderException("No active session found for table ID: " + tableId));
 
-        // Bước 2: Tìm danh sách Order dựa trên tableSessionId vừa tìm được
-        OrderEntity masterOrder = orderRepository.findByTableSessionTableSessionIdAndStatus( tableSession.getTableSessionId(), OrderStatus.PENDING)
-                .orElseThrow( () -> new OrderException("Master order not found"));
+        // Bước 2: Tìm tất cả Order chưa bị CANCELLED thuộc session này
+        List<OrderEntity> activeOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(tableSession.getTableSessionId(), OrderStatus.CANCELLED);
+        if (activeOrders.isEmpty()) {
+            return MasterTableOrderResponse.builder()
+                    .tableId(tableSession.getTable().getTableId())
+                    .tableName(tableSession.getTable().getTableName())
+                    .tableSessionId(tableSession.getTableSessionId())
+                    .sessionStatus(tableSession.getStatus().name())
+                    .totalPrice(0L)
+                    .allTableItems(Collections.emptyList())
+                    .build();
+        }
 
-        // Bước 3: Lấy danh sách món ăn thuộc session này
-        List<OrderItemEntity> orderItemEntityList = masterOrder.getItems();
+        OrderEntity primaryOrder = activeOrders.get(0);
+        List<OrderItemEntity> allItems = activeOrders.stream()
+                .flatMap(o -> o.getItems().stream())
+                .collect(Collectors.toList());
 
-        List<OrderItemResponse> orderItemResponseList = orderItemEntityList.stream()
+        List<OrderItemResponse> orderItemResponseList = allItems.stream()
                 .map(orderMapper::toItemResponse)
-                .collect(Collectors.toList()) ;
+                .collect(Collectors.toList());
 
-        return orderMapper.toMasterResponse(masterOrder, orderItemResponseList  );
+        return orderMapper.toMasterResponse(primaryOrder, orderItemResponseList);
     }
 
     //4: BẾP / NHÂN VIÊN CẬP NHẬT TRẠNG THÁI MÓN

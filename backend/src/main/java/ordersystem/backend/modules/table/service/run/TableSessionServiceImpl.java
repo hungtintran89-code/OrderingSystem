@@ -78,23 +78,39 @@ public class TableSessionServiceImpl implements TableSessionService {
     @Transactional
     @CacheEvict(value = "floor_map", allEntries = true)
     public void closeSessionEntity(TableSessionEntity session) {
-        // Cập nhật trạng thái
+        // 📌 1. Cập nhật tất cả đơn hàng chưa bị HỦY của session này thành COMPLETED
+        List<OrderEntity> sessionOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(
+                session.getTableSessionId(), ordersystem.backend.modules.order.enums.OrderStatus.CANCELLED);
+        if (sessionOrders != null && !sessionOrders.isEmpty()) {
+            for (OrderEntity order : sessionOrders) {
+                order.setStatus(ordersystem.backend.modules.order.enums.OrderStatus.COMPLETED);
+            }
+            orderRepository.saveAll(sessionOrders);
+        }
+
+        // 📌 2. Cập nhật trạng thái session thành CLOSED
         session.setStatus(SessionStatus.CLOSED);
         session.setEndedAt(new Date());
         tableSessionRepository.save(session);
 
-        // 📌 Cập nhật trạng thái bàn vật lý trong DB về EMPTY
+        // 📌 3. Cập nhật trạng thái bàn vật lý trong DB về EMPTY
         RestaurantTableEntity table = session.getTable();
-        table.setTableStatus(TableStatus.EMPTY);
+        if (table != null) {
+            table.setTableStatus(TableStatus.EMPTY);
+            restaurantTableRepository.save(table);
+        }
 
         // 🚀 BẮN EVENT: Giải phóng bàn về 🟢 EMPTY
-        eventPublisher.publishEvent(new TableStateChangeEvent(
-                this,
-                session.getTable().getTableId(),
-                session.getTableName(),
-                TableStatus.EMPTY
-        ));
-        //add : Xóa Cache trạng thái bàn khỏi Redis ngay lập tức
+        if (session.getTable() != null) {
+            eventPublisher.publishEvent(new TableStateChangeEvent(
+                    this,
+                    session.getTable().getTableId(),
+                    session.getTableName(),
+                    TableStatus.EMPTY
+            ));
+        }
+
+        // Xóa Cache trạng thái bàn khỏi Redis ngay lập tức
         String sessionKey = "table_session_key:" + session.getTableSessionId();
         redisTemplate.delete(sessionKey);
     }

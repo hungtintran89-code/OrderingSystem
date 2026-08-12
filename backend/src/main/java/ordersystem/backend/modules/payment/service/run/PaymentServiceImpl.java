@@ -2,6 +2,7 @@ package ordersystem.backend.modules.payment.service.run;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import java.util.List;
 import ordersystem.backend.modules.order.entity.OrderEntity;
 import ordersystem.backend.modules.order.enums.OrderStatus;
 import ordersystem.backend.modules.order.exception.OrderException;
@@ -28,6 +29,7 @@ import ordersystem.backend.modules.table.enums.TableStatus;
 import ordersystem.backend.modules.table.exception.TableException;
 import ordersystem.backend.modules.table.repository.RestaurantTableRepository;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
+import org.springframework.cache.CacheManager;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +54,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PayOSService payOSService;
     private final PayOSConfig payOSConfig;
     private final SimpMessagingTemplate messagingTemplate;
+    private final CacheManager cacheManager;
 
     @Override
     @Transactional
@@ -59,11 +62,23 @@ public class PaymentServiceImpl implements PaymentService {
         TableSessionEntity session = tableSessionRepository.findById(request.getTableSessionId())
                 .orElseThrow(() -> new TableException("Table Session not found: " + request.getTableSessionId()));
 
-        // Lấy ra master order của session yêu cầu
-        OrderEntity masterOrder = orderRepository.findByTableSessionTableSessionIdAndStatus(request.getTableSessionId(), OrderStatus.PENDING)
-                .orElseThrow(() -> new OrderException("Master Order not found with table session " + session.getTableSessionId()));
+        // Lấy ra tất cả các đơn hàng chưa bị CANCELLED của session yêu cầu
+        List<OrderEntity> sessionOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(request.getTableSessionId(), OrderStatus.CANCELLED);
+        if (sessionOrders.isEmpty()) {
+            throw new OrderException("Master Order not found with table session " + session.getTableSessionId());
+        }
 
-        Long grandTotal = masterOrder.getTotalAmount();
+        Long grandTotal = sessionOrders.stream()
+                .flatMap(o -> o.getItems().stream())
+                .mapToLong(item -> item.getTotalPrice() != null ? item.getTotalPrice() : 0L)
+                .sum();
+
+        if (grandTotal <= 0) {
+            grandTotal = sessionOrders.stream()
+                    .mapToLong(o -> o.getTotalAmount() != null ? o.getTotalAmount() : 0L)
+                    .sum();
+        }
+
         long changeAmount = request.getReceivedAmount() - grandTotal;
 
         if (changeAmount < 0) {
@@ -84,7 +99,7 @@ public class PaymentServiceImpl implements PaymentService {
         transactionRepository.save(transaction);
 
         // Đóng Session và giải phóng bàn
-        completeSessionAndReleaseTable(session, masterOrder);
+        completeSessionAndReleaseTable(session, sessionOrders);
 
         log.info("Xác nhận thanh toán tiền mặt thành công cho bàn {}, Hóa đơn #{}", session.getTableName(), transaction.getInvoiceCode());
 
@@ -121,28 +136,39 @@ public class PaymentServiceImpl implements PaymentService {
         Long payosOrderCode = data.getOrderCode();
         String payosCode = data.getCode(); // Mã trạng thái thanh toán từ PayOS
 
-        // Sử dụng Pessimistic Lock tránh race condition khi duplicate webhook hit
-        PaymentTransactionEntity currentTx = transactionRepository.findWithLockByPayosOrderCode(payosOrderCode)
+        PaymentTransactionEntity currentTx = transactionRepository.findByPayosOrderCode(payosOrderCode)
                 .orElse(null);
 
-        // Fallback: Nếu không tìm thấy theo orderCode, phân tích thông tin chuyển khoản (VD: "TT BAN Bàn 03")
+        if (currentTx == null && payosOrderCode != null) {
+            currentTx = transactionRepository.findById(payosOrderCode).orElse(null);
+        }
+
+        // Fallback: Nếu không tìm thấy theo orderCode/paymentId, phân tích thông tin chuyển khoản (VD: "TT BAN Bàn 03" hoặc "Ban 03")
         if (currentTx == null && data.getDescription() != null) {
             String desc = data.getDescription().trim();
-            String cleanName = desc.replaceAll("(?i)^TT\\s+BAN\\s+", "").trim();
+            String cleanName = desc.replaceAll("(?i)^TT\\s+BAN\\s+", "").replaceAll("(?i)^bàn\\s+", "").trim();
             TableSessionEntity matchedSession = tableSessionRepository.findAllByStatus(ordersystem.backend.modules.table.enums.SessionStatus.ACTIVE).stream()
-                    .filter(s -> s.getTableName().equalsIgnoreCase(cleanName) 
-                            || s.getTableName().endsWith(cleanName)
-                            || cleanName.equalsIgnoreCase(s.getTableName().replaceAll("(?i)^bàn\\s+", "").trim()))
+                    .filter(s -> {
+                        String sName = s.getTableName().replaceAll("(?i)^bàn\\s+", "").trim();
+                        return s.getTableName().equalsIgnoreCase(cleanName) 
+                                || sName.equalsIgnoreCase(cleanName)
+                                || desc.toUpperCase().contains(s.getTableName().toUpperCase())
+                                || desc.toUpperCase().contains(sName.toUpperCase());
+                    })
                     .findFirst().orElse(null);
 
             if (matchedSession != null) {
                 currentTx = transactionRepository.findByTableSessionTableSessionIdAndPaymentStatus(
                         matchedSession.getTableSessionId(), PaymentStatus.PENDING).orElse(null);
+                if (currentTx == null) {
+                    currentTx = transactionRepository.findByTableSessionTableSessionId(matchedSession.getTableSessionId()).stream()
+                            .reduce((first, second) -> second).orElse(null);
+                }
             }
         }
 
         if (currentTx == null) {
-            log.warn("Nhận Webhook từ PayOS cho orderCode {} nhưng không tìm thấy trong DB (có thể là Webhook thử nghiệm).", payosOrderCode);
+            log.warn("Nhận Webhook từ PayOS cho orderCode {} nhưng không tìm thấy transaction trong DB.", payosOrderCode);
             return;
         }
 
@@ -165,10 +191,10 @@ public class PaymentServiceImpl implements PaymentService {
                 currentTx.setPaidAt(new Date());
                 transactionRepository.save(currentTx);
 
-                // Lấy master order và đóng bàn
-                OrderEntity masterOrder = orderRepository.findByTableSessionTableSessionIdAndStatus(session.getTableSessionId(), OrderStatus.PENDING)
-                        .orElse(null);
-                completeSessionAndReleaseTable(session, masterOrder);
+                // Lấy tất cả đơn hàng chưa bị CANCELLED và đóng bàn
+                List<OrderEntity> sessionOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(
+                        session.getTableSessionId(), OrderStatus.CANCELLED);
+                completeSessionAndReleaseTable(session, sessionOrders);
 
                 log.info("Thanh toán thành công cho bàn {} qua VietQR PayOS #{}", session.getTableName(), payosOrderCode);
             } else {
@@ -207,12 +233,31 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentStatusResponse checkAndSyncPaymentStatus(Long payosOrderCode, Long tableSessionId) {
+        // 1. Kiểm tra nhanh xem Session bàn đã CLOSED hay chưa
+        if (tableSessionId != null) {
+            TableSessionEntity session = tableSessionRepository.findById(tableSessionId).orElse(null);
+            if (session != null && session.getStatus() == ordersystem.backend.modules.table.enums.SessionStatus.CLOSED) {
+                RestaurantTableEntity table = session.getTable();
+                return PaymentStatusResponse.builder()
+                        .status("SUCCESS")
+                        .payosOrderCode(payosOrderCode)
+                        .tableSessionId(tableSessionId)
+                        .tableId(table != null ? table.getTableId() : null)
+                        .tableName(session.getTableName())
+                        .build();
+            }
+        }
+
         PaymentTransactionEntity currentTx = null;
         if (payosOrderCode != null) {
             currentTx = transactionRepository.findByPayosOrderCode(payosOrderCode).orElse(null);
         }
         if (currentTx == null && tableSessionId != null) {
             currentTx = transactionRepository.findByTableSessionTableSessionIdAndPaymentStatus(tableSessionId, PaymentStatus.PENDING).orElse(null);
+        }
+        if (currentTx == null && tableSessionId != null) {
+            currentTx = transactionRepository.findByTableSessionTableSessionId(tableSessionId).stream()
+                    .reduce((first, second) -> second).orElse(null);
         }
 
         if (currentTx == null) {
@@ -223,6 +268,13 @@ public class PaymentServiceImpl implements PaymentService {
         RestaurantTableEntity table = (session != null) ? session.getTable() : null;
 
         if (currentTx.getPaymentStatus() == PaymentStatus.SUCCESS) {
+            // Đảm bảo session & đơn hàng được đóng dứt điểm
+            if (session != null && session.getStatus() == ordersystem.backend.modules.table.enums.SessionStatus.ACTIVE) {
+                List<OrderEntity> sessionOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(
+                        session.getTableSessionId(), OrderStatus.CANCELLED);
+                completeSessionAndReleaseTable(session, sessionOrders);
+            }
+
             return PaymentStatusResponse.builder()
                     .status("SUCCESS")
                     .payosOrderCode(currentTx.getPayosOrderCode())
@@ -244,9 +296,9 @@ public class PaymentServiceImpl implements PaymentService {
                         currentTx.setPaidAt(new Date());
                         transactionRepository.save(currentTx);
 
-                        OrderEntity masterOrder = orderRepository.findByTableSessionTableSessionIdAndStatus(
-                                session.getTableSessionId(), OrderStatus.PENDING).orElse(null);
-                        completeSessionAndReleaseTable(session, masterOrder);
+                        List<OrderEntity> sessionOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(
+                                session.getTableSessionId(), OrderStatus.CANCELLED);
+                        completeSessionAndReleaseTable(session, sessionOrders);
 
                         return PaymentStatusResponse.builder()
                                 .status("SUCCESS")
@@ -299,10 +351,10 @@ public class PaymentServiceImpl implements PaymentService {
             transactionRepository.save(currentTx);
         }
 
-        OrderEntity masterOrder = orderRepository.findByTableSessionTableSessionIdAndStatus(
-                tableSessionId, OrderStatus.PENDING).orElse(null);
+        List<OrderEntity> sessionOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(
+                tableSessionId, OrderStatus.CANCELLED);
 
-        completeSessionAndReleaseTable(session, masterOrder);
+        completeSessionAndReleaseTable(session, sessionOrders);
 
         RestaurantTableEntity table = session.getTable();
         return PaymentStatusResponse.builder()
@@ -347,10 +399,22 @@ public class PaymentServiceImpl implements PaymentService {
     /**
      * Phương thức helper hoàn tất session, cập nhật đơn hàng thành COMPLETED và giải phóng bàn ăn về trạng thái EMPTY
      */
-    private void completeSessionAndReleaseTable(TableSessionEntity session, OrderEntity masterOrder) {
-        if (masterOrder != null) {
-            masterOrder.setStatus(OrderStatus.COMPLETED);
-            orderRepository.save(masterOrder);
+    private void completeSessionAndReleaseTable(TableSessionEntity session, List<OrderEntity> sessionOrders) {
+        // Xóa Cache Redis / Spring Cache cho sơ đồ bàn để API floor-map trả về dữ liệu mới nhất
+        try {
+            org.springframework.cache.Cache floorMapCache = cacheManager.getCache("floor_map");
+            if (floorMapCache != null) {
+                floorMapCache.clear();
+            }
+        } catch (Exception e) {
+            log.warn("Lỗi khi xóa cache floor_map: {}", e.getMessage());
+        }
+
+        if (sessionOrders != null && !sessionOrders.isEmpty()) {
+            for (OrderEntity order : sessionOrders) {
+                order.setStatus(OrderStatus.COMPLETED);
+            }
+            orderRepository.saveAll(sessionOrders);
         }
 
         // Đóng Table Session

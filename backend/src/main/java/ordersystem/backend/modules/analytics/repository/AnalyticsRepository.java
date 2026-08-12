@@ -25,6 +25,25 @@ public interface AnalyticsRepository extends JpaRepository<OrderEntity, Long> {
     Object[] getCompletedOrdersSummary(@Param("startDate") Date startDate, @Param("endDate") Date endDate);
 
     /**
+     * Truy vấn tổng tiền từ các món (OrderItemEntity) của các đơn đã COMPLETED
+     */
+    @Query("SELECT COALESCE(SUM(item.totalPrice), 0) " +
+           "FROM OrderItemEntity item " +
+           "JOIN item.order o " +
+           "WHERE o.status = ordersystem.backend.modules.order.enums.OrderStatus.COMPLETED " +
+           "AND o.createdAt >= :startDate AND o.createdAt <= :endDate")
+    Long getCompletedOrdersItemTotal(@Param("startDate") Date startDate, @Param("endDate") Date endDate);
+
+    /**
+     * Truy vấn tổng doanh thu thực tế từ bảng payment_transactions thành công (SUCCESS)
+     */
+    @Query("SELECT COALESCE(SUM(p.totalAmount), 0) " +
+           "FROM PaymentTransactionEntity p " +
+           "WHERE p.paymentStatus = ordersystem.backend.modules.payment.enums.PaymentStatus.SUCCESS " +
+           "AND p.createAt >= :startDate AND p.createAt <= :endDate")
+    Long getSuccessfulTransactionsTotal(@Param("startDate") Date startDate, @Param("endDate") Date endDate);
+
+    /**
      * Retrieves total count of all created orders regardless of status.
      */
     @Query("SELECT COUNT(o) FROM OrderEntity o WHERE o.createdAt >= :startDate AND o.createdAt <= :endDate")
@@ -33,12 +52,32 @@ public interface AnalyticsRepository extends JpaRepository<OrderEntity, Long> {
     /**
      * Retrieves hourly revenue and order count for COMPLETED orders.
      */
-    @Query("SELECT HOUR(o.createdAt) as hr, COUNT(o), COALESCE(SUM(o.totalAmount), 0) " +
-           "FROM OrderEntity o " +
-           "WHERE o.status = ordersystem.backend.modules.order.enums.OrderStatus.COMPLETED " +
-           "AND o.createdAt >= :startDate AND o.createdAt <= :endDate " +
-           "GROUP BY HOUR(o.createdAt) ORDER BY hr ASC")
+    @Query(value = "SELECT EXTRACT(HOUR FROM o.created_at) as hr, COUNT(o.id), COALESCE(SUM(o.total_amount), 0) " +
+                   "FROM orders o " +
+                   "WHERE o.status = 'COMPLETED' " +
+                   "AND o.created_at >= :startDate AND o.created_at <= :endDate " +
+                   "GROUP BY EXTRACT(HOUR FROM o.created_at) ORDER BY hr ASC", nativeQuery = true)
     List<Object[]> getHourlyRevenueData(@Param("startDate") Date startDate, @Param("endDate") Date endDate);
+
+    /**
+     * Retrieves daily revenue and order count for COMPLETED orders.
+     */
+    @Query(value = "SELECT CAST(o.created_at AS DATE) as dt, COUNT(o.id), COALESCE(SUM(o.total_amount), 0) " +
+                   "FROM orders o " +
+                   "WHERE o.status = 'COMPLETED' " +
+                   "AND o.created_at >= :startDate AND o.created_at <= :endDate " +
+                   "GROUP BY CAST(o.created_at AS DATE) ORDER BY dt ASC", nativeQuery = true)
+    List<Object[]> getDailyRevenueData(@Param("startDate") Date startDate, @Param("endDate") Date endDate);
+
+    /**
+     * Retrieves monthly revenue and order count for COMPLETED orders.
+     */
+    @Query(value = "SELECT EXTRACT(MONTH FROM o.created_at) as mth, COUNT(o.id), COALESCE(SUM(o.total_amount), 0) " +
+                   "FROM orders o " +
+                   "WHERE o.status = 'COMPLETED' " +
+                   "AND o.created_at >= :startDate AND o.created_at <= :endDate " +
+                   "GROUP BY EXTRACT(MONTH FROM o.created_at) ORDER BY mth ASC", nativeQuery = true)
+    List<Object[]> getMonthlyRevenueData(@Param("startDate") Date startDate, @Param("endDate") Date endDate);
 
     /**
      * Retrieves top-selling products ordered by quantity sold.

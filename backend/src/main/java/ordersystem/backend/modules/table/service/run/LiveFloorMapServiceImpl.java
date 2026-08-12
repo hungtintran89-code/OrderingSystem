@@ -64,7 +64,14 @@ public class LiveFloorMapServiceImpl implements LiveFloorMapService {
                     activeSessionIds, OrderStatus.CANCELLED);
             for (OrderEntity order : orders) {
                 Long sessionId = order.getTableSession().getTableSessionId();
-                Long amt = order.getTotalAmount() != null ? order.getTotalAmount() : 0L;
+                Long amt = 0L;
+                if (order.getItems() != null && !order.getItems().isEmpty()) {
+                    amt = order.getItems().stream()
+                            .mapToLong(item -> item.getTotalPrice() != null ? item.getTotalPrice() : 0L)
+                            .sum();
+                } else if (order.getTotalAmount() != null) {
+                    amt = order.getTotalAmount();
+                }
                 sessionTotalAmountMap.put(sessionId,
                         sessionTotalAmountMap.getOrDefault(sessionId, 0L) + amt);
             }

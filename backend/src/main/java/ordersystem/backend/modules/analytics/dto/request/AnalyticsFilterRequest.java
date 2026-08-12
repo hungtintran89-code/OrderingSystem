@@ -22,9 +22,7 @@ public class AnalyticsFilterRequest {
     @Builder.Default
     private AnalyticsPeriodType period = AnalyticsPeriodType.TODAY;
 
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private Date startDate;
+    private String startDate;
 
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private Date endDate;
+    private String endDate;
 }

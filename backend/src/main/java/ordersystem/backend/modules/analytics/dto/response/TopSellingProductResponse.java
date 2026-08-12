@@ -19,4 +19,14 @@ public class TopSellingProductResponse {
     private String categoryName;
     private Long totalQuantitySold;
     private Long totalRevenueGenerated;
+
+    // Đồng bộ trường dành cho Frontend Dashboard TopSellingProduct
+    private Integer rank;
+    private String id;
+    private String name;
+    private String category;
+    private String imageUrl;
+    private Long quantitySold;
+    private Long totalRevenue;
+    private Double sharePercent;
 }

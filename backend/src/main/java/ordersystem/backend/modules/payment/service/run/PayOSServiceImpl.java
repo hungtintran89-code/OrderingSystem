@@ -52,14 +52,25 @@ public class PayOSServiceImpl implements PayOSService {
         TableSessionEntity session = tableSessionRepository.findById(tableSessionId)
                 .orElseThrow( () -> new TableException("Session ID not found: " + tableSessionId));
 
-        //Lấy ra master order của table session này để tính tổng tiền
-        OrderEntity masterOrder = orderRepository.findByTableSessionTableSessionIdAndStatus(tableSessionId, OrderStatus.PENDING)
-                .orElseThrow( () -> new OrderException("Master Order not found with table session + " + session.getTableSessionId()));
+        //Lấy danh sách các đơn hàng chưa bị HỦY của table session này để tính tổng tiền chuẩn 100%
+        List<OrderEntity> sessionOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(tableSessionId, OrderStatus.CANCELLED);
+        if (sessionOrders.isEmpty()) {
+            throw new OrderException("No active orders found for table session: " + session.getTableSessionId());
+        }
 
-        Long grandTotal = masterOrder.getTotalAmount();
+        Long grandTotal = sessionOrders.stream()
+                .flatMap(o -> o.getItems().stream())
+                .mapToLong(item -> item.getTotalPrice() != null ? item.getTotalPrice() : 0L)
+                .sum();
 
-        if (grandTotal <= 0){
-            throw  new PaymentException("Invalid total invoice");
+        if (grandTotal <= 0) {
+            grandTotal = sessionOrders.stream()
+                    .mapToLong(o -> o.getTotalAmount() != null ? o.getTotalAmount() : 0L)
+                    .sum();
+        }
+
+        if (grandTotal <= 0) {
+            throw new PaymentException("Invalid total invoice");
         }
 
         // =========================================================================
@@ -81,12 +92,12 @@ public class PayOSServiceImpl implements PayOSService {
                 .build();
 
         // Save lần 1 để JPA tự động sinh payment_id (VD: payment_id = 102)
-        newTransaction = transactionRepository.save(newTransaction);
+        newTransaction = transactionRepository.saveAndFlush(newTransaction);
 
-        //Lấy paymentId gán cho payOrderCode, để mỗi lần tạo sinh payOrderCode duy nhất
+        // Lấy paymentId gán cho payOrderCode, để mỗi lần tạo sinh payOrderCode duy nhất
         Long payosOrderCode = newTransaction.getPaymentId();
         newTransaction.setPayosOrderCode(payosOrderCode);
-        newTransaction = transactionRepository.save(newTransaction);
+        newTransaction = transactionRepository.saveAndFlush(newTransaction);
 
         //Tạo thông tin gửi sang PayOS
         String description = "TT BAN " + session.getTableName();
@@ -215,15 +226,16 @@ public class PayOSServiceImpl implements PayOSService {
 
         PaymentTransactionEntity newTx = PaymentTransactionEntity.builder()
                 .invoiceCode("INV_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .tableSession(session)
                 .totalAmount(totalAmt)
                 .paymentMethod(PaymentMethod.VIETQR)
                 .paymentStatus(PaymentStatus.PENDING)
                 .build();
-        newTx = transactionRepository.save(newTx);
+        newTx = transactionRepository.saveAndFlush(newTx);
 
         Long payosOrderCode = newTx.getPaymentId();
         newTx.setPayosOrderCode(payosOrderCode);
-        transactionRepository.save(newTx);
+        transactionRepository.saveAndFlush(newTx);
 
         String tableLabel = (request != null && request.getTableNumber() != null) ? request.getTableNumber() : "01";
         String transferContent = "TT BAN " + tableLabel;

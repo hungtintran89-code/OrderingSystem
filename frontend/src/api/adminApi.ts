@@ -155,10 +155,25 @@ let mockAdminOrders: AdminOrder[] = [
 // --- API METHODS INTEGRATED WITH SPRING BOOT BACKEND ---
 
 // 1. GET /api/v1/admin/analytics/revenue-summary
-export const fetchRevenueSummaryApi = async (): Promise<RevenueSummary> => {
+export const fetchRevenueSummaryApi = async (period = 'TODAY', startDate?: string, endDate?: string): Promise<RevenueSummary> => {
   try {
-    const res = await apiClient.get<ApiResponse<RevenueSummary>>('/admin/analytics/revenue-summary');
-    if (res.data && res.data.data) return res.data.data;
+    const params: any = { period };
+    if (period === 'CUSTOM' && startDate && endDate) {
+      params.startDate = startDate;
+      params.endDate = endDate;
+    }
+    const res = await apiClient.get<ApiResponse<any>>('/admin/analytics/revenue-summary', { params });
+    const raw = res.data?.data;
+    if (raw) {
+      return {
+        totalRevenue: Number(raw.totalRevenue || 0),
+        revenueGrowthPercent: Number(raw.revenueGrowthPercent || 0),
+        totalOrders: Number(raw.totalOrders ?? raw.completedOrdersCount ?? 0),
+        activeServingOrders: Number(raw.activeServingOrders || 0),
+        occupancyRate: Number(raw.occupancyRate || 0),
+        avgOrderValue: Number(raw.avgOrderValue ?? raw.averageOrderValue ?? 0),
+      };
+    }
     return mockSummary;
   } catch {
     return mockSummary;
@@ -166,15 +181,26 @@ export const fetchRevenueSummaryApi = async (): Promise<RevenueSummary> => {
 };
 
 // 2. GET /api/v1/admin/analytics/hourly-revenue
-export const fetchHourlyRevenueApi = async (): Promise<HourlyRevenuePoint[]> => {
+export const fetchHourlyRevenueApi = async (period = 'TODAY', startDate?: string, endDate?: string): Promise<HourlyRevenuePoint[]> => {
   try {
-    const res = await apiClient.get<ApiResponse<any>>('/admin/analytics/hourly-revenue');
+    const params: any = { period };
+    if (period === 'CUSTOM' && startDate && endDate) {
+      params.startDate = startDate;
+      params.endDate = endDate;
+    }
+    const res = await apiClient.get<ApiResponse<any>>('/admin/analytics/hourly-revenue', { params });
     const raw = res.data?.data;
     let list: any[] = [];
     if (Array.isArray(raw)) list = raw;
     else if (raw && Array.isArray(raw.content)) list = raw.content;
 
-    if (list && list.length > 0) return list;
+    if (list && list.length > 0) {
+      return list.map((item: any) => ({
+        hour: item.hour || '00:00',
+        revenue: Number(item.revenue || 0),
+        orders: Number(item.orders ?? item.orderCount ?? 0),
+      }));
+    }
     return mockHourlyPoints;
   } catch {
     return mockHourlyPoints;
@@ -182,15 +208,31 @@ export const fetchHourlyRevenueApi = async (): Promise<HourlyRevenuePoint[]> => 
 };
 
 // 3. GET /api/v1/admin/analytics/top-selling?limit=5
-export const fetchTopSellingProductsApi = async (limit = 5): Promise<TopSellingProduct[]> => {
+export const fetchTopSellingProductsApi = async (limit = 5, period = 'TODAY', startDate?: string, endDate?: string): Promise<TopSellingProduct[]> => {
   try {
-    const res = await apiClient.get<ApiResponse<any>>(`/admin/analytics/top-selling?limit=${limit}`);
+    const params: any = { limit, period };
+    if (period === 'CUSTOM' && startDate && endDate) {
+      params.startDate = startDate;
+      params.endDate = endDate;
+    }
+    const res = await apiClient.get<ApiResponse<any>>('/admin/analytics/top-selling', { params });
     const raw = res.data?.data;
     let list: any[] = [];
     if (Array.isArray(raw)) list = raw;
     else if (raw && Array.isArray(raw.content)) list = raw.content;
 
-    if (list && list.length > 0) return list.slice(0, limit);
+    if (list && list.length > 0) {
+      return list.map((item: any, idx: number) => ({
+        rank: item.rank || idx + 1,
+        id: String(item.id || item.productId || `top-${idx}`),
+        name: item.name || item.productName || 'Món ăn',
+        category: item.category || item.categoryName || 'Món chính',
+        imageUrl: item.imageUrl || item.productImageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150&auto=format&fit=crop&q=80',
+        quantitySold: Number(item.quantitySold ?? item.totalQuantitySold ?? 0),
+        totalRevenue: Number(item.totalRevenue ?? item.totalRevenueGenerated ?? 0),
+        sharePercent: Number(item.sharePercent || 0),
+      })).slice(0, limit);
+    }
     return mockTopProducts.slice(0, limit);
   } catch {
     return mockTopProducts.slice(0, limit);
