@@ -19,4 +19,5 @@ public class OrderItemResponse {
     private Long priceTotal;
     private String note;
     private Long threadId;
+    private String status;
 }

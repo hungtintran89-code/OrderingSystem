@@ -21,7 +21,7 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping({"/create-vietqr", "/create_vietqr"})
-    @PreAuthorize("hasAnyRole('MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('MANAGER', 'STAFF', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<PaymentLinkResponse>> createVietQr(@RequestBody CreatePaymentLinkRequest request){
         PaymentLinkResponse response = payOSService.createVietQrPaymentLink(request);
         return ResponseEntity.ok(ApiResponse.success("VietQr code generated successfully", response));

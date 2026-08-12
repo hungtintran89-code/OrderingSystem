@@ -127,43 +127,31 @@ export const KitchenTicketCard: React.FC<KitchenTicketCardProps> = ({
 
       {/* 3. Ergonomic Touch Action Button */}
       <div className="p-3 bg-slate-50/50 border-t border-slate-100">
-        {order.status === 'PENDING' && (
-          <button
-            onClick={() => onUpdateStatus(order.id, 'IN_PROGRESS')}
-            className="w-full h-11 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer min-h-[44px]"
-          >
-            <Play className="w-4 h-4 fill-current" />
-            <span>Bắt Đầu Chế Biến ({completedCount}/{totalCount} món)</span>
-          </button>
-        )}
-
-        {order.status === 'IN_PROGRESS' && (
-          <button
-            onClick={() => {
-              if (allItemsCompleted) {
-                onUpdateStatus(order.id, 'READY');
-              }
-            }}
-            disabled={!allItemsCompleted}
-            className={`w-full h-11 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all min-h-[44px] ${
-              allItemsCompleted
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs'
-                : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-            }`}
-          >
-            {allItemsCompleted ? (
-              <>
-                <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-                <span>✓ Hoàn Thành & Trả Đơn Bếp</span>
-              </>
-            ) : (
-              <>
-                <Lock className="w-3.5 h-3.5 text-slate-400" />
-                <span>⏳ Cần tick chọn hết món ({completedCount}/{totalCount} món)</span>
-              </>
-            )}
-          </button>
-        )}
+        <button
+          onClick={() => {
+            if (allItemsCompleted) {
+              onUpdateStatus(order.id, 'COMPLETED');
+            }
+          }}
+          disabled={!allItemsCompleted}
+          className={`w-full h-11 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all min-h-[44px] ${
+            allItemsCompleted
+              ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-md active:scale-95'
+              : 'bg-slate-100 text-slate-400 border border-slate-200/80 cursor-not-allowed'
+          }`}
+        >
+          {allItemsCompleted ? (
+            <>
+              <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+              <span>✓ Hoàn Thành & Trả Đơn Bếp</span>
+            </>
+          ) : (
+            <>
+              <Lock className="w-3.5 h-3.5 text-slate-400" />
+              <span>⏳ Tick chọn để hoàn thành ({completedCount}/{totalCount} món)</span>
+            </>
+          )}
+        </button>
       </div>
     </div>
   );

@@ -20,8 +20,10 @@ import java.util.Optional;
 public interface KitchenTicketRepository extends JpaRepository<KitchenTicketEntity , Long> {
 
 
-    // 📌 API MÀN HÌNH CHUNG: Chỉ lấy các món CHƯA AI NHẬN (PENDING)
+    // 📌 API MÀN HÌNH CHUNG: Lấy các món PENDING (Chờ làm) và COOKING (Đang làm)
     List<KitchenTicketEntity> findByStatus( KitchenItemStatus status );
+    List<KitchenTicketEntity> findByStatusInOrderByKitchenTicketIdAsc(List<KitchenItemStatus> statuses);
+    Optional<KitchenTicketEntity> findByOrderItemId(Long orderItemId);
 
     // 📌 API MÀN HÌNH CÁ NHÂN: Chỉ lấy các món ĐANG NẤU do CHÍNH ĐẦU BẾP ĐÓ nhận làm
     List<KitchenTicketEntity> findByStatusAndAssignedCookId(KitchenItemStatus status, Long cookId);

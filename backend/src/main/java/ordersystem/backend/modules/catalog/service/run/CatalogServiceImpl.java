@@ -23,16 +23,28 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 
+import ordersystem.backend.common.websocket.WebSocketPublisher;
 import ordersystem.backend.modules.catalog.dto.request.UpdateCategoryRequest;
 
 @Service
 @RequiredArgsConstructor
-
 public class CatalogServiceImpl implements CatalogService {
     final private CategoryRepository categoryRepository ;
     final private ProductRepository productRepository ;
     final private CatalogMapper catalogMapper ;
     final private ProductMapper productMapper ;
+    final private WebSocketPublisher webSocketPublisher ;
+
+    private void broadcastMenuUpdate(String actionType) {
+        try {
+            webSocketPublisher.notifyMenuUpdate(java.util.Map.of(
+                "type", "MENU_UPDATED",
+                "action", actionType,
+                "timestamp", System.currentTimeMillis()
+            ));
+        } catch (Exception ignored) {
+        }
+    }
 
     // 2. Admin tạo Danh mục mới
     @Override
@@ -48,7 +60,9 @@ public class CatalogServiceImpl implements CatalogService {
                 .categoryName(createCategoryRequest.getCategoryName())
                 .build();
         CategoryEntity categorySaved = categoryRepository.save(categoryEntity) ;
-        return catalogMapper.toCategoryMenuResponse(categorySaved) ;
+        CategoryMenuResponse response = catalogMapper.toCategoryMenuResponse(categorySaved) ;
+        broadcastMenuUpdate("CREATE_CATEGORY");
+        return response;
     }
 
     // Admin cập nhật tên danh mục
@@ -72,7 +86,9 @@ public class CatalogServiceImpl implements CatalogService {
 
         categoryEntity.setCategoryName(newName);
         CategoryEntity updated = categoryRepository.save(categoryEntity);
-        return catalogMapper.toCategoryMenuResponse(updated);
+        CategoryMenuResponse response = catalogMapper.toCategoryMenuResponse(updated);
+        broadcastMenuUpdate("UPDATE_CATEGORY");
+        return response;
     }
 
     // Admin xóa danh mục
@@ -88,6 +104,7 @@ public class CatalogServiceImpl implements CatalogService {
         }
 
         categoryRepository.delete(categoryEntity);
+        broadcastMenuUpdate("DELETE_CATEGORY");
     }
 
     // Admin lấy tất cả danh mục
@@ -112,7 +129,9 @@ public class CatalogServiceImpl implements CatalogService {
                 .orElseThrow( ()-> new CatalogException("Dish with ID "+ productId +" not found")) ;
 
         productEntity.setProductIsAvailable(toggleAvailabilityRequest.getIsAvailable());
-        return productMapper.toProductResponse(productEntity) ;
+        ProductResponse response = productMapper.toProductResponse(productEntity);
+        broadcastMenuUpdate("TOGGLE_AVAILABILITY");
+        return response;
     }
 
     // Admin thêm món vào catalog
@@ -145,7 +164,9 @@ public class CatalogServiceImpl implements CatalogService {
                 .category(categoryEntity)
                 .build();
 
-        return productMapper.toProductResponse(productRepository.save(productEntity));
+        ProductResponse response = productMapper.toProductResponse(productRepository.save(productEntity));
+        broadcastMenuUpdate("CREATE_PRODUCT");
+        return response;
     }
 
     @Override
@@ -185,7 +206,9 @@ public class CatalogServiceImpl implements CatalogService {
         }
 
         ProductEntity saved = productRepository.save(productEntity);
-        return productMapper.toProductResponse(saved);
+        ProductResponse response = productMapper.toProductResponse(saved);
+        broadcastMenuUpdate("UPDATE_PRODUCT");
+        return response;
     }
 
     @Override
@@ -196,6 +219,7 @@ public class CatalogServiceImpl implements CatalogService {
             throw new CatalogException("Dish with ID " + productId + " not found");
         }
         productRepository.deleteById(productId);
+        broadcastMenuUpdate("DELETE_PRODUCT");
     }
 
     @Override

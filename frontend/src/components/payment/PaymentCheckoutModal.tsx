@@ -62,8 +62,8 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
   onSimulateQrResult,
   accountInfo = {
     bankName: 'Ngân hàng TMCP Quân đội (MBBank)',
-    accountName: 'NGUYEN TRI THONG',
-    accountNumber: 'VQRQALDUU7770',
+    accountName: 'TRAN HUNG TIN',
+    accountNumber: '0866739857',
   }
 }) => {
   const [paymentMethodTab, setPaymentMethodTab] = useState<'CASH' | 'QR'>('CASH');
@@ -523,30 +523,6 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                                 <span>{copiedField === 'memo' ? 'Đã sao chép' : 'Sao chép'}</span>
                               </button>
                             </div>
-
-                            <p className="text-[10px] text-slate-500 font-medium pt-0.5">
-                              Lưu ý: Nhập chính xác số tiền <strong className="text-slate-900 font-bold">{formatVND(totalAmount)}</strong> khi chuyển khoản
-                            </p>
-
-                            {onSimulateQrResult && (
-                              <div className="pt-1.5 border-t border-slate-200 flex items-center gap-2">
-                                <span className="text-[10px] text-slate-400 font-medium">Dev Mode:</span>
-                                <button
-                                  type="button"
-                                  onClick={() => onSimulateQrResult('SUCCESS')}
-                                  className="px-2 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-medium cursor-pointer"
-                                >
-                                  Giả Lập Thành Công
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => onSimulateQrResult('FAILED')}
-                                  className="px-2 py-0.5 rounded bg-red-100 hover:bg-red-200 text-red-800 text-[10px] font-medium cursor-pointer"
-                                >
-                                  Giả Lập Thất Bại
-                                </button>
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>

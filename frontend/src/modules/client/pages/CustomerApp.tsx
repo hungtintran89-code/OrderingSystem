@@ -113,6 +113,39 @@ export function CustomerApp() {
     };
   }, [currentTable, threadId]);
 
+  // Real-time WebSocket Auto-Sync for Menu, Categories & Kitchen Ticket Statuses
+  useEffect(() => {
+    const unsubMenu = wsService.subscribe('/topic/menu/updates', () => {
+      loadMenu();
+    });
+
+    const unsubKitchenOrders = wsService.subscribe('/topic/kitchen/orders', () => {
+      loadOrders();
+    });
+
+    const unsubKitchenHistory = wsService.subscribe('/topic/kitchen/completed-history', () => {
+      loadOrders();
+    });
+
+    const unsubClientTopic = currentTable?.qrToken
+      ? wsService.subscribe(`/topic/client/${currentTable.qrToken}`, () => {
+          loadOrders();
+        })
+      : () => {};
+
+    const pollInterval = setInterval(() => {
+      loadOrders();
+    }, 3000);
+
+    return () => {
+      unsubMenu();
+      unsubKitchenOrders();
+      unsubKitchenHistory();
+      unsubClientTopic();
+      clearInterval(pollInterval);
+    };
+  }, [currentTable, threadId]);
+
   const loadMenu = async () => {
     const data = await apiService.getMenu(currentTable.qrToken);
     setCategories(data);

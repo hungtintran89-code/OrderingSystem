@@ -35,6 +35,7 @@ import {
 import { Modal, Switch, message, Popconfirm, Image as AntImage } from 'antd';
 import { SmartSearchBar } from '../common/SmartSearchBar';
 import { isVietnameseMatch, filterAndSortByRelevance } from '../../utils/vietnameseSearch';
+import { wsService } from '../../modules/client/services/websocket';
 
 export const MenuManagement: React.FC = () => {
   const [items, setItems] = useState<AdminMenuItem[]>([]);
@@ -115,6 +116,18 @@ export const MenuManagement: React.FC = () => {
   useEffect(() => {
     loadMenuItems();
     loadCategories();
+  }, []);
+
+  // Real-time WebSocket Auto-Sync for Menu & Categories
+  useEffect(() => {
+    const unsubscribe = wsService.subscribe('/topic/menu/updates', (data) => {
+      console.log('[Realtime Menu] Received menu/category update via WebSocket:', data);
+      loadMenuItems();
+      loadCategories();
+    });
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // --- CATEGORY ACTIONS CONNECTED TO DB ---

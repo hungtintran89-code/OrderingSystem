@@ -28,7 +28,7 @@ public class KitchenOrderController {
 
     // API 1: MÀN HÌNH CHUNG - Món chờ (PENDING)
     @GetMapping("/tickets/pending")
-    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER', 'STAFF', 'ADMIN')")
     @Operation(summary = "Lấy danh sách các đơn chờ chế biến (PENDING)")
     public ResponseEntity<ApiResponse<List<KitchenTicketResponse>>> getPendingTickets() {
         List<KitchenTicketResponse> tickets = kitchenTicketService.getPendingTickets();
@@ -37,7 +37,7 @@ public class KitchenOrderController {
 
     // API 2: MÀN HÌNH CÁ NHÂN - Món đang nấu (COOKING)
     @GetMapping("/tickets/my-cooking")
-    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER', 'STAFF', 'ADMIN')")
     @Operation(summary = "Lấy danh sách món cá nhân đầu bếp đang nấu (COOKING)")
     public ResponseEntity<ApiResponse<List<KitchenTicketResponse>>> getMyCookingTickets(Principal principal) {
         List<KitchenTicketResponse> tickets = kitchenTicketService.getMyCookingTickets(principal);
@@ -46,7 +46,7 @@ public class KitchenOrderController {
 
     // API 4: BẤM NHẬN LÀM (CLAIM)
     @PostMapping("/tickets/{ticketId}/claim")
-    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER', 'STAFF', 'ADMIN')")
     @Operation(summary = "Đầu bếp bấm nhận làm món (CLAIM)")
     public ResponseEntity<ApiResponse<KitchenTicketResponse>> claimTicket(
             @PathVariable Long ticketId,
@@ -57,7 +57,7 @@ public class KitchenOrderController {
 
     // API 5: BẤM ĐÃ XONG (COMPLETE) -> BẮN WEBSOCKET SANG TAB LỊCH SỬ CHUNG REAL-TIME
     @PostMapping("/tickets/{ticketId}/complete")
-    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER', 'STAFF', 'ADMIN')")
     @Operation(summary = "Đầu bếp bấm hoàn thành món (BUMP / COMPLETE)")
     public ResponseEntity<ApiResponse<KitchenTicketResponse>> completeTicket(
             @PathVariable Long ticketId,
@@ -68,7 +68,7 @@ public class KitchenOrderController {
 
     // API 6: LỊCH SỬ CÁ NHÂN CỦA ĐẦU BẾP ĐANG ĐĂNG NHẬP
     @GetMapping("/my-history")
-    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER', 'STAFF', 'ADMIN')")
     @Operation(summary = "Lấy lịch sử món đã nấu xong của cá nhân đầu bếp")
     public ResponseEntity<ApiResponse<ChefWorkHistoryResponse>> getMyWorkHistory(Principal principal) {
         ChefWorkHistoryResponse history = kitchenTicketService.getCookWorkHistory(principal);
@@ -77,7 +77,7 @@ public class KitchenOrderController {
 
     // API 7 : TAB LỊCH SỬ HOÀN THÀNH CHUNG (Tất cả các món đã nấu xong của toàn bộ Bếp)
     @GetMapping("/tickets/completed-history")
-    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER', 'STAFF', 'ADMIN')")
     @Operation(summary = "Lấy danh sách lịch sử hoàn thành chung toàn bộ bếp")
     public ResponseEntity<ApiResponse<List<KitchenTicketResponse>>> getSharedCompletedHistory(
             @RequestParam(defaultValue = "50") int limit) {
@@ -92,7 +92,7 @@ public class KitchenOrderController {
      * @return ApiResponse chứa KitchenTicketResponse
      */
     @PostMapping("/tickets/{ticketId}/recall")
-    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER', 'STAFF', 'ADMIN')")
     @Operation(summary = "Khôi phục đơn từ Lịch sử về màn hình Chế biến bếp (RECALL)")
     public ResponseEntity<ApiResponse<KitchenTicketResponse>> recallTicket(@PathVariable Long ticketId) {
         KitchenTicketResponse response = kitchenTicketService.recallTicket(ticketId);
@@ -105,7 +105,7 @@ public class KitchenOrderController {
      * @return ApiResponse chứa danh sách KitchenItemAggregatedResponse
      */
     @GetMapping("/aggregated-dishes")
-    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('KITCHEN', 'MANAGER', 'STAFF', 'ADMIN')")
     @Operation(summary = "Lấy bảng tổng hợp gom số lượng món cần chế biến (Batch Cooking Matrix)")
     public ResponseEntity<ApiResponse<List<KitchenItemAggregatedResponse>>> getAggregatedDishes() {
         List<KitchenItemAggregatedResponse> aggregated = kitchenTicketService.getAggregatedDishes();

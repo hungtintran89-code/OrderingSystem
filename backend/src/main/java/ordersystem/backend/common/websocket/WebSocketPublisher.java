@@ -47,4 +47,10 @@ public class WebSocketPublisher {
     public void notifyServiceRequest(Object requestData) {
         messagingTemplate.convertAndSend("/topic/admin/service-requests", requestData);
     }
+
+    // 7. Thông báo Cập nhật Thực đơn & Danh mục (Menu / Category updates)
+    @Async
+    public void notifyMenuUpdate(Object menuData) {
+        messagingTemplate.convertAndSend("/topic/menu/updates", menuData);
+    }
 }

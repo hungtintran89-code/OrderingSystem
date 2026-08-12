@@ -3,6 +3,7 @@ import { AdminMenuItem, AdminTable } from '../../types/admin';
 import { 
   fetchAdminMenuItemsApi, 
   fetchAdminTablesApi, 
+  fetchAdminCategoriesListApi,
   createVietQrPaymentApi, 
   updateTableStatusApi, 
   checkoutTableApi,
@@ -39,6 +40,7 @@ import {
 import { Modal, Radio, Input, Segmented, Popconfirm, message } from 'antd';
 import { filterAndSortByRelevance } from '../../utils/vietnameseSearch';
 import { PaymentCheckoutModal } from '../payment/PaymentCheckoutModal';
+import { wsService } from '../../modules/client/services/websocket';
 
 interface CartItem {
   product: AdminMenuItem;
@@ -85,6 +87,7 @@ export const QuickPosManagement: React.FC = () => {
   const [submittingOrder, setSubmittingOrder] = useState(false);
 
   // Category Filter & Search
+  const [dbCategories, setDbCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -114,14 +117,21 @@ export const QuickPosManagement: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [itemsData, tablesData] = await Promise.all([
+      const [itemsData, tablesData, categoriesData] = await Promise.all([
         fetchAdminMenuItemsApi(),
         fetchAdminTablesApi(),
+        fetchAdminCategoriesListApi(),
       ]);
       setMenuItems(itemsData);
       setTables(tablesData);
+      
+      if (Array.isArray(categoriesData)) {
+        const catNames = categoriesData.map((c) => c.categoryName).filter(Boolean);
+        setDbCategories(catNames);
+      }
+
       if (tablesData.length > 0) {
-        setSelectedTable(tablesData[0]);
+        setSelectedTable((prev) => prev || tablesData[0]);
       }
     } catch (err) {
       setError('Không thể tải dữ liệu thực đơn & sơ đồ bàn POS. Vui lòng thử lại.');
@@ -134,6 +144,17 @@ export const QuickPosManagement: React.FC = () => {
     loadData();
   }, []);
 
+  // Real-time WebSocket Auto-Sync for Categories & Menu
+  useEffect(() => {
+    const unsubscribe = wsService.subscribe('/topic/menu/updates', (data) => {
+      console.log('[Realtime POS] Received menu/category update via WebSocket:', data);
+      loadData();
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   const formatVND = (num: number) => new Intl.NumberFormat('vi-VN').format(num) + ' đ';
 
   const formatTableName = (num: string | number) => {
@@ -144,8 +165,9 @@ export const QuickPosManagement: React.FC = () => {
     return `Bàn ${str}`;
   };
 
-  // Categories & Zones list
-  const categories = ['all', ...Array.from(new Set(menuItems.map((i) => i.category)))];
+  // Categories & Zones list (Merge DB Categories + Product Categories)
+  const itemCategories = menuItems.map((i) => i.category).filter(Boolean);
+  const categories = ['all', ...Array.from(new Set([...dbCategories, ...itemCategories]))];
   const zones = ['ALL', ...Array.from(new Set(tables.map((t) => t.zone)))];
 
   // Filtered menu items with Senior Relevance Scoring
@@ -314,26 +336,27 @@ export const QuickPosManagement: React.FC = () => {
     setIsCheckoutModalOpen(true);
   };
 
-  // Generate VietQR
+  // Generate VietQR via official PayOS SDK
   const handleGenerateVietQR = async () => {
     if (totalAmount === 0) return;
     try {
       setIsGeneratingQr(true);
-      const tableLabel = orderType === 'TAKEAWAY' ? 'TAKEAWAY' : selectedTable?.tableNumber || '01';
-      const response = await createVietQrPaymentApi(tableLabel, totalAmount);
+      const tableLabel = orderType === 'TAKEAWAY' ? 'MANG VE' : selectedTable?.tableNumber || '01';
+      const tId = orderType === 'DINE_IN' && selectedTable ? selectedTable.id : undefined;
+      const sId = orderType === 'DINE_IN' && selectedTable ? selectedTable.tableSessionId : undefined;
+      const response = await createVietQrPaymentApi(tableLabel, totalAmount, tId, sId);
       setCheckoutUrl(response.checkoutUrl);
       setQrCodeImageUrl(response.qrDataUrl);
       setQrPaymentStatus('PENDING');
       if (response.accountName || response.accountNumber) {
         setAccountInfo({
-          bankName: response.bankName || 'Ngân hàng TMCP Quân đội (MBBank)',
-          accountName: response.accountName || 'PAYOS MERCHANT',
+          bankName: response.bankName || 'Ngân hàng',
+          accountName: response.accountName || '',
           accountNumber: response.accountNumber || '',
         });
       }
-      message.success('Đã tạo mã QR thanh toán VietQR thành công!');
+      message.success('Đã tạo mã QR thanh toán PayOS VietQR!');
     } catch (err: any) {
-      // Reset QR state khi lỗi - KHÔNG fallback QR giả (Toast lỗi đã được apiClient interceptor hiển thị tập trung)
       setCheckoutUrl('');
       setQrCodeImageUrl('');
       setQrPaymentStatus('IDLE');
@@ -357,12 +380,17 @@ export const QuickPosManagement: React.FC = () => {
         const recvAmount = typeof cashReceived === 'number' ? cashReceived : undefined;
         const method = paymentMethodTab === 'QR' ? 'VIETQR' : 'CASH';
         await checkoutTableApi(selectedTable.id, method, recvAmount);
+        message.success(`Đã hoàn tất thanh toán & trả ${formatTableName(selectedTable.tableNumber)}!`);
+      } else if (orderType === 'TAKEAWAY') {
+        // TỰ ĐỘNG BẮN ĐƠN MANG VỀ XUỐNG BẾP KDS SAU KHI THANH TOÁN THÀNH CÔNG!
+        await handleSendToKitchen();
+        message.success('Thanh toán đơn mang về thành công! Đơn hàng đã chuyển xuống Bếp KDS.');
       }
       setCart([]);
       setIsCheckoutModalOpen(false);
-      message.success('Đã hoàn tất thanh toán & giải phóng đơn trong DB!');
-    } catch (err) {
-      message.error('Lỗi khi thanh toán đơn hàng');
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || 'Lỗi khi hoàn tất thanh toán đơn hàng';
+      message.error(errMsg);
     }
   };
 
@@ -526,51 +554,63 @@ export const QuickPosManagement: React.FC = () => {
 
             {/* PRODUCT CARDS TOUCH GRID WITH INTERNAL SCROLLBAR */}
             <div className="max-h-[calc(100vh-240px)] min-h-[500px] overflow-y-auto pr-1">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-3.5">
-                {filteredMenuItems.map((item) => (
-                  <div
-                    key={item.id}
-                    onClick={() => handleAddToCart(item)}
-                    className={`bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-2xs hover:shadow-md transition-all cursor-pointer select-none flex flex-col justify-between group active:scale-98 ${
-                      !item.isAvailable ? 'opacity-50 grayscale' : ''
-                    }`}
-                  >
-                    <div className="relative h-28 w-full bg-slate-100 overflow-hidden">
-                      <img
-                        src={item.imageUrl}
-                        alt={item.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white font-mono text-[10px] font-bold">
-                        {item.sku}
-                      </span>
-                      {!item.isAvailable && (
-                        <span className="absolute inset-0 bg-black/50 text-white font-bold text-xs flex items-center justify-center">
-                          Tạm hết hàng
+              {filteredMenuItems.length === 0 ? (
+                <div className="bg-white rounded-2xl p-12 border border-slate-200/80 text-center space-y-3 shadow-2xs my-4">
+                  <UtensilsCrossed className="w-10 h-10 text-slate-300 mx-auto" />
+                  <h4 className="font-bold text-sm text-slate-700">Chưa có món ăn nào</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    {selectedCategory !== 'all'
+                      ? `Danh mục "${selectedCategory}" hiện chưa có món ăn nào. Vui lòng thêm món ăn mới trong Quản lý Thực đơn.`
+                      : 'Không tìm thấy món ăn phù hợp với từ khóa tìm kiếm.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                  {filteredMenuItems.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => handleAddToCart(item)}
+                      className={`bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-2xs hover:shadow-md transition-all cursor-pointer select-none flex flex-col justify-between group active:scale-98 ${
+                        !item.isAvailable ? 'opacity-50 grayscale' : ''
+                      }`}
+                    >
+                      <div className="relative h-28 w-full bg-slate-100 overflow-hidden">
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white font-mono text-[10px] font-bold">
+                          {item.sku}
                         </span>
-                      )}
-                    </div>
+                        {!item.isAvailable && (
+                          <span className="absolute inset-0 bg-black/50 text-white font-bold text-xs flex items-center justify-center">
+                            Tạm hết hàng
+                          </span>
+                        )}
+                      </div>
 
-                    <div className="p-3 space-y-1.5">
-                      <h4 className="font-bold text-slate-900 text-xs line-clamp-1 group-hover:text-orange-600 transition-colors">
-                        {item.name}
-                      </h4>
-                      
-                      <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                        <span className="font-semibold text-slate-900 text-xs sm:text-sm">
-                          {formatVND(item.price)}
-                        </span>
-                        <button
-                          type="button"
-                          className="w-7 h-7 rounded-lg bg-orange-50 hover:bg-orange-600 text-orange-600 hover:text-white flex items-center justify-center transition-colors shadow-2xs font-bold text-xs"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
+                      <div className="p-3 space-y-1.5">
+                        <h4 className="font-bold text-slate-900 text-xs line-clamp-1 group-hover:text-orange-600 transition-colors">
+                          {item.name}
+                        </h4>
+                        
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                          <span className="font-semibold text-slate-900 text-xs sm:text-sm">
+                            {formatVND(item.price)}
+                          </span>
+                          <button
+                            type="button"
+                            className="w-7 h-7 rounded-lg bg-orange-50 hover:bg-orange-600 text-orange-600 hover:text-white flex items-center justify-center transition-colors shadow-2xs font-bold text-xs"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -674,20 +714,50 @@ export const QuickPosManagement: React.FC = () => {
                 </div>
               </div>
 
-              {/* OPERATION BUTTON (CHỈ HIỂN THỊ DUY NHẤT NÚT THANH TOÁN HÓA ĐƠN KHI CHỌN MÓN) */}
-              <div className="pt-2">
-                <button
-                  onClick={handleOpenCheckoutModal}
-                  disabled={cart.length === 0}
-                  className={`w-full h-12 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-all min-h-[48px] ${
-                    cart.length > 0
-                      ? 'bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white cursor-pointer shadow-sm'
-                      : 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
-                  }`}
-                >
-                  <CreditCard className="w-5 h-5" />
-                  <span>Thanh Toán Hóa Đơn</span>
-                </button>
+              {/* OPERATION BUTTONS: DINE_IN (GỬI BẾP CÓ MÃ BÀN) vs TAKEAWAY (THANH TOÁN 2 TAB KHÔNG CẦN BÀN) */}
+              <div className="pt-2 space-y-2">
+                {orderType === 'DINE_IN' ? (
+                  /* NÚT ĂN TẠI BÀN: GỬI BẾP & GỌI MÓN (CÓ MÃ BÀN, KHÔNG THANH TOÁN NGAY) */
+                  <button
+                    onClick={handleSendToKitchen}
+                    disabled={cart.length === 0 || submittingOrder}
+                    className={`w-full h-12 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all min-h-[48px] shadow-sm ${
+                      cart.length > 0 && !submittingOrder
+                        ? 'bg-orange-600 hover:bg-orange-700 active:scale-98 text-white cursor-pointer ring-2 ring-orange-500/20'
+                        : 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <Send className={`w-4 h-4 ${submittingOrder ? 'animate-spin' : ''}`} />
+                    <span>
+                      {submittingOrder
+                        ? 'Đang gửi đơn xuống Bếp...'
+                        : `Gửi Bếp & Gọi Món ${selectedTable ? formatTableName(selectedTable.tableNumber) : 'cho Bàn'}`}
+                    </span>
+                  </button>
+                ) : (
+                  /* NÚT MANG VỀ: THANH TOÁN ĐƠN MANG VỀ (KHÔNG CẦN MÃ BÀN, MỞ MODAL 2 TAB TIỀN MẶT / QR) */
+                  <button
+                    onClick={handleOpenCheckoutModal}
+                    disabled={cart.length === 0}
+                    className={`w-full h-12 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all min-h-[48px] shadow-sm ${
+                      cart.length > 0
+                        ? 'bg-purple-600 hover:bg-purple-700 active:scale-98 text-white cursor-pointer ring-2 ring-purple-500/20'
+                        : 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>
+                      Thanh Toán Đơn Mang Về {activeTakeawayTicketId ? `#${activeTakeawayTicketId}` : ''}
+                    </span>
+                  </button>
+                )}
+
+                {/* DÒNG HƯỚNG DẪN TRỰC QUAN */}
+                <p className="text-[11px] text-slate-500 text-center font-medium pt-1">
+                  {orderType === 'DINE_IN'
+                    ? `💡 Món ăn sẽ được đưa ra ${selectedTable ? formatTableName(selectedTable.tableNumber) : 'bàn chính xác'}. Khách sẽ thanh toán khi kết thúc bữa ăn.`
+                    : '💡 Khách thanh toán ngay. Sau khi thu tiền (Tiền mặt / QR) thành công, đơn sẽ được gửi xuống Bếp KDS làm món.'}
+                </p>
               </div>
             </div>
 
@@ -785,7 +855,7 @@ export const QuickPosManagement: React.FC = () => {
           tableName={orderType === 'TAKEAWAY' ? (activeTakeawayTicketId ? `Đơn Mang Về #${activeTakeawayTicketId}` : 'Mang Về (Khách lẻ)') : `Bàn ${selectedTable.tableNumber}`}
           totalAmount={totalAmount}
           orderItems={cart.map(c => ({ name: c.product.name, quantity: c.quantity, price: c.product.price }))}
-          orderCode={`POS-${selectedTable.tableNumber}`}
+          orderCode={orderType === 'TAKEAWAY' ? (activeTakeawayTicketId ? `MANGVE-${activeTakeawayTicketId}` : 'MANGVE') : `POS-${selectedTable.tableNumber}`}
           onConfirmCashPayment={(received) => {
             setCashReceived(received);
             handleConfirmCompletePayment();

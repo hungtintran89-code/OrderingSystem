@@ -681,7 +681,7 @@ export const createVietQrPaymentApi = async (
 ): Promise<VietQrPaymentResponse> => {
   const res = await apiClient.post<ApiResponse<VietQrPaymentResponse>>(
     '/payments/create-vietqr',
-    { tableNumber, totalAmount, tableId, tableSessionId }
+    { tableNumber, totalAmount, amount: totalAmount, tableId, tableSessionId }
   );
   if (res.data && res.data.data) {
     return res.data.data;

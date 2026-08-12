@@ -49,10 +49,10 @@ public class PayOSServiceImpl implements PayOSService {
     @Value("${app.payment.bank-code:MB}")
     private String bankCode;
 
-    @Value("${app.payment.account-no:0387894981}")
+    @Value("${app.payment.account-no:0866739857}")
     private String accountNo;
 
-    @Value("${app.payment.account-name:NGUYEN TRI THONG}")
+    @Value("${app.payment.account-name:TRAN HUNG TIN}")
     private String accountName;
 
     /**
@@ -253,6 +253,90 @@ public class PayOSServiceImpl implements PayOSService {
                     .build();
             session = tableSessionRepository.save(session);
             return createVietQrPaymentLink(session.getTableSessionId());
+        }
+
+        // NẾU LÀ ĐƠN MANG VỀ (TAKEAWAY) HOẶC CHƯA CÓ SESSION BÀN VẬT LÝ
+        if (request != null && (request.getTotalAmount() != null || request.getAmount() != null)) {
+            Long finalAmount = request.getTotalAmount() != null ? request.getTotalAmount() : request.getAmount();
+            if (finalAmount > 0) {
+                String label = (request.getTableNumber() != null && !request.getTableNumber().isBlank())
+                        ? request.getTableNumber()
+                        : "MANG VE";
+                String description = (label.toUpperCase().contains("MANG VE") || label.equalsIgnoreCase("TAKEAWAY"))
+                        ? "TT MANG VE"
+                        : "TT " + label;
+                if (description.length() > 25) {
+                    description = description.substring(0, 25);
+                }
+                Long payosOrderCode = (System.currentTimeMillis() / 1000L) * 1000L + (long)(Math.random() * 999);
+
+                PaymentLinkItem item = PaymentLinkItem.builder()
+                        .name("Don hang " + label)
+                        .quantity(1)
+                        .price(finalAmount)
+                        .build();
+
+                vn.payos.model.v2.paymentRequests.CreatePaymentLinkRequest paymentData =
+                        vn.payos.model.v2.paymentRequests.CreatePaymentLinkRequest.builder()
+                                .orderCode(payosOrderCode)
+                                .amount(finalAmount)
+                                .description(description)
+                                .returnUrl("http://localhost:8080/api/v1/success")
+                                .cancelUrl("http://localhost:8080/api/v1/cancel")
+                                .items(List.of(item))
+                                .build();
+
+                try {
+                    PayOS payOS = payOSConfig.getPayOSInstance();
+                    log.info("[PayOS] Gọi PayOS SDK tạo QR thật cho đơn Mang về / Takeaway - orderCode={} - amount={}", payosOrderCode, finalAmount);
+                    CreatePaymentLinkResponse responseData = payOS.paymentRequests().create(paymentData);
+
+                    String qrImgUrl;
+                    if (responseData.getQrCode() != null && !responseData.getQrCode().isBlank()) {
+                        if (responseData.getQrCode().startsWith("http")) {
+                            qrImgUrl = responseData.getQrCode();
+                        } else {
+                            qrImgUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data="
+                                    + java.net.URLEncoder.encode(responseData.getQrCode(), java.nio.charset.StandardCharsets.UTF_8);
+                        }
+                    } else {
+                        qrImgUrl = buildVietQrUrlFromConfig(finalAmount, description);
+                    }
+
+                    String respAccountName = (responseData.getAccountName() != null && !responseData.getAccountName().isBlank())
+                            ? responseData.getAccountName() : this.accountName;
+                    String respAccountNo = (responseData.getAccountNumber() != null && !responseData.getAccountNumber().isBlank())
+                            ? responseData.getAccountNumber() : this.accountNo;
+                    String respBankName = (responseData.getBin() != null && !responseData.getBin().isBlank())
+                            ? ("Ngân hàng (BIN " + responseData.getBin() + ")") : ("Ngân hàng (" + this.bankCode + ")");
+
+                    log.info("[PayOS] Tạo QR PayOS SDK thành công cho Takeaway. checkoutUrl={}, accountNo={}", responseData.getCheckoutUrl(), respAccountNo);
+
+                    return PaymentLinkResponse.builder()
+                            .payosOrderCode(payosOrderCode)
+                            .totalAmount(finalAmount)
+                            .transferContent(description)
+                            .qrDataUrl(qrImgUrl)
+                            .checkoutUrl(responseData.getCheckoutUrl())
+                            .bankName(respBankName)
+                            .accountName(respAccountName)
+                            .accountNumber(respAccountNo)
+                            .build();
+                } catch (Exception e) {
+                    log.error("[PayOS] Gọi PayOS SDK cho đơn Mang về lỗi, dùng cấu hình PayOS làm fallback: {}", e.getMessage());
+                    String fallbackQr = buildVietQrUrlFromConfig(finalAmount, description);
+                    return PaymentLinkResponse.builder()
+                            .payosOrderCode(payosOrderCode)
+                            .totalAmount(finalAmount)
+                            .transferContent(description)
+                            .qrDataUrl(fallbackQr)
+                            .checkoutUrl(fallbackQr)
+                            .bankName("Ngân hàng (" + this.bankCode + ")")
+                            .accountName(this.accountName)
+                            .accountNumber(this.accountNo)
+                            .build();
+                }
+            }
         }
 
         // Không tìm thấy bàn hay session nào → throw error rõ ràng

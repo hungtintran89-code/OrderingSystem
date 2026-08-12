@@ -57,7 +57,27 @@ export const KitchenKiosk: React.FC = () => {
         fetchKitchenOrders(),
         fetchKitchenHistoryLog(),
       ]);
-      setOrders(ordersData);
+
+      // Preserve local item completion (isCompleted) states across polling refetches by unique item ID
+      setOrders((prevOrders) => {
+        const localCompletedMap = new Set<string>();
+        (prevOrders || []).forEach((o) => {
+          (o.items || []).forEach((it) => {
+            if (it.isCompleted) {
+              localCompletedMap.add(`${o.id}-${it.id}`);
+            }
+          });
+        });
+
+        return ordersData.map((freshOrd) => ({
+          ...freshOrd,
+          items: (freshOrd.items || []).map((it) => ({
+            ...it,
+            isCompleted: localCompletedMap.has(`${freshOrd.id}-${it.id}`) || it.isCompleted,
+          })),
+        }));
+      });
+
       setHistoryLog(historyData);
     } catch (err) {
       setError('Không thể kết nối đến máy chủ KDS. Vui lòng kiểm tra lại đường truyền.');
@@ -112,10 +132,20 @@ export const KitchenKiosk: React.FC = () => {
     }
   };
 
-  // Toggle Item Completion (Gạch món)
-  const handleToggleItem = async (orderId: string, itemId: string) => {
-    const updated = await toggleItemCompletionApi(orderId, itemId);
-    setOrders(updated);
+  // Toggle Item Completion (Gạch món mượt mà 0ms latency)
+  const handleToggleItem = (orderId: string, itemId: string) => {
+    setOrders((prev) =>
+      prev.map((ord) => {
+        if (ord.id !== orderId) return ord;
+        return {
+          ...ord,
+          items: ord.items.map((it) => {
+            if (it.id !== itemId) return it;
+            return { ...it, isCompleted: !it.isCompleted };
+          }),
+        };
+      })
+    );
   };
 
   // Recall / Undo Last Ticket

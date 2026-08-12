@@ -16,6 +16,7 @@ import ordersystem.backend.modules.kds.service.impl.KitchenTicketService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ordersystem.backend.modules.order.repository.OrderRepository;
 
 import java.security.Principal;
 import java.util.List;
@@ -34,11 +35,13 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
     private final KitchenTicketMapper kitchenTicketMapper;
     private final WebSocketPublisher webSocketPublisher;
     private final UserRepository userRepository;
+    private final OrderRepository orderRepository;
 
-    // 📌 1. Lấy danh sách Màn hình chung (Chỉ chứa món PENDING chưa ai nhận)
+    // 📌 1. Lấy danh sách Màn hình chung (Bao gồm món PENDING chờ làm và COOKING đang làm)
     @Override
     public List<KitchenTicketResponse> getPendingTickets() {
-        List<KitchenTicketEntity> kitchenTicketEntityList = kitchenTicketRepository.findByStatus(KitchenItemStatus.PENDING);
+        List<KitchenTicketEntity> kitchenTicketEntityList = kitchenTicketRepository
+                .findByStatusInOrderByKitchenTicketIdAsc(List.of(KitchenItemStatus.PENDING, KitchenItemStatus.COOKING));
         return kitchenTicketEntityList.stream()
                 .map(kitchenTicketMapper::toResponse)
                 .toList();
@@ -47,18 +50,9 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
     // Helper method to resolve Principal to user entity safely
     private User resolveUser(Principal principal) {
         if (principal == null || principal.getName() == null) {
-            return userRepository.findByUsername("kitchen1").orElse(null);
+            return null;
         }
-        String username = principal.getName();
-        return userRepository.findByUsername(username)
-                .orElseGet(() -> {
-                    try {
-                        Long userId = Long.parseLong(username);
-                        return userRepository.findById(userId).orElse(null);
-                    } catch (NumberFormatException e) {
-                        return null;
-                    }
-                });
+        return userRepository.findByUsername(principal.getName()).orElse(null);
     }
 
     // 📌 2. Lấy danh sách Màn hình cá nhân (Chỉ chứa món COOKING của chính Đầu bếp này)
@@ -93,6 +87,15 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
 
         KitchenTicketResponse response = kitchenTicketMapper.toResponse(kitchenTicketEntity);
         webSocketPublisher.notifyKitchenOrders(response);
+
+        if (kitchenTicketEntity.getOrderId() != null) {
+            orderRepository.findById(kitchenTicketEntity.getOrderId()).ifPresent(order -> {
+                if (order.getTableSession() != null && order.getTableSession().getSessionToken() != null) {
+                    webSocketPublisher.notifyClientOrderStatus(order.getTableSession().getSessionToken(), response);
+                }
+            });
+        }
+
         return response;
     }
 
@@ -121,6 +124,15 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
         KitchenTicketResponse response = kitchenTicketMapper.toResponse(kitchenTicketEntity);
         webSocketPublisher.notifyKitchenCompletedHistory(response);
         webSocketPublisher.notifyKitchenOrders(response);
+
+        if (kitchenTicketEntity.getOrderId() != null) {
+            orderRepository.findById(kitchenTicketEntity.getOrderId()).ifPresent(order -> {
+                if (order.getTableSession() != null && order.getTableSession().getSessionToken() != null) {
+                    webSocketPublisher.notifyClientOrderStatus(order.getTableSession().getSessionToken(), response);
+                }
+            });
+        }
+
         return response;
     }
 

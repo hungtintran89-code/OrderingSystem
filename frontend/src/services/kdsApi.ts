@@ -91,26 +91,35 @@ const groupTicketsToOrders = (tickets: any[]): KitchenOrder[] => {
     if (tblStr.startsWith('Bàn ')) tblStr = tblStr.replace(/^Bàn\s+/, '');
     const cleanTable = tblStr ? `Bàn ${tblStr}${t.areaName ? ` • ${t.areaName}` : ''}` : (t.tableName || 'Bàn Phục Vụ');
 
-    const itemObj: KitchenOrderItem = {
-      id: String(t.kitchenTicketId || t.orderItemId || Math.random()),
-      name: t.productName || t.name || 'Món ăn',
-      quantity: Number(t.quantity || 1),
-      note: t.note || '',
-      category: t.category || 'all',
-      isCompleted: t.status === 'COMPLETED',
-    };
+    const prodName = t.productName || t.name || 'Món ăn';
+    const itemNote = (t.note || '').trim();
+    const itemKey = `${prodName}_${itemNote}`;
 
-    if (map.has(orderIdStr)) {
-      const existing = map.get(orderIdStr)!;
-      existing.items.push(itemObj);
-    } else {
+    if (!map.has(orderIdStr)) {
       map.set(orderIdStr, {
         id: orderIdStr,
         orderCode: t.orderCode || `#ORD-${orderIdStr}`,
         tableName: cleanTable,
         status: t.status === 'COMPLETED' ? 'COMPLETED' : t.status === 'COOKING' ? 'IN_PROGRESS' : 'PENDING',
         createdAt: t.createdAt || new Date().toISOString(),
-        items: [itemObj],
+        items: [],
+      });
+    }
+
+    const orderObj = map.get(orderIdStr)!;
+    const existingItem = orderObj.items.find((i) => `${i.name}_${(i.note || '').trim()}` === itemKey);
+
+    if (existingItem) {
+      existingItem.quantity = Math.max(existingItem.quantity, Number(t.quantity || 1));
+      if (t.status === 'COMPLETED') existingItem.isCompleted = true;
+    } else {
+      orderObj.items.push({
+        id: String(t.kitchenTicketId || t.orderItemId || Math.random()),
+        name: prodName,
+        quantity: Number(t.quantity || 1),
+        note: t.note || '',
+        category: t.category || 'all',
+        isCompleted: t.status === 'COMPLETED',
       });
     }
   });
@@ -121,7 +130,7 @@ const groupTicketsToOrders = (tickets: any[]): KitchenOrder[] => {
 export const fetchKitchenOrders = async (): Promise<KitchenOrder[]> => {
   try {
     const res = await apiClient.get<ApiResponse<any>>('/kitchen/tickets/pending');
-    if (res.data && res.data.success) {
+    if (res.data && (res.data.code === 200 || res.data.data)) {
       const raw = res.data.data;
       let list: any[] = [];
       if (Array.isArray(raw)) list = raw;
@@ -134,7 +143,8 @@ export const fetchKitchenOrders = async (): Promise<KitchenOrder[]> => {
       return [];
     }
     return [];
-  } catch {
+  } catch (err) {
+    console.error('Error fetching kitchen orders:', err);
     return [];
   }
 };
@@ -142,7 +152,7 @@ export const fetchKitchenOrders = async (): Promise<KitchenOrder[]> => {
 export const fetchKitchenHistoryLog = async (): Promise<KdsHistoryLogItem[]> => {
   try {
     const res = await apiClient.get<ApiResponse<any>>('/kitchen/tickets/completed-history');
-    if (res.data && res.data.success) {
+    if (res.data && (res.data.code === 200 || res.data.data)) {
       const raw = res.data.data;
       let list: any[] = [];
       if (Array.isArray(raw)) list = raw;

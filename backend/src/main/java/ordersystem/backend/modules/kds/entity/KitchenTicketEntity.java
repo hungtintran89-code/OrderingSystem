@@ -24,7 +24,7 @@ public class KitchenTicketEntity {
     @Column(name = "order_id", nullable = false)
     private Long orderId;
 
-    @Column(name = "order_item_id", nullable = false, unique = true)
+    @Column(name = "order_item_id")
     private Long orderItemId;
 
     @Column(name = "table_number", nullable = false)

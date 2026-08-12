@@ -26,6 +26,11 @@ import ordersystem.backend.modules.table.entity.RestaurantTableEntity;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.SessionStatus;
 import ordersystem.backend.modules.table.enums.TableStatus;
+import ordersystem.backend.modules.kds.dto.response.KitchenTicketResponse;
+import ordersystem.backend.modules.kds.entity.KitchenTicketEntity;
+import ordersystem.backend.modules.kds.enums.KitchenItemStatus;
+import ordersystem.backend.modules.kds.mapper.KitchenTicketMapper;
+import ordersystem.backend.modules.kds.repository.KitchenTicketRepository;
 import ordersystem.backend.modules.table.repository.RestaurantTableRepository;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
 import org.redisson.api.*;
@@ -57,6 +62,8 @@ public class OrderServiceImpl implements OrderService {
     final private CartService cartService ;
     final private RedissonClient redissonClient ;
     final private RestaurantTableRepository restaurantTableRepository ;
+    final private KitchenTicketRepository kitchenTicketRepository ;
+    final private KitchenTicketMapper kitchenTicketMapper ;
 
 
 
@@ -158,6 +165,8 @@ public class OrderServiceImpl implements OrderService {
         Map<Long, ProductEntity> productMap = productEntities.stream()
                 .collect(Collectors.toMap(ProductEntity::getProductId, p -> p));
 
+        Map<Long, Long> batchQuantityMap = new HashMap<>();
+
         for (OrderItemRequest itemRequest : request.getList()) {
             ProductEntity productEntity = productMap.get(itemRequest.getProductId());
             if (productEntity == null) {
@@ -194,6 +203,9 @@ public class OrderServiceImpl implements OrderService {
                 masterOrderEntity.getItems().add(targetItem);
             }
             newOrderItemEntity.add(targetItem);
+            if (targetItem.getOrderItemId() != null) {
+                batchQuantityMap.put(targetItem.getOrderItemId(), itemRequest.getQuantity());
+            }
         }
 
         // TÍNH LẠI TỔNG TIỀN MASTER ORDER TỪ TẤT CẢ CÁC MÓN CHUẨN XÁC
@@ -201,7 +213,7 @@ public class OrderServiceImpl implements OrderService {
                 .mapToLong(item -> item.getTotalPrice() != null ? item.getTotalPrice() : 0L)
                 .sum();
         masterOrderEntity.setTotalAmount(recalculatedTotal);
-        OrderEntity savedOrderEntity = orderRepository.save(masterOrderEntity);
+        OrderEntity savedOrderEntity = orderRepository.saveAndFlush(masterOrderEntity);
 
         // Bắn thông báo cập nhật Sơ đồ bàn Real-time cho Nhân viên
         FloorMapResponse updatedTableMap = FloorMapResponse.builder()
@@ -217,10 +229,55 @@ public class OrderServiceImpl implements OrderService {
         // 5. Xóa toàn bộ giỏ hàng khi đặt món
         cartService.clearCart(tableSessionEntity.getTableSessionId(), request.getThreadId());
 
-        // 6. Trả về cho thiết bị khách danh sách các món điện thoại này vừa đặt thành công
-        List<OrderItemResponse> newItemsResponses = newOrderItemEntity.stream()
-                .map(orderMapper::toItemResponse)
-                .collect(Collectors.toList());
+        // 6. Lưu trực tiếp Vé Bếp (KitchenTicketEntity) nguyên tử vào CSDL PostgreSQL
+        String tableName = (tableSessionEntity.getTable() != null && tableSessionEntity.getTable().getTableName() != null)
+                ? tableSessionEntity.getTable().getTableName() : "Bàn 01";
+        String areaName = (tableSessionEntity.getTable() != null && tableSessionEntity.getTable().getZone() != null)
+                ? tableSessionEntity.getTable().getZone() : "Khu A";
+
+        for (OrderItemEntity item : newOrderItemEntity) {
+            Long itemPk = item.getOrderItemId();
+            Long ticketBatchQty = (itemPk != null && batchQuantityMap.containsKey(itemPk))
+                    ? batchQuantityMap.get(itemPk)
+                    : item.getQuantity();
+
+            Optional<KitchenTicketEntity> existingTicketOpt = (itemPk != null)
+                    ? kitchenTicketRepository.findByOrderItemId(itemPk)
+                    : Optional.empty();
+
+            KitchenTicketEntity ticket;
+            if (existingTicketOpt.isPresent()) {
+                ticket = existingTicketOpt.get();
+                ticket.setQuantity(ticketBatchQty);
+                ticket.setNote(item.getNote());
+                ticket.setTableNumber(tableName);
+                ticket.setAreaName(areaName);
+                ticket.setStatus(KitchenItemStatus.PENDING);
+            } else {
+                if (itemPk == null) {
+                    itemPk = (System.currentTimeMillis() % 1000000000L) + (long)(Math.random() * 10000);
+                }
+                ticket = KitchenTicketEntity.builder()
+                        .orderId(savedOrderEntity.getId())
+                        .orderItemId(itemPk)
+                        .tableNumber(tableName)
+                        .areaName(areaName)
+                        .productId(item.getProduct().getProductId())
+                        .productName(item.getProduct().getProductName())
+                        .quantity(ticketBatchQty)
+                        .note(item.getNote())
+                        .status(KitchenItemStatus.PENDING)
+                        .build();
+            }
+            try {
+                KitchenTicketEntity savedTicket = kitchenTicketRepository.save(ticket);
+                KitchenTicketResponse ticketResponse = kitchenTicketMapper.toResponse(savedTicket);
+                webSocketPublisher.notifyKitchenOrders(ticketResponse);
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(OrderServiceImpl.class)
+                        .error("[OrderService] Lỗi tạo vé bếp cho orderId={}: {}", savedOrderEntity.getId(), e.getMessage());
+            }
+        }
 
         List<OrderSubmittedEvent.OrderItemInfo> itemInfos = newOrderItemEntity.stream()
                 .map(item -> new OrderSubmittedEvent.OrderItemInfo(
@@ -233,12 +290,13 @@ public class OrderServiceImpl implements OrderService {
                 .toList();
         OrderSubmittedEvent event = new OrderSubmittedEvent(
                 savedOrderEntity.getId(),
-                tableSessionEntity.getTable().getTableName(),
-                "Tầng 1",
+                tableName,
+                areaName,
                 itemInfos
         );
-        // Bắn sự kiện phát vé cho KDS
-        eventPublisher.publishEvent(event);
+        List<OrderItemResponse> newItemsResponses = newOrderItemEntity.stream()
+                .map(orderMapper::toItemResponse)
+                .collect(Collectors.toList());
 
         return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), request.getThreadId(), newItemsResponses);
     }
@@ -251,7 +309,16 @@ public class OrderServiceImpl implements OrderService {
         List<OrderItemEntity> orderItemResponseList = orderItemRepository.findByOrderTableSessionTableSessionIdAndCreatedByThread(tableSessionId, threadId);
 
         List<OrderItemResponse> responseList = orderItemResponseList.stream()
-                .map(orderMapper::toItemResponse)
+                .map(item -> {
+                    OrderItemResponse res = orderMapper.toItemResponse(item);
+                    Optional<KitchenTicketEntity> ticketOpt = kitchenTicketRepository.findByOrderItemId(item.getOrderItemId());
+                    if (ticketOpt.isPresent()) {
+                        res.setStatus(ticketOpt.get().getStatus().name());
+                    } else {
+                        res.setStatus("PENDING");
+                    }
+                    return res;
+                })
                 .collect(Collectors.toList());
 
         TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableSessionId(tableSessionId)

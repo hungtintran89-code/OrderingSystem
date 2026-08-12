@@ -81,7 +81,7 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
           ) : (
             personalItems.map((item) => {
               const isCooking = item.status === 'COOKING';
-              const isServed = item.status === 'SERVED';
+              const isServed = item.status === 'SERVED' || item.status === 'COMPLETED' || item.status === 'READY';
 
               return (
                 <div
@@ -132,26 +132,6 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
                         <Clock className="w-3.5 h-3.5" />
                         {item.orderedAt || "19:15"}
                       </span>
-
-                      {isCooking && (
-                        <div className="px-2.5 py-1 rounded-md text-xs font-bold bg-amber-50 text-amber-600 border border-amber-200 flex items-center gap-1.5 shadow-sm">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                          Đang chế biến
-                        </div>
-                      )}
-
-                      {isServed && (
-                        <div className="px-2.5 py-1 rounded-md text-xs font-bold bg-green-50 text-green-700 border border-green-200 flex items-center gap-1.5">
-                          <CheckCircle className="w-3.5 h-3.5 text-green-600" />
-                          Đã phục vụ
-                        </div>
-                      )}
-
-                      {!isCooking && !isServed && (
-                        <div className="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1.5">
-                          Đã tiếp nhận
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
