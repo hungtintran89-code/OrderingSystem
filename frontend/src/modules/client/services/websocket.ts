@@ -1,6 +1,17 @@
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
+const getWsHttpUrl = () => {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+  return apiBase.replace(/\/api\/v1\/?$/, '') + '/ws';
+};
+
+const getNativeWsUrl = () => {
+  const httpUrl = getWsHttpUrl();
+  return httpUrl.replace(/^http/, 'ws');
+};
+
 export class WebSocketClient {
   private client: Client | null = null;
   private isConnected = false;
@@ -12,10 +23,10 @@ export class WebSocketClient {
       this.client = new Client({
         webSocketFactory: () => {
           try {
-            return new SockJS('http://localhost:8080/ws');
+            return new SockJS(getWsHttpUrl());
           } catch (e) {
             console.warn('[WebSocket] SockJS factory fallback:', e);
-            return new WebSocket('ws://localhost:8080/ws');
+            return new WebSocket(getNativeWsUrl());
           }
         },
         reconnectDelay: 3000,

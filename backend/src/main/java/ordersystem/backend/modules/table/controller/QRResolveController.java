@@ -5,6 +5,7 @@ import ordersystem.backend.common.payload.ApiResponse;
 import ordersystem.backend.modules.catalog.dto.response.CategoryMenuResponse;
 import ordersystem.backend.modules.table.dto.response.QRResolveResponse;
 import ordersystem.backend.modules.table.service.impl.TableService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,9 @@ public class QRResolveController {
 
     private final TableService tableService;
 
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
+
     @GetMapping("/resolve/{qr_token}")
     public ResponseEntity<?> getQRResolve(
             @PathVariable String qr_token,
@@ -33,7 +37,7 @@ public class QRResolveController {
 
         if (!isExplicitJsonCall) {
             HttpHeaders headers = new HttpHeaders();
-            headers.setLocation(URI.create("http://localhost:3000/menu?tableToken=" + qr_token));
+            headers.setLocation(URI.create(frontendUrl + "/menu?tableToken=" + qr_token));
             return new ResponseEntity<>(headers, HttpStatus.FOUND);
         }
 

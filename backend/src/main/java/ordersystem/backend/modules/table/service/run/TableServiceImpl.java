@@ -25,6 +25,7 @@ import ordersystem.backend.modules.table.repository.TableSessionRepository;
 import ordersystem.backend.modules.table.service.generator.QRCodeGeneratorService;
 import ordersystem.backend.modules.table.service.impl.TableService;
 import ordersystem.backend.modules.table.service.impl.TableSessionService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
@@ -44,6 +45,10 @@ public class TableServiceImpl implements TableService {
     private final TableSessionMapper tableSessionMapper;
     private final CategoryRepository categoryRepository ;
     private final CatalogMapper catalogMapper ;
+
+    @Value("${app.qr.base-url:http://localhost:8080/api/v1/qr/resolve/}")
+    private String qrBaseUrl;
+
 
     private String normalizeTableName(String input) {
         if (input == null || input.isBlank()) return "Bàn 01";
@@ -68,7 +73,7 @@ public class TableServiceImpl implements TableService {
 
         // Bước 2: Sinh mã băm ngẫu nhiên duy nhất cho QR Token & sinh ảnh QR Base64 bằng Google ZXing
         String qrToken = "qr_tok_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        String qrUrl = "http://localhost:8080/api/v1/qr/resolve/" + qrToken;
+        String qrUrl = qrBaseUrl + qrToken;
         String qrImageBase64 = qrCodeGeneratorService.generateQrBase64(qrUrl);
 
         String zoneStr = request.getZone() != null && !request.getZone().isBlank() ? request.getZone().trim() : "Tầng 1";
@@ -112,7 +117,7 @@ public class TableServiceImpl implements TableService {
 
         if (Boolean.TRUE.equals(request.getRegenerateQr()) || tableInfo.getQrImageBase64() == null || tableInfo.getQrImageBase64().isBlank()) {
             String qrToken = "qr_tok_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-            String qrUrl = "http://localhost:8080/api/v1/qr/resolve/" + qrToken;
+            String qrUrl = qrBaseUrl + qrToken;
             String qrImageBase64 = qrCodeGeneratorService.generateQrBase64(qrUrl);
 
             tableInfo.setQrToken(qrToken);

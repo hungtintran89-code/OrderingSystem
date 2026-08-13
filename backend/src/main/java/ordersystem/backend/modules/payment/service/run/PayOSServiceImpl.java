@@ -55,6 +55,9 @@ public class PayOSServiceImpl implements PayOSService {
     @Value("${app.payment.account-name:TRAN HUNG TIN}")
     private String accountName;
 
+    @Value("${app.backend.url:http://localhost:8080}")
+    private String backendUrl;
+
     /**
      * Luồng chính: Tạo VietQR Payment Link qua PayOS SDK cho 1 Table Session cụ thể.
      * KHÔNG CÓ FALLBACK HARDCODED - nếu PayOS lỗi sẽ throw exception rõ ràng.
@@ -135,8 +138,8 @@ public class PayOSServiceImpl implements PayOSService {
                 .orderCode(payosOrderCode)
                 .amount(grandTotal)
                 .description(description)
-                .returnUrl("http://localhost:8080/api/v1/success")
-                .cancelUrl("http://localhost:8080/api/v1/cancel")
+                .returnUrl(backendUrl + "/api/v1/success")
+                .cancelUrl(backendUrl + "/api/v1/cancel")
                 .items(List.of(item))
                 .build();
 
@@ -281,8 +284,8 @@ public class PayOSServiceImpl implements PayOSService {
                                 .orderCode(payosOrderCode)
                                 .amount(finalAmount)
                                 .description(description)
-                                .returnUrl("http://localhost:8080/api/v1/success")
-                                .cancelUrl("http://localhost:8080/api/v1/cancel")
+                                .returnUrl(backendUrl + "/api/v1/success")
+                                .cancelUrl(backendUrl + "/api/v1/cancel")
                                 .items(List.of(item))
                                 .build();
 
