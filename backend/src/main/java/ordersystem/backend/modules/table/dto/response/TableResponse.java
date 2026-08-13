@@ -11,8 +11,5 @@ public class TableResponse {
     private String tableName;
     private String qrToken;
     private String qrUrl;
-    private String qrImageBase64;
-    private String zone;
-    private Integer capacity;
     private Boolean isActive;
 }

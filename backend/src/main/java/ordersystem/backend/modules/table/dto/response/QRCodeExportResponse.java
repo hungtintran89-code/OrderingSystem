@@ -14,5 +14,4 @@ public class QRCodeExportResponse {
     private byte[] data;
     private String fileName;
     private MediaType mediaType;
-    private String contentType;
 }

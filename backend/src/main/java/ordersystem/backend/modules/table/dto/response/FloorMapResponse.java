@@ -12,9 +12,4 @@ public class FloorMapResponse {
     private String tableName;
     private TableStatus status;
     private Double tempTotalAmount; //Tien tong tam tinh
-    private String qrUrl;
-    private String qrImageBase64;
-    private String qrToken;
-    private String zone;
-    private Integer capacity;
 }
