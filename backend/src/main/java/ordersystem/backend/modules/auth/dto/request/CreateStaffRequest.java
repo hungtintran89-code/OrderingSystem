@@ -25,8 +25,4 @@ public class CreateStaffRequest {
 
     @NotNull(message = "Role cannot be null")
     private UserRole role;
-
-    private java.math.BigDecimal salary;
-
-    private String phone;
 }

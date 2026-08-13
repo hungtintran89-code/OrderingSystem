@@ -40,9 +40,6 @@ public class User {
     @Column(nullable = true)
     private String phone;
 
-    @Column(nullable = true)
-    private java.math.BigDecimal salary;
-
     @PrePersist
     protected void onCreate() {
         this.createdAt = new Date();

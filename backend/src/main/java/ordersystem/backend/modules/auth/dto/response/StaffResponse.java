@@ -14,6 +14,4 @@ public class StaffResponse {
     private UserRole role;
     private boolean active;
     private Date createdAt;
-    private java.math.BigDecimal salary;
-    private String phone;
 }

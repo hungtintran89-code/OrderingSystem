@@ -9,8 +9,6 @@ import lombok.*;
 public class QRResolveResponse {
     private Long tableId;
     private String tableName;
-    private Long sessionId;
+    private String sessionId;
     private String sessionStatus;
-
-    private Long generatedThreadId;
 }
