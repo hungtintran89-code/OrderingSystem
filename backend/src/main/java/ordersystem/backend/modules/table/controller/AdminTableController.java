@@ -3,12 +3,17 @@ package ordersystem.backend.modules.table.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import ordersystem.backend.common.payload.ApiResponse;
+import ordersystem.backend.modules.order.repository.OrderRepository;
 import ordersystem.backend.modules.table.dto.request.CreateTableRequest;
+import ordersystem.backend.modules.table.dto.request.TableCheckoutRequest;
+import ordersystem.backend.modules.table.dto.request.UpdateTableRequest;
 import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
 import ordersystem.backend.modules.table.dto.response.QRCodeExportResponse;
 import ordersystem.backend.modules.table.dto.response.TableResponse;
+import ordersystem.backend.modules.table.entity.TableSessionEntity;
 import ordersystem.backend.modules.table.enums.QRFormat;
-import ordersystem.backend.modules.table.service.impl.QRCodeGeneratorService;
+import ordersystem.backend.modules.table.service.generator.QRCodeGeneratorService;
+import ordersystem.backend.modules.table.service.impl.LiveFloorMapService;
 import ordersystem.backend.modules.table.service.impl.TableService;
 import ordersystem.backend.modules.table.service.impl.TableSessionService;
 import org.springframework.http.HttpHeaders;
@@ -24,8 +29,9 @@ import java.util.List;
 @RequestMapping("/api/v1/admin/tables")
 public class AdminTableController {
     private final TableService tableService;
-    private final TableSessionService tableSessionService;
-    private final QRCodeGeneratorService qrCodeGeneratorService;
+    private final TableSessionService tableSessionService ;
+    private final LiveFloorMapService liveFloorMapService;
+    private final OrderRepository orderRepository;
 
     @PostMapping
     @PreAuthorize("hasRole('MANAGER')")
@@ -34,38 +40,69 @@ public class AdminTableController {
         return ResponseEntity.ok(ApiResponse.success("Create Table is success", tableResponse));
     }
 
-    @PreAuthorize("hasRole('MANEGER') or hasRole('STAFF')")
+    @PutMapping("/{tableId}")
+    @PreAuthorize("hasRole('MANAGER')")
+    ResponseEntity<ApiResponse<TableResponse>> updateTable(
+            @PathVariable Long tableId,
+            @Valid @RequestBody UpdateTableRequest request
+    ) {
+        TableResponse tableResponse = tableService.updateTable(tableId, request);
+        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật thông tin bàn ăn thành công!", tableResponse));
+    }
+
+    @DeleteMapping("/{tableId}")
+    @PreAuthorize("hasRole('MANAGER')")
+    ResponseEntity<ApiResponse<Void>> deleteTable(@PathVariable Long tableId) {
+        tableService.deleteTable(tableId);
+        return ResponseEntity.ok(ApiResponse.success("Đã xóa bàn ăn và mã QR khỏi hệ thống thành công!", null));
+    }
+
+    @PreAuthorize("hasRole('MANAGER') or hasRole('STAFF')")
     @GetMapping("/floor-map")
     ResponseEntity<ApiResponse<List<FloorMapResponse>>> getFloorMap(){
-        List<FloorMapResponse> listFloorMapResponse = tableService.getLiveFloorMap();
+        List<FloorMapResponse> listFloorMapResponse = liveFloorMapService.getLiveFloorMap();
         return ResponseEntity.ok(ApiResponse.success("Get Floor Map is succes", listFloorMapResponse));
     }
 
     @PreAuthorize("hasRole('MANAGER')")
     @GetMapping("/{tableId}/qr-code")
-    public ResponseEntity<ApiResponse<byte[]>> downloadQRCode(
+    public ResponseEntity<byte[]> downloadQRCode(
             @PathVariable Long tableId,
             @RequestParam(defaultValue = "pdf") String format
     ){
-        //1. Chuyển tham số đầu vào thành QRFormat
+        // 1. Chuyển tham số đầu vào thành QRFormat (PDF / PNG)
         QRFormat qrFormat = QRFormat.fromString(format);
 
-        //2. Gọi service xử lí nghiệp vụ cho download
-        QRCodeExportResponse qrCodeExportResponse = tableService.exportTableQrCode(tableId, qrFormat);
+        // 2. Gọi service xử lý nghiệp vụ xuất mã QR
+        QRCodeExportResponse exportResponse = tableService.exportTableQrCode(tableId, qrFormat);
 
-        // 3. Đóng gói dữ liệu byte[] vào trong ApiResponse
-        ApiResponse<byte[]> apiResponse = ApiResponse.<byte[]>builder()
-                .code(200)
-                .message("Xuất mã QR thành công")
-                .data(qrCodeExportResponse.getData()) // Nếu field =! data => Dùng .result(...)
-                .build();
-
-        // 4. Trả về HTTP Response dạng JSON
+        // 3. 💡 SỬA: Trả về mảng byte[] trực tiếp kèm MediaType chuẩn (image/png hoặc application/pdf)
         return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + qrCodeExportResponse.getFileName() + "\"")
-                .body(apiResponse);
+                .contentType(MediaType.parseMediaType(exportResponse.getContentType())) // Trả về image/png hoặc application/pdf
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + exportResponse.getFileName() + "\"")
+                .body(exportResponse.getData()); // Trả trực tiếp byte[] không bọc JSON
+    }
 
+    // THEM TINH NANG :::
+    // 1. API cho Nhân viên chủ động bấm Mở Bàn khi xếp khách vào
+    @PostMapping("/{tableId}/open-session")
+    @PreAuthorize("hasRole('MANAGER') or hasRole('STAFF')")
+    public ResponseEntity<ApiResponse<TableSessionEntity>> openTableSession(@PathVariable Long tableId) {
+        TableSessionEntity session = tableSessionService.getOrCreateActiveSession(tableId);
+        return ResponseEntity.ok(ApiResponse.success("Opened table successfull", session));
+    }
 
+    // 3. API cho Nhân viên bấm Thanh toán & Clear Bàn theo tableId
+    @PostMapping("/{tableId}/checkout")
+    @PreAuthorize("hasRole('MANAGER') or hasRole('STAFF')")
+    public ResponseEntity<ApiResponse<Void>> checkoutTable(
+            @PathVariable Long tableId,
+            @RequestBody(required = false) TableCheckoutRequest request
+    ) {
+        if (request == null) {
+            request = TableCheckoutRequest.builder().paymentMethod("CASH").build();
+        }
+        tableService.checkoutAndClearTable(tableId, request);
+        return ResponseEntity.ok(ApiResponse.success("Đã hoàn tất thanh toán và dọn bàn thành công!", null));
     }
 }

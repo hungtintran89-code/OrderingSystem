@@ -28,7 +28,7 @@ public class RegisterRequest {
 
     private String phone;
 
-    @NotBlank(message = "The role cannot be left blank.")
+    @NotNull(message = "The role cannot be left blank.")
     private UserRole role;
 
 }

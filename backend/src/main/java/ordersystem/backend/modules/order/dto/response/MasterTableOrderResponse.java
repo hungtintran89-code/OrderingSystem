@@ -1,39 +1,27 @@
 package ordersystem.backend.modules.order.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import ordersystem.backend.modules.order.enums.TableStatus;
-import org.aspectj.weaver.ast.Or;
-import org.springframework.security.access.prepost.PreAuthorize;
+import lombok.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-
-
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
-@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN') or hasRole('STAFF')")
+@AllArgsConstructor
+@Builder
 public class MasterTableOrderResponse {
 
-    private Long table_id ;
-    private String table_name ;
-    private Long table_session_id;
-    private String session_status ;
-    private Long total_price ;
-    private Date onpen_at ;
-    private List<OrderItemResponse> allTableItems  = new ArrayList<>() ;
+    private Long tableId;
+    private String tableName;
+    private Long tableSessionId;
+    private String sessionStatus;
+    private Long totalPrice;
+    private Date openedAt;
 
-    public MasterTableOrderResponse(Long table_id, String table_name, Long table_session_id, String session_status, Long total_price, Date onpen_at, List<OrderItemResponse> allTableItems) {
-        this.table_id = table_id;
-        this.table_name = table_name;
-        this.table_session_id = table_session_id;
-        this.session_status = session_status;
-        this.total_price = total_price;
-        this.onpen_at = onpen_at;
-        this.allTableItems = allTableItems;
-    }
+    @Builder.Default
+    private List<OrderItemResponse> allTableItems = new ArrayList<>();
 }
