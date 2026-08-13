@@ -173,6 +173,27 @@ export const fetchKitchenHistoryLog = async (): Promise<KdsHistoryLogItem[]> => 
             note: t.note || '',
           };
 
+          const createdMs = t.createdAt ? new Date(t.createdAt).getTime() : (t.updatedAt ? new Date(t.updatedAt).getTime() - 5 * 60 * 1000 : Date.now() - 5 * 60 * 1000);
+          const completedMs = t.completedAt ? new Date(t.completedAt).getTime() : (t.updatedAt ? new Date(t.updatedAt).getTime() : Date.now());
+          const calculatedPrepMinutes = Math.max(1, Math.round((completedMs - createdMs) / 60000));
+          const completedDate = new Date(completedMs);
+
+          const timeStr = completedDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          const dateStr = completedDate.toLocaleDateString('vi-VN');
+
+          const diffMins = Math.floor((Date.now() - completedMs) / 60000);
+          let relativeStr = 'vừa xong';
+          if (diffMins >= 1 && diffMins < 60) {
+            relativeStr = `${diffMins} phút trước`;
+          } else if (diffMins >= 60 && diffMins < 1440) {
+            relativeStr = `${Math.floor(diffMins / 60)} giờ trước`;
+          } else if (diffMins >= 1440) {
+            relativeStr = `${Math.floor(diffMins / 1440)} ngày trước`;
+          }
+
+          const formattedCompletedAt = `Hoàn thành ${relativeStr}`;
+          const completedDateStr = completedDate.toISOString().split('T')[0];
+
           if (map.has(idStr)) {
             map.get(idStr)!.items.push(itemObj);
           } else {
@@ -180,8 +201,11 @@ export const fetchKitchenHistoryLog = async (): Promise<KdsHistoryLogItem[]> => 
               id: idStr,
               orderCode: t.orderCode || `#ORD-${idStr}`,
               tableName: cleanTable,
-              completedAt: t.completedAt ? new Date(t.completedAt).toLocaleTimeString('vi-VN') : 'Vừa xong',
-              prepDurationMinutes: Number(t.prepDurationMinutes || 10),
+              createdAt: t.createdAt,
+              completedAt: formattedCompletedAt,
+              completedTimestampMs: completedMs,
+              completedDateStr: completedDateStr,
+              prepDurationMinutes: calculatedPrepMinutes,
               items: [itemObj],
             });
           }
@@ -194,6 +218,31 @@ export const fetchKitchenHistoryLog = async (): Promise<KdsHistoryLogItem[]> => 
   } catch {
     return [];
   }
+};
+
+export interface KdsCategoryItem {
+  id: string;
+  name: string;
+}
+
+export const fetchCategoriesApi = async (): Promise<KdsCategoryItem[]> => {
+  try {
+    const res = await apiClient.get<ApiResponse<any>>('/client/menu');
+    const raw = res.data?.data;
+    let list: any[] = [];
+    if (Array.isArray(raw)) list = raw;
+    else if (raw && Array.isArray(raw.content)) list = raw.content;
+
+    if (list && list.length > 0) {
+      return list.map((c: any) => ({
+        id: String(c.categoryId || c.id || c.categoryName || Math.random()),
+        name: c.categoryName || c.name || 'Danh mục',
+      }));
+    }
+  } catch (err) {
+    console.error('Error fetching catalog categories:', err);
+  }
+  return [];
 };
 
 export const updateOrderStatusApi = async (orderId: string, newStatus: OrderStatus, targetItems?: KitchenOrderItem[]): Promise<KitchenOrder[]> => {

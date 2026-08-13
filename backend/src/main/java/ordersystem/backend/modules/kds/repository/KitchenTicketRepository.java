@@ -29,11 +29,11 @@ public interface KitchenTicketRepository extends JpaRepository<KitchenTicketEnti
     List<KitchenTicketEntity> findByStatusAndAssignedCookId(KitchenItemStatus status, Long cookId);
 
 
-    // Truy vấn lịch sử các món đã làm xong của 1 Đầu bếp
-    List<KitchenTicketEntity> findByAssignedCookIdAndStatus(Long cookId, KitchenItemStatus status);
+    // Truy vấn lịch sử các món đã làm xong của 1 Đầu bếp (Món nào xong mới nhất lên đầu)
+    List<KitchenTicketEntity> findByAssignedCookIdAndStatusOrderByKitchenTicketIdDesc(Long cookId, KitchenItemStatus status);
 
-    //Truy vấn Lịch sử Hoàn thành Chung của TẤT CẢ đầu bếp (Món nào xong mới nhất lên đầu)
-    List<KitchenTicketEntity> findByStatus(KitchenItemStatus status, Pageable pageable);
+    // Truy vấn Lịch sử Hoàn thành Chung của TẤT CẢ đầu bếp (Món nào xong mới nhất lên đầu)
+    List<KitchenTicketEntity> findByStatusOrderByKitchenTicketIdDesc(KitchenItemStatus status, Pageable pageable);
 
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

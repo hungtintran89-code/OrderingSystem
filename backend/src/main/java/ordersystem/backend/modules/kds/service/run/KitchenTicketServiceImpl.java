@@ -136,22 +136,22 @@ public class KitchenTicketServiceImpl implements KitchenTicketService {
         return response;
     }
 
-    // 5 : Lấy Lịch sử Hoàn thành Chung của TẤT CẢ các đầu bếp
+    // 5 : Lấy Lịch sử Hoàn thành Chung của TẤT CẢ các đầu bếp (Mới nhất lên đầu)
     @Override
     public List<KitchenTicketResponse> getSharedCompletedHistory(int limit) {
         int pageSize = limit > 0 ? limit : 50;
-        List<KitchenTicketEntity> tickets = kitchenTicketRepository.findByStatus(KitchenItemStatus.COMPLETED, PageRequest.of(0, pageSize));
+        List<KitchenTicketEntity> tickets = kitchenTicketRepository.findByStatusOrderByKitchenTicketIdDesc(KitchenItemStatus.COMPLETED, PageRequest.of(0, pageSize));
         return tickets.stream().map(kitchenTicketMapper::toResponse).toList();
     }
 
-    // 6 : Lấy Lịch sử Hoàn thành từng đầu bếp
+    // 6 : Lấy Lịch sử Hoàn thành từng đầu bếp (Mới nhất lên đầu)
     @Override
     public ChefWorkHistoryResponse getCookWorkHistory(Principal principal) {
         User cookUser = resolveUser(principal);
         Long cookUserId = cookUser != null ? cookUser.getUserId() : 8L;
         String cookName = cookUser != null ? cookUser.getFullName() : "Đầu bếp";
 
-        List<KitchenTicketEntity> kitchenTicketEntityList = kitchenTicketRepository.findByAssignedCookIdAndStatus(cookUserId, KitchenItemStatus.COMPLETED);
+        List<KitchenTicketEntity> kitchenTicketEntityList = kitchenTicketRepository.findByAssignedCookIdAndStatusOrderByKitchenTicketIdDesc(cookUserId, KitchenItemStatus.COMPLETED);
 
         List<KitchenTicketResponse> ticketResponses = kitchenTicketEntityList.stream()
                 .map(kitchenTicketMapper::toResponse)

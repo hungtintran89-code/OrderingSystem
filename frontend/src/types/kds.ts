@@ -22,7 +22,10 @@ export interface KdsHistoryLogItem {
   id: string;
   orderCode: string;
   tableName: string;
+  createdAt?: string;
   completedAt: string; // Formatted time string
+  completedTimestampMs?: number; // Exact timestamp in ms for live relative time ticking
+  completedDateStr?: string; // YYYY-MM-DD for date filtering
   prepDurationMinutes: number;
   items: KitchenOrderItem[];
 }

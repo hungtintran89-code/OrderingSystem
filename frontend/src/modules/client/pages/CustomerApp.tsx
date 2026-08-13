@@ -209,6 +209,8 @@ export function CustomerApp() {
   const handleSubmitOrder = async () => {
     if (cartItems.length === 0) return;
 
+    const currentCartTotal = cartItems.reduce((acc, item) => acc + item.productPrice * item.quantity, 0);
+
     const itemsToSubmit = cartItems.map((item) => ({
       productId: Number(item.productId),
       quantity: Number(item.quantity),
@@ -217,35 +219,47 @@ export function CustomerApp() {
 
     const result = await apiService.submitOrder(currentTable.tableId, threadId, itemsToSubmit);
 
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const newOrderItems = cartItems.map((item, i) => ({
-      orderItemId: Date.now() + i,
-      productId: item.productId,
-      productName: item.productName,
-      quantity: item.quantity,
-      priceProduct: item.productPrice,
-      priceTotal: item.quantity * item.productPrice,
-      note: item.note,
-      threadId,
-      status: 'COOKING' as const,
-      orderedAt: nowStr
-    }));
+    if (result && result.tableSessionId) {
+      setCurrentTable((prev) => ({
+        ...prev,
+        tableSessionId: result.tableSessionId,
+      }));
+      setPersonalOrders(result);
+      const freshMasterOrder = await apiService.getMasterTableOrder(currentTable.tableId);
+      if (freshMasterOrder) {
+        setMasterTableOrder(freshMasterOrder);
+      }
+    } else {
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const newOrderItems = cartItems.map((item, i) => ({
+        orderItemId: Date.now() + i,
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        priceProduct: item.productPrice,
+        priceTotal: item.quantity * item.productPrice,
+        note: item.note,
+        threadId,
+        status: 'PENDING' as const,
+        orderedAt: nowStr
+      }));
 
-    setPersonalOrders((prev) => ({
-      tableSessionId: currentTable.tableSessionId,
-      threadId,
-      myTotal: (prev?.myTotal || 0) + cartTotal,
-      myItems: [...newOrderItems, ...(prev?.myItems || [])]
-    }));
+      setPersonalOrders((prev) => ({
+        tableSessionId: currentTable.tableSessionId,
+        threadId,
+        myTotal: (prev?.myTotal || 0) + currentCartTotal,
+        myItems: [...newOrderItems, ...(prev?.myItems || [])]
+      }));
 
-    setMasterTableOrder((prev) => ({
-      tableId: currentTable.tableId,
-      tableName: currentTable.tableName,
-      tableSessionId: currentTable.tableSessionId,
-      sessionStatus: 'ACTIVE',
-      totalPrice: (prev?.totalPrice || 0) + cartTotal,
-      allTableItems: [...newOrderItems, ...(prev?.allTableItems || [])]
-    }));
+      setMasterTableOrder((prev) => ({
+        tableId: currentTable.tableId,
+        tableName: currentTable.tableName,
+        tableSessionId: currentTable.tableSessionId,
+        sessionStatus: 'ACTIVE',
+        totalPrice: (prev?.totalPrice || 0) + currentCartTotal,
+        allTableItems: [...newOrderItems, ...(prev?.allTableItems || [])]
+      }));
+    }
 
     setCartItems([]);
     setIsCartOpen(false);
@@ -253,7 +267,6 @@ export function CustomerApp() {
     setTimeout(() => {
       setShowSuccessToast(false);
     }, 4000);
-    await loadOrders();
   };
 
   const handleServiceRequest = (type: RequestType) => {

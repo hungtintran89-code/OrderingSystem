@@ -1,6 +1,6 @@
 import React from 'react';
 import type { PersonalOrder, TableInfo } from '../../types';
-import { ArrowLeft, ShoppingBag, CheckCircle, Clock } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Clock } from 'lucide-react';
 
 interface OrderHistoryModalProps {
   isOpen: boolean;
@@ -80,15 +80,10 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
             </div>
           ) : (
             personalItems.map((item) => {
-              const isCooking = item.status === 'COOKING';
-              const isServed = item.status === 'SERVED' || item.status === 'COMPLETED' || item.status === 'READY';
-
               return (
                 <div
                   key={item.orderItemId}
-                  className={`group bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex gap-4 items-center transition-all duration-200 hover:shadow-md ${
-                    isServed ? 'opacity-95' : ''
-                  }`}
+                  className="group bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex gap-4 items-center transition-all duration-200 hover:shadow-md"
                 >
                   <div className="relative h-20 w-20 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
                     <img

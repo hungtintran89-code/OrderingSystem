@@ -23,6 +23,8 @@ public class KitchenTicketMapper {
                 .status(entity.getStatus())
                 .assignedCookId(entity.getAssignedCookId())
                 .assignedCookName(entity.getAssignedCookName())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
                 .build();
     }
 

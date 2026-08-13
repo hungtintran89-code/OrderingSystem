@@ -25,4 +25,6 @@ public class KitchenTicketResponse {
     private Long assignedCookId;
     private String assignedCookName;
     private String slaColor; // GREEN, YELLOW, RED, GREY
+    private java.util.Date createdAt;
+    private java.util.Date updatedAt;
 }

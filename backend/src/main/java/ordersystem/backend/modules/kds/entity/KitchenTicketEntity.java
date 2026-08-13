@@ -54,4 +54,21 @@ public class KitchenTicketEntity {
 
     @Column(name = "assigned_cook_name")
     private String assignedCookName;
+
+    @Column(name = "created_at", updatable = false)
+    private Date createdAt;
+
+    @Column(name = "updated_at")
+    private Date updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) createdAt = new Date();
+        if (updatedAt == null) updatedAt = new Date();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = new Date();
+    }
 }

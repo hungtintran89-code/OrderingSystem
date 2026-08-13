@@ -140,23 +140,15 @@ public class OrderServiceImpl implements OrderService {
             restaurantTableRepository.save(table);
         }
 
-        // 3. Tìm Master Order tổng của bàn (Nếu chưa có thì tự động tạo mới)
-        List<OrderEntity> pendingOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatus(tableSessionEntity.getTableSessionId(), OrderStatus.PENDING);
-        OrderEntity masterOrderEntity;
-        if (!pendingOrders.isEmpty()) {
-            masterOrderEntity = pendingOrders.get(0);
-        } else {
-            masterOrderEntity = orderRepository.save(OrderEntity.builder()
-                    .orderCode("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                    .tableSession(tableSessionEntity)
-                    .status(OrderStatus.PENDING)
-                    .totalAmount(0L)
-                    .build());
-        }
+        // 3. Tạo Đợt Đơn (Order Batch) riêng biệt cho lượt gửi này của khách
+        OrderEntity batchOrder = OrderEntity.builder()
+                .orderCode("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .tableSession(tableSessionEntity)
+                .status(OrderStatus.PENDING)
+                .totalAmount(0L)
+                .items(new ArrayList<>())
+                .build();
 
-        List<OrderItemEntity> newOrderItemEntity = new ArrayList<>();
-
-        // 4. Tạo danh sách các món khách đợt này vừa đặt (Cộng dồn nếu đã có món cùng productId + note)
         List<Long> produtIds = request.getList().stream()
                 .map(OrderItemRequest::getProductId)
                 .toList();
@@ -164,8 +156,6 @@ public class OrderServiceImpl implements OrderService {
         List<ProductEntity> productEntities = productRepository.findAllById(produtIds);
         Map<Long, ProductEntity> productMap = productEntities.stream()
                 .collect(Collectors.toMap(ProductEntity::getProductId, p -> p));
-
-        Map<Long, Long> batchQuantityMap = new HashMap<>();
 
         for (OrderItemRequest itemRequest : request.getList()) {
             ProductEntity productEntity = productMap.get(itemRequest.getProductId());
@@ -177,98 +167,62 @@ public class OrderServiceImpl implements OrderService {
                 throw new OrderException("Product with ID : " + itemRequest.getProductId() + " not found");
             }
 
-            String reqNote = itemRequest.getNote() != null ? itemRequest.getNote().trim() : "";
-            final Long targetProdId = productEntity.getProductId();
-
-            Optional<OrderItemEntity> existingItemOpt = masterOrderEntity.getItems().stream()
-                    .filter(item -> item.getProduct().getProductId().equals(targetProdId)
-                            && ((item.getNote() == null ? "" : item.getNote().trim()).equalsIgnoreCase(reqNote)))
-                    .findFirst();
-
-            OrderItemEntity targetItem;
-            if (existingItemOpt.isPresent()) {
-                targetItem = existingItemOpt.get();
-                targetItem.setQuantity(targetItem.getQuantity() + itemRequest.getQuantity());
-                targetItem.calculatePrice();
-            } else {
-                targetItem = OrderItemEntity.builder()
-                        .order(masterOrderEntity)
-                        .product(productEntity)
-                        .quantity(itemRequest.getQuantity())
-                        .price(productEntity.getProductPrice())
-                        .note(itemRequest.getNote())
-                        .createdByThread(request.getThreadId())
-                        .build();
-                targetItem.calculatePrice();
-                masterOrderEntity.getItems().add(targetItem);
-            }
-            newOrderItemEntity.add(targetItem);
-            if (targetItem.getOrderItemId() != null) {
-                batchQuantityMap.put(targetItem.getOrderItemId(), itemRequest.getQuantity());
-            }
+            OrderItemEntity targetItem = OrderItemEntity.builder()
+                    .order(batchOrder)
+                    .product(productEntity)
+                    .quantity(itemRequest.getQuantity())
+                    .price(productEntity.getProductPrice())
+                    .note(itemRequest.getNote())
+                    .createdByThread(request.getThreadId())
+                    .build();
+            targetItem.calculatePrice();
+            batchOrder.getItems().add(targetItem);
         }
 
-        // TÍNH LẠI TỔNG TIỀN MASTER ORDER TỪ TẤT CẢ CÁC MÓN CHUẨN XÁC
-        Long recalculatedTotal = masterOrderEntity.getItems().stream()
+        Long batchTotal = batchOrder.getItems().stream()
                 .mapToLong(item -> item.getTotalPrice() != null ? item.getTotalPrice() : 0L)
                 .sum();
-        masterOrderEntity.setTotalAmount(recalculatedTotal);
-        OrderEntity savedOrderEntity = orderRepository.saveAndFlush(masterOrderEntity);
+        batchOrder.setTotalAmount(batchTotal);
+        OrderEntity savedOrderEntity = orderRepository.saveAndFlush(batchOrder);
 
-        // Bắn thông báo cập nhật Sơ đồ bàn Real-time cho Nhân viên
+        // Tính lại tổng tiền của tất cả các đợt trong session để gửi realtime tới Sơ đồ bàn Staff POS
+        List<OrderEntity> sessionActiveOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(
+                tableSessionEntity.getTableSessionId(), OrderStatus.CANCELLED);
+        Long sessionTotalAmount = sessionActiveOrders.stream()
+                .mapToLong(o -> o.getTotalAmount() != null ? o.getTotalAmount() : 0L)
+                .sum();
+
         FloorMapResponse updatedTableMap = FloorMapResponse.builder()
                 .tableId(tableSessionEntity.getTable().getTableId())
                 .tableName(tableSessionEntity.getTableName())
                 .status(TableStatus.OCCUPIED)
-                .tempTotalAmount(masterOrderEntity.getTotalAmount().doubleValue())
+                .tempTotalAmount(sessionTotalAmount.doubleValue())
                 .zone(tableSessionEntity.getTable().getZone())
                 .capacity(tableSessionEntity.getTable().getCapacity())
                 .build();
         webSocketPublisher.notifyFloorMapUpdate(updatedTableMap);
 
-        // 5. Xóa toàn bộ giỏ hàng khi đặt món
+        // 5. Xóa giỏ hàng của thiết bị (threadId) vừa gửi đơn
         cartService.clearCart(tableSessionEntity.getTableSessionId(), request.getThreadId());
 
-        // 6. Lưu trực tiếp Vé Bếp (KitchenTicketEntity) nguyên tử vào CSDL PostgreSQL
+        // 6. Tạo vé bếp (KitchenTicketEntity) nguyên tử cho từng món trong đợt gửi này
         String tableName = (tableSessionEntity.getTable() != null && tableSessionEntity.getTable().getTableName() != null)
                 ? tableSessionEntity.getTable().getTableName() : "Bàn 01";
         String areaName = (tableSessionEntity.getTable() != null && tableSessionEntity.getTable().getZone() != null)
                 ? tableSessionEntity.getTable().getZone() : "Khu A";
 
-        for (OrderItemEntity item : newOrderItemEntity) {
-            Long itemPk = item.getOrderItemId();
-            Long ticketBatchQty = (itemPk != null && batchQuantityMap.containsKey(itemPk))
-                    ? batchQuantityMap.get(itemPk)
-                    : item.getQuantity();
-
-            Optional<KitchenTicketEntity> existingTicketOpt = (itemPk != null)
-                    ? kitchenTicketRepository.findByOrderItemId(itemPk)
-                    : Optional.empty();
-
-            KitchenTicketEntity ticket;
-            if (existingTicketOpt.isPresent()) {
-                ticket = existingTicketOpt.get();
-                ticket.setQuantity(ticketBatchQty);
-                ticket.setNote(item.getNote());
-                ticket.setTableNumber(tableName);
-                ticket.setAreaName(areaName);
-                ticket.setStatus(KitchenItemStatus.PENDING);
-            } else {
-                if (itemPk == null) {
-                    itemPk = (System.currentTimeMillis() % 1000000000L) + (long)(Math.random() * 10000);
-                }
-                ticket = KitchenTicketEntity.builder()
-                        .orderId(savedOrderEntity.getId())
-                        .orderItemId(itemPk)
-                        .tableNumber(tableName)
-                        .areaName(areaName)
-                        .productId(item.getProduct().getProductId())
-                        .productName(item.getProduct().getProductName())
-                        .quantity(ticketBatchQty)
-                        .note(item.getNote())
-                        .status(KitchenItemStatus.PENDING)
-                        .build();
-            }
+        for (OrderItemEntity item : savedOrderEntity.getItems()) {
+            KitchenTicketEntity ticket = KitchenTicketEntity.builder()
+                    .orderId(savedOrderEntity.getId())
+                    .orderItemId(item.getOrderItemId())
+                    .tableNumber(tableName)
+                    .areaName(areaName)
+                    .productId(item.getProduct().getProductId())
+                    .productName(item.getProduct().getProductName())
+                    .quantity(item.getQuantity())
+                    .note(item.getNote())
+                    .status(KitchenItemStatus.PENDING)
+                    .build();
             try {
                 KitchenTicketEntity savedTicket = kitchenTicketRepository.save(ticket);
                 KitchenTicketResponse ticketResponse = kitchenTicketMapper.toResponse(savedTicket);
@@ -279,26 +233,7 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        List<OrderSubmittedEvent.OrderItemInfo> itemInfos = newOrderItemEntity.stream()
-                .map(item -> new OrderSubmittedEvent.OrderItemInfo(
-                        item.getOrderItemId(),
-                        item.getProduct().getProductId(),
-                        item.getProduct().getProductName(),
-                        item.getQuantity(),
-                        item.getNote()
-                ))
-                .toList();
-        OrderSubmittedEvent event = new OrderSubmittedEvent(
-                savedOrderEntity.getId(),
-                tableName,
-                areaName,
-                itemInfos
-        );
-        List<OrderItemResponse> newItemsResponses = newOrderItemEntity.stream()
-                .map(orderMapper::toItemResponse)
-                .collect(Collectors.toList());
-
-        return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), request.getThreadId(), newItemsResponses);
+        return getPersonalOrder(tableSessionEntity.getTableSessionId(), request.getThreadId());
     }
 
     // 2. Khách mở điện thoại cá nhân lên xem -> CHỈ HIỂN THỊ MÓN DO THREAD ĐÓ ĐẶT
@@ -306,7 +241,23 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     public PersonalOrderResponse getPersonalOrder(Long tableSessionId, Long threadId) {
 
-        List<OrderItemEntity> orderItemResponseList = orderItemRepository.findByOrderTableSessionTableSessionIdAndCreatedByThread(tableSessionId, threadId);
+        // Smart Resolution: Thử tìm theo tableSessionId, nếu không có thử tìm session ACTIVE theo tableId
+        TableSessionEntity tableSessionEntity = (tableSessionId != null)
+                ? tableSessionRepository.findByTableSessionId(tableSessionId)
+                        .orElseGet(() -> tableSessionRepository.findByTableTableIdAndStatus(tableSessionId, SessionStatus.ACTIVE).orElse(null))
+                : null;
+
+        if (tableSessionEntity == null) {
+            return PersonalOrderResponse.builder()
+                    .tableSessionId(tableSessionId != null ? tableSessionId : 0L)
+                    .threadId(threadId != null ? threadId : 0L)
+                    .myTotal(0L)
+                    .myItems(Collections.emptyList())
+                    .build();
+        }
+
+        Long actualSessionId = tableSessionEntity.getTableSessionId();
+        List<OrderItemEntity> orderItemResponseList = orderItemRepository.findByOrderTableSessionTableSessionIdAndCreatedByThread(actualSessionId, threadId);
 
         List<OrderItemResponse> responseList = orderItemResponseList.stream()
                 .map(item -> {
@@ -321,8 +272,6 @@ public class OrderServiceImpl implements OrderService {
                 })
                 .collect(Collectors.toList());
 
-        TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableSessionId(tableSessionId)
-                .orElseThrow(() -> new OrderException("Table Session ID does not exist: " + tableSessionId));
         return orderMapper.toPersonalResponse(tableSessionEntity.getTableSessionId(), threadId, responseList);
     }
 

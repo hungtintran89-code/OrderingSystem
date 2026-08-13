@@ -3,6 +3,8 @@ import { KitchenOrder, OrderStatus, CategoryFilter, KdsHistoryLogItem } from '..
 import {
   fetchKitchenOrders,
   fetchKitchenHistoryLog,
+  fetchCategoriesApi,
+  KdsCategoryItem,
   updateOrderStatusApi,
   toggleItemCompletionApi,
   recallLastOrderApi,
@@ -31,7 +33,9 @@ import {
   Layers,
   Sparkles,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { message } from 'antd';
 import { wsService } from '../../modules/client/services/websocket';
@@ -39,51 +43,76 @@ import { wsService } from '../../modules/client/services/websocket';
 export const KitchenKiosk: React.FC = () => {
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [historyLog, setHistoryLog] = useState<KdsHistoryLogItem[]>([]);
+  const [dynamicCategories, setDynamicCategories] = useState<KdsCategoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // KDS View Mode Tab: ACTIVE_KITCHEN vs HISTORY_TIMELINE
   const [activeTab, setActiveTab] = useState<'ACTIVE_KITCHEN' | 'HISTORY_TIMELINE'>('ACTIVE_KITCHEN');
-  const [filterCategory, setFilterCategory] = useState<CategoryFilter>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
   const [historySearchQuery, setHistorySearchQuery] = useState('');
+  const [selectedHistoryDate, setSelectedHistoryDate] = useState<'TODAY' | 'ALL' | 'CUSTOM'>('TODAY');
+  const [customDate, setCustomDate] = useState<string>('');
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Set<string>>(new Set());
   const [recalledOrderNotice, setRecalledOrderNotice] = useState<string | null>(null);
   const [showMatrix, setShowMatrix] = useState(true);
 
-  // Load KDS Orders & History Log
+  // State to track locally checked item keys: "${orderId}-${itemId}"
+  const [checkedItemKeys, setCheckedItemKeys] = useState<Set<string>>(new Set());
+
+  const toggleExpandHistory = (id: string) => {
+    setExpandedHistoryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Load KDS Orders, History Log & Catalog Categories
   const loadData = async () => {
     try {
       setError(null);
-      const [ordersData, historyData] = await Promise.all([
+      const [ordersData, historyData, catData] = await Promise.all([
         fetchKitchenOrders(),
         fetchKitchenHistoryLog(),
+        fetchCategoriesApi(),
       ]);
 
-      // Preserve local item completion (isCompleted) states across polling refetches by unique item ID
-      setOrders((prevOrders) => {
-        const localCompletedMap = new Set<string>();
-        (prevOrders || []).forEach((o) => {
-          (o.items || []).forEach((it) => {
-            if (it.isCompleted) {
-              localCompletedMap.add(`${o.id}-${it.id}`);
-            }
-          });
-        });
-
-        return ordersData.map((freshOrd) => ({
+      // Map fresh orders while checking checkedItemKeys or backend item completion
+      setOrders(
+        (ordersData || []).map((freshOrd) => ({
           ...freshOrd,
           items: (freshOrd.items || []).map((it) => ({
             ...it,
-            isCompleted: localCompletedMap.has(`${freshOrd.id}-${it.id}`) || it.isCompleted,
+            isCompleted: checkedItemKeys.has(`${freshOrd.id}-${it.id}`) || Boolean(it.isCompleted),
           })),
-        }));
-      });
+        }))
+      );
 
       setHistoryLog(historyData);
+      if (catData && catData.length > 0) {
+        setDynamicCategories(catData);
+      }
     } catch (err) {
       setError('Không thể kết nối đến máy chủ KDS. Vui lòng kiểm tra lại đường truyền.');
     } finally {
       setLoading(false);
     }
+  };
+
+  // State to track current time in MS for live ticking relative completedAt string (e.g. 1 min ago -> 2 mins ago -> 60 mins ago -> 1 hour ago)
+  const [nowMs, setNowMs] = useState<number>(Date.now());
+
+  const getLiveRelativeCompletedAt = (log: KdsHistoryLogItem, currentNow: number) => {
+    if (!log.completedTimestampMs) return log.completedAt;
+    const diffMins = Math.floor((currentNow - log.completedTimestampMs) / 60000);
+    if (diffMins < 1) return 'Hoàn thành vừa xong';
+    if (diffMins < 60) return `Hoàn thành ${diffMins} phút trước`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `Hoàn thành ${diffHours} giờ trước`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `Hoàn thành ${diffDays} ngày trước`;
   };
 
   useEffect(() => {
@@ -103,21 +132,54 @@ export const KitchenKiosk: React.FC = () => {
       loadData();
     });
 
-    // 2. Dual-Layer Auto-Polling Fallback (3s Interval for 100% Reliability)
+    // 2. Realtime Menu / Category Updates Subscriber (Dynamic Catalog Sync)
+    const unsubscribeMenuUpdates = wsService.subscribe('/topic/menu/updates', () => {
+      fetchCategoriesApi().then((cats) => {
+        if (cats && cats.length > 0) setDynamicCategories(cats);
+      });
+    });
+
+    // 3. Dual-Layer Auto-Polling Fallback (3s Interval for 100% Reliability)
     const pollInterval = setInterval(() => {
       loadData();
     }, 3000);
 
+    // 4. Continuous Relative Time Ticking Timer (Ticks live relative time every 5 seconds)
+    const liveTickInterval = setInterval(() => {
+      setNowMs(Date.now());
+    }, 5000);
+
     return () => {
       unsubscribeNewOrders();
       unsubscribeHistory();
+      unsubscribeMenuUpdates();
       clearInterval(pollInterval);
+      clearInterval(liveTickInterval);
     };
-  }, []);
+  }, [checkedItemKeys]);
 
   // Update Status Action
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus) => {
     const targetOrder = orders.find((o) => o.id === orderId);
+
+    // Clear checked keys for this orderId when completing/bumping
+    if (newStatus === 'READY' || newStatus === 'COMPLETED') {
+      setCheckedItemKeys((prev) => {
+        const next = new Set(prev);
+        if (targetOrder?.items) {
+          targetOrder.items.forEach((it) => {
+            next.delete(`${orderId}-${it.id}`);
+          });
+        }
+        Array.from(next).forEach((key) => {
+          if (key.startsWith(`${orderId}-`)) {
+            next.delete(key);
+          }
+        });
+        return next;
+      });
+    }
+
     const updated = await updateOrderStatusApi(orderId, newStatus, targetOrder?.items);
     setOrders(updated);
 
@@ -134,6 +196,17 @@ export const KitchenKiosk: React.FC = () => {
 
   // Toggle Item Completion (Gạch món mượt mà 0ms latency)
   const handleToggleItem = (orderId: string, itemId: string) => {
+    const itemKey = `${orderId}-${itemId}`;
+    setCheckedItemKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemKey)) {
+        next.delete(itemKey);
+      } else {
+        next.add(itemKey);
+      }
+      return next;
+    });
+
     setOrders((prev) =>
       prev.map((ord) => {
         if (ord.id !== orderId) return ord;
@@ -200,30 +273,51 @@ export const KitchenKiosk: React.FC = () => {
   const filteredOrders = (orders || [])
     .filter((order) => {
       if (filterCategory === 'all') return true;
-      return (order?.items || []).some((item) => item.category === filterCategory);
+      return (order?.items || []).some((item) => {
+        const itemCat = (item.category || '').toLowerCase();
+        const targetCat = String(filterCategory).toLowerCase();
+        return itemCat === targetCat || itemCat.includes(targetCat) || targetCat.includes(itemCat);
+      });
     })
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  // Filtered History Log
-  const filteredHistoryLog = (historyLog || []).filter((h) => {
-    const query = historySearchQuery.toLowerCase();
-    return (
-      (h?.orderCode || '').toLowerCase().includes(query) ||
-      (h?.tableName || '').toLowerCase().includes(query) ||
-      (h?.items || []).some((i) => (i?.name || '').toLowerCase().includes(query))
-    );
-  });
+  // Filtered History Log by Date & Search Query
+  const todayDateStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
-  // Calculate Avg Prep Time
-  const avgPrepTime =
-    historyLog.length > 0
-      ? Math.round(historyLog.reduce((s, h) => s + h.prepDurationMinutes, 0) / historyLog.length)
-      : 0;
+  const dateFilteredHistoryLog = useMemo(() => {
+    return (historyLog || []).filter((h) => {
+      if (selectedHistoryDate === 'TODAY') {
+        return !h.completedDateStr || h.completedDateStr === todayDateStr;
+      }
+      if (selectedHistoryDate === 'CUSTOM' && customDate) {
+        return h.completedDateStr === customDate;
+      }
+      return true; // 'ALL'
+    });
+  }, [historyLog, selectedHistoryDate, customDate, todayDateStr]);
+
+  const filteredHistoryLog = useMemo(() => {
+    return dateFilteredHistoryLog.filter((h) => {
+      const query = historySearchQuery.toLowerCase();
+      return (
+        (h?.orderCode || '').toLowerCase().includes(query) ||
+        (h?.tableName || '').toLowerCase().includes(query) ||
+        (h?.items || []).some((i) => (i?.name || '').toLowerCase().includes(query))
+      );
+    });
+  }, [dateFilteredHistoryLog, historySearchQuery]);
+
+  // Calculate Avg Prep Time for date-filtered history
+  const avgPrepTime = useMemo(() => {
+    if (dateFilteredHistoryLog.length === 0) return 0;
+    const totalMinutes = dateFilteredHistoryLog.reduce((s, h) => s + (h.prepDurationMinutes || 0), 0);
+    return Math.round(totalMinutes / dateFilteredHistoryLog.length);
+  }, [dateFilteredHistoryLog]);
 
   return (
     <div className="space-y-4 font-sans max-w-7xl mx-auto">
       
-      {/* 1. TOP NAVIGATION VIEW SWITCHER TABS (ĐÃ GỠ BỎ TOÀN BỘ PHỤ ĐỀ TRONG DẤU WACKET '()') */}
+      {/* 1. TOP NAVIGATION VIEW SWITCHER TABS */}
       <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         {/* Main View Tabs */}
         <div className="flex items-center gap-2">
@@ -257,29 +351,8 @@ export const KitchenKiosk: React.FC = () => {
             <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono ${
               activeTab === 'HISTORY_TIMELINE' ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'
             }`}>
-              {historyLog.length}
+              {dateFilteredHistoryLog.length}
             </span>
-          </button>
-        </div>
-
-        {/* Action Controls */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSimulateNewOrder}
-            className="h-9 px-3.5 rounded-xl border border-orange-200/80 bg-orange-50 hover:bg-orange-100 text-orange-950 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-            title="Thêm thử đơn mới có tiếng Chuông Báo"
-          >
-            <Volume2 className="w-4 h-4 text-orange-600" />
-            <span className="hidden sm:inline">Thử đơn mới</span>
-          </button>
-
-          <button
-            onClick={loadData}
-            className="h-9 px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-            title="Làm mới KDS"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-orange-600' : ''}`} />
-            <span className="hidden sm:inline">Làm mới</span>
           </button>
         </div>
       </div>
@@ -350,28 +423,35 @@ export const KitchenKiosk: React.FC = () => {
             </div>
           )}
 
-          {/* CATEGORY FILTERS BAR */}
+          {/* CATEGORY FILTERS BAR - DYNAMIC REALTIME CATALOG CATEGORIES */}
           <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between gap-3">
             <div className="flex items-center gap-1.5 overflow-x-auto text-xs scrollbar-none">
               <span className="text-slate-500 font-medium px-2 flex items-center gap-1 hidden sm:inline-flex">
                 <Filter className="w-3.5 h-3.5 text-orange-600" /> Lọc món:
               </span>
-              {[
-                { id: 'all', label: 'Tất cả món' },
-                { id: 'grill', label: 'Món nướng' },
-                { id: 'soup', label: 'Món nước' },
-                { id: 'drink', label: 'Đồ uống' },
-              ].map((f) => (
+              
+              <button
+                onClick={() => setFilterCategory('all')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                  filterCategory === 'all'
+                    ? 'bg-slate-900 text-white shadow-2xs'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+                }`}
+              >
+                Tất cả món
+              </button>
+
+              {dynamicCategories.map((cat) => (
                 <button
-                  key={f.id}
-                  onClick={() => setFilterCategory(f.id as CategoryFilter)}
+                  key={cat.id}
+                  onClick={() => setFilterCategory(cat.name)}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                    filterCategory === f.id
+                    filterCategory === cat.name
                       ? 'bg-slate-900 text-white shadow-2xs'
                       : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
                   }`}
                 >
-                  {f.label}
+                  {cat.name}
                 </button>
               ))}
             </div>
@@ -415,40 +495,86 @@ export const KitchenKiosk: React.FC = () => {
       {!loading && !error && activeTab === 'HISTORY_TIMELINE' && (
         <div className="space-y-5">
           
-          {/* HISTORY METRICS SUMMARY CARDS */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tổng Đơn Đã Hoàn Thành</p>
-                <h3 className="text-2xl font-bold text-slate-900 mt-1">{historyLog.length} Đơn</h3>
+          {/* HISTORY METRICS & DATE FILTER BAR */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-4">
+            {/* Date Filter Buttons */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5 mr-1">
+                  <Calendar className="w-4 h-4 text-orange-600" /> Xem lịch sử theo ngày:
+                </span>
+                <button
+                  onClick={() => setSelectedHistoryDate('TODAY')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    selectedHistoryDate === 'TODAY'
+                      ? 'bg-orange-600 text-white shadow-2xs'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+                  }`}
+                >
+                  Hôm nay
+                </button>
+                <button
+                  onClick={() => setSelectedHistoryDate('ALL')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    selectedHistoryDate === 'ALL'
+                      ? 'bg-slate-900 text-white shadow-2xs'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+                  }`}
+                >
+                  Tất cả ngày
+                </button>
               </div>
-              <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 font-bold">
-                <CheckCircle2 className="w-5 h-5" />
+
+              {/* Custom Date Picker */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-medium">Chọn ngày cụ thể:</span>
+                <input
+                  type="date"
+                  value={customDate}
+                  onChange={(e) => {
+                    setCustomDate(e.target.value);
+                    if (e.target.value) setSelectedHistoryDate('CUSTOM');
+                  }}
+                  className="px-3 py-1 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:border-orange-500 outline-none transition-all cursor-pointer"
+                />
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Thời Gian Chế Biến TB</p>
-                <h3 className="text-2xl font-bold text-slate-900 mt-1">{avgPrepTime} phút/đơn</h3>
+            {/* Metrics Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tổng Đơn Đã Hoàn Thành</p>
+                  <h3 className="text-xl font-bold text-slate-900 mt-0.5">{dateFilteredHistoryLog.length} Đơn</h3>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 font-bold">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
               </div>
-              <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold">
-                <Clock className="w-5 h-5" />
-              </div>
-            </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
-              <div className="w-full">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Tìm Kiếm Nhật Ký</p>
-                <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    placeholder="Tìm mã đơn, tên bàn, tên món..."
-                    value={historySearchQuery}
-                    onChange={(e) => setHistorySearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:border-orange-500 outline-none transition-all"
-                  />
+              <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Thời Gian Chế Biến TB</p>
+                  <h3 className="text-xl font-bold text-slate-900 mt-0.5">{avgPrepTime} phút/đơn</h3>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                  <Clock className="w-5 h-5" />
+                </div>
+              </div>
+
+              <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                <div className="w-full">
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Tìm Kiếm Nhật Ký</p>
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                    <input
+                      type="text"
+                      placeholder="Tìm mã đơn, tên bàn..."
+                      value={historySearchQuery}
+                      onChange={(e) => setHistorySearchQuery(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1 rounded-lg border border-slate-200 text-xs bg-white focus:border-orange-500 outline-none transition-all"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -460,79 +586,88 @@ export const KitchenKiosk: React.FC = () => {
               <History className="w-12 h-12 text-slate-300 mx-auto" />
               <h4 className="font-bold text-slate-800 text-sm">Chưa Có Lịch Sử Hoàn Thành Nào</h4>
               <p className="text-xs text-slate-500">
-                Các đơn hàng sau khi chế biến xong và ấn Bump sẽ xuất hiện tại timeline lịch sử này.
+                Không tìm thấy đơn hàng hoàn thành nào trong khoảng thời gian đã chọn.
               </p>
             </div>
           ) : (
-            <div className="relative border-l-2 border-slate-200/80 ml-4 md:ml-6 pl-6 space-y-6">
-              {filteredHistoryLog.map((log, logIdx) => (
-                <div key={`hist-log-${log.id}-${logIdx}`} className="relative group">
-                  
-                  {/* TIMELINE NODE DOT MARKER */}
-                  <div className="absolute -left-[41px] top-1.5 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center border-4 border-slate-50 shadow-2xs font-bold flex-shrink-0">
-                    <Check className="w-4 h-4 stroke-[3]" />
-                  </div>
-
-                  {/* TIMELINE CARD CONTENT */}
-                  <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3 hover:shadow-md transition-all">
+            <div className="relative border-l-2 border-slate-200/80 ml-4 md:ml-6 pl-6 space-y-5">
+              {filteredHistoryLog.map((log, logIdx) => {
+                const isExpanded = expandedHistoryIds.has(log.id);
+                return (
+                  <div key={`hist-log-${log.id}-${logIdx}`} className="relative group">
                     
-                    {/* Timeline Card Header */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono font-bold text-slate-900 text-sm">{log.orderCode}</span>
-                        <span className="px-2.5 py-1 rounded-md bg-orange-50 text-orange-700 font-bold text-xs border border-orange-200/80">
-                          {log.tableName}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold text-xs inline-flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> 🟢 Đã Hoàn Thành
-                        </span>
-
-                        <span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-mono text-xs">
-                          ⏱️ Chế biến trong <strong>{log.prepDurationMinutes} phút</strong>
-                        </span>
-                      </div>
+                    {/* TIMELINE NODE DOT MARKER */}
+                    <div className="absolute -left-[41px] top-1.5 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center border-4 border-slate-50 shadow-2xs font-bold flex-shrink-0">
+                      <Check className="w-4 h-4 stroke-[3]" />
                     </div>
 
-                    {/* Timeline Items Completed Table */}
-                    <div className="space-y-1.5 bg-slate-50/70 p-3 rounded-xl border border-slate-200/60">
-                      <p className="font-semibold text-slate-500 uppercase tracking-wider text-[10px] mb-1">
-                        Danh sách các món ăn đã chế biến xong:
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                        {(log.items || []).map((it, itIdx) => (
-                          <div key={`hist-item-${log.id}-${it.id}-${itIdx}`} className="p-2.5 rounded-xl bg-white border border-slate-200/80 flex justify-between items-center text-xs">
-                            <div>
-                              <p className="font-semibold text-slate-900">{it.name}</p>
-                              {it.note && <p className="text-[10px] text-amber-800 font-medium mt-0.5">Ghi chú: {it.note}</p>}
-                            </div>
-                            <span className="font-bold text-orange-600 ml-2">x{it.quantity}</span>
+                    {/* TIMELINE CARD CONTENT */}
+                    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3 hover:shadow-md transition-all">
+                      
+                      {/* Timeline Card Header */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono font-bold text-slate-900 text-sm">{log.orderCode}</span>
+                          <span className="px-2.5 py-1 rounded-md bg-orange-50 text-orange-700 font-bold text-xs border border-orange-200/80">
+                            {log.tableName}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold text-xs inline-flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Đã Hoàn Thành
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Timeline Items List - ONLY TOGGLED ON DEMAND */}
+                      {isExpanded && (
+                        <div className="space-y-1.5 bg-slate-50/70 p-3 rounded-xl border border-slate-200/60 animate-fade-in">
+                          <p className="font-semibold text-slate-500 uppercase tracking-wider text-[10px] mb-1">
+                            Danh sách các món ăn đã chế biến xong:
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                            {(log.items || []).map((it, itIdx) => (
+                              <div key={`hist-item-${log.id}-${it.id}-${itIdx}`} className="p-2.5 rounded-xl bg-white border border-slate-200/80 flex justify-between items-center text-xs">
+                                <div>
+                                  <p className="font-semibold text-slate-900">{it.name}</p>
+                                  {it.note && <p className="text-[10px] text-amber-800 font-medium mt-0.5">Ghi chú: {it.note}</p>}
+                                </div>
+                                <span className="font-bold text-orange-600 ml-2">x{it.quantity}</span>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        </div>
+                      )}
+
+                      {/* Timeline Bottom Footer: Exact/Relative Timestamp & Toggle Detail Button */}
+                      <div className="flex items-center justify-between pt-1 text-xs">
+                        <span className="font-mono text-slate-500 font-medium flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" /> Mốc thời gian hoàn thành: <strong>{getLiveRelativeCompletedAt(log, nowMs)}</strong>
+                        </span>
+
+                        <button
+                          onClick={() => toggleExpandHistory(log.id)}
+                          className="h-8 px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                        >
+                          {isExpanded ? (
+                            <>
+                              <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Ẩn chi tiết món</span>
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-3.5 h-3.5 text-orange-600" />
+                              <span>Chi tiết đơn ({(log.items || []).length})</span>
+                            </>
+                          )}
+                        </button>
                       </div>
+
                     </div>
-
-                    {/* Timeline Bottom Footer: Exact Timestamp & Recall Button */}
-                    <div className="flex items-center justify-between pt-1 text-xs">
-                      <span className="font-mono text-slate-500 font-medium flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" /> Mốc thời gian hoàn thành: <strong>{log.completedAt}</strong>
-                      </span>
-
-                      <button
-                        onClick={() => handleRecallSpecificHistory(log.id)}
-                        className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                        title="Khôi phục đơn này quay về Bếp"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5 text-orange-600" />
-                        <span>Khôi Phục Đơn Về Bếp</span>
-                      </button>
-                    </div>
-
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
