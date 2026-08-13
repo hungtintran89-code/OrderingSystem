@@ -440,7 +440,7 @@ export const TableQRManager: React.FC = () => {
                     </div>
 
                     <p className="text-[10px] font-mono text-slate-400 truncate">
-                      {`http://localhost:3000/menu?tableToken=${table.qrToken || 'qr_tok_' + table.id}`}
+                      {`${import.meta.env.VITE_FRONTEND_URL || window.location.origin}/menu?tableToken=${table.qrToken || 'qr_tok_' + table.id}`}
                     </p>
                   </div>
                 </div>
