@@ -33,18 +33,18 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
 
         //--------- HÀM CÓ @EntityGraph (JOIN ĐẦY ĐỦ ITEMS + PRODUCT + TABLE SESSION) - Dành cho Lịch sử đơn-------------
 
-        @EntityGraph(attributePaths = {"items", "items.product", "tableSession"})
+        @EntityGraph(attributePaths = {"tableSession"})
         Page<OrderEntity> findWithDetailsByStatus(OrderStatus status, Pageable pageable);
 
-        @EntityGraph(attributePaths = {"items", "items.product", "tableSession"})
+        @EntityGraph(attributePaths = {"tableSession"})
         @Query("SELECT o FROM OrderEntity o ORDER BY o.createdAt DESC")
         Page<OrderEntity> findAllWithDetails(Pageable pageable);
 
-        @EntityGraph(attributePaths = {"items", "items.product", "tableSession"})
+        @EntityGraph(attributePaths = {"tableSession"})
         @Query("SELECT o FROM OrderEntity o WHERE o.createdAt >= :startDate AND o.createdAt <= :endDate ORDER BY o.createdAt DESC")
         Page<OrderEntity> findWithDetailsByCreatedAtBetween(@org.springframework.data.repository.query.Param("startDate") java.util.Date startDate, @org.springframework.data.repository.query.Param("endDate") java.util.Date endDate, Pageable pageable);
 
-        @EntityGraph(attributePaths = {"items", "items.product", "tableSession"})
+        @EntityGraph(attributePaths = {"tableSession"})
         @Query("SELECT o FROM OrderEntity o WHERE o.status = :status AND o.createdAt >= :startDate AND o.createdAt <= :endDate ORDER BY o.createdAt DESC")
         Page<OrderEntity> findWithDetailsByStatusAndCreatedAtBetween(@org.springframework.data.repository.query.Param("status") OrderStatus status, @org.springframework.data.repository.query.Param("startDate") java.util.Date startDate, @org.springframework.data.repository.query.Param("endDate") java.util.Date endDate, Pageable pageable);
 }

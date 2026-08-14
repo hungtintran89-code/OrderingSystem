@@ -42,6 +42,28 @@ const getYesterdayString = () => {
   return `${year}-${month}-${day}`;
 };
 
+const getRelativeOrderTime = (isoString: string, status: string) => {
+  if (!isoString) return 'Vừa xong';
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return isoString;
+
+    const diffMs = Date.now() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    const prefix = status === 'PAID' ? 'Hoàn thành' : 'Yêu cầu';
+
+    if (diffMins < 1) return `${prefix} vừa xong`;
+    if (diffMins < 60) return `${prefix} ${diffMins} phút trước`;
+    if (diffHours < 24) return `${prefix} ${diffHours} giờ trước`;
+    return `${prefix} ${diffDays} ngày trước`;
+  } catch {
+    return status === 'PAID' ? 'Hoàn thành vừa xong' : 'Yêu cầu vừa xong';
+  }
+};
+
 export const OrderListManagement: React.FC = () => {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,10 +107,10 @@ export const OrderListManagement: React.FC = () => {
       loadOrders(false);
     });
 
-    // 2. Dual-Layer Auto-Polling (3s Interval for 100% Realtime Guarantee)
+    // 2. Dual-Layer Auto-Polling (30s Interval for Fallback Guarantee)
     const pollInterval = setInterval(() => {
       loadOrders(false);
-    }, 3000);
+    }, 30000);
 
     return () => {
       unsubKitchen();
@@ -210,53 +232,7 @@ export const OrderListManagement: React.FC = () => {
           </div>
         </div>
 
-        {/* 2. FILTER TABS & SEARCH BAR */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
-          {/* Status Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            {[
-              { id: 'ALL', label: 'Tất cả' },
-              { id: 'PENDING', label: '🟡 Chờ Bếp' },
-              { id: 'PREPARING', label: '🟠 Đang Làm' },
-              { id: 'SERVED', label: '🔵 Đã Phục Vụ' },
-              { id: 'PAID', label: '🟢 Đã Thanh Toán' },
-              { id: 'CANCELLED', label: '🔴 Đã Hủy' },
-            ].map((tab) => {
-              const count = getCountByStatus(tab.id as any);
-              const isActive = statusFilter === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setStatusFilter(tab.id as any)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                    isActive
-                      ? 'bg-slate-900 text-white shadow-2xs'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                  }`}
-                >
-                  <span>{tab.label}</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${isActive ? 'bg-slate-800 text-white' : 'bg-slate-200/70 text-slate-600'}`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Search Box */}
-          <div className="relative w-full sm:w-64">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Tìm mã đơn, số bàn, món..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50/80 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition-all outline-none"
-            />
-          </div>
-        </div>
-
-        {/* 3. DATE FILTER BAR */}
+        {/* 2. DATE FILTER & SEARCH BAR */}
         <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100 text-xs">
           <span className="font-bold text-slate-700 flex items-center gap-1.5 min-w-[100px]">
             <Calendar className="w-4 h-4 text-orange-600" /> Ngày xem đơn:
@@ -308,9 +284,17 @@ export const OrderListManagement: React.FC = () => {
               />
             </div>
 
-            <span className="text-[11px] font-semibold text-slate-400 ml-auto">
-              Đang hiển thị: <strong className="text-slate-800">{selectedDate === 'ALL' ? 'Tất cả' : selectedDate === getTodayString() ? 'Hôm nay' : selectedDate === getYesterdayString() ? 'Hôm qua' : selectedDate}</strong>
-            </span>
+            {/* Search Box (Đẩy xuống hàng dưới và căn lề bên phải) */}
+            <div className="relative w-full sm:w-64 ml-auto">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Tìm mã đơn, số bàn, món..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50/80 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition-all outline-none"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -347,7 +331,7 @@ export const OrderListManagement: React.FC = () => {
           <Receipt className="w-12 h-12 text-slate-300 mx-auto" />
           <h4 className="font-bold text-slate-800 text-sm">Chưa Có Đơn Hàng Nào</h4>
           <p className="text-xs text-slate-500">
-            {searchQuery || statusFilter !== 'ALL'
+            {searchQuery
               ? 'Không tìm thấy đơn hàng phù hợp với bộ lọc hiện tại.'
               : 'Các đơn hàng từ khách quét QR hoặc phục vụ sẽ xuất hiện tại đây.'}
           </p>
@@ -367,8 +351,6 @@ export const OrderListManagement: React.FC = () => {
                   <th className="py-3.5 px-4 bg-slate-50">Thời Gian</th>
                   <th className="py-3.5 px-4 bg-slate-50">Danh Sách Món Đã Đặt</th>
                   <th className="py-3.5 px-4 bg-slate-50">Tổng Tiền</th>
-                  <th className="py-3.5 px-4 bg-slate-50">Thanh Toán</th>
-                  <th className="py-3.5 px-4 bg-slate-50">Trạng Thái Bếp</th>
                   <th className="py-3.5 px-4 text-right bg-slate-50">Thao Tác</th>
                 </tr>
               </thead>
@@ -394,7 +376,7 @@ export const OrderListManagement: React.FC = () => {
                       {/* Created At */}
                       <td className="py-4 px-4 whitespace-nowrap font-mono text-slate-600 text-[11px]">
                         <span className="font-bold text-slate-900 flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-slate-400" /> {ord.createdAt}
+                          <Clock className="w-3 h-3 text-slate-400" /> {getRelativeOrderTime(ord.createdAt, ord.status)}
                         </span>
                         <span className="text-[10px] text-slate-400 block mt-0.5">{ord.staffName || 'Khách quét QR'}</span>
                       </td>
@@ -412,26 +394,6 @@ export const OrderListManagement: React.FC = () => {
                       {/* Total Amount */}
                       <td className="py-4 px-4 whitespace-nowrap font-black text-slate-900 text-sm">
                         {formatVND(ord.totalAmount)}
-                      </td>
-
-                      {/* Payment Status (Whitespace Nowrap Clean Badge) */}
-                      <td className="py-4 px-4 whitespace-nowrap">
-                        {ord.paymentStatus === 'PAID' ? (
-                          <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold text-[11px] inline-flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> VietQR / Đã trả
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200 font-semibold text-[11px] inline-flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-slate-400" /> Chưa thanh toán
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Kitchen Status Badge (Whitespace Nowrap Clean Badge) */}
-                      <td className="py-4 px-4 whitespace-nowrap">
-                        <span className={`px-2.5 py-1 rounded-md text-[11px] border inline-block ${badge.style}`}>
-                          {badge.label}
-                        </span>
                       </td>
 
                       {/* Actions (Clean Minimalist Button Group) */}
