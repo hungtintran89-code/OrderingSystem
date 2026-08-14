@@ -26,13 +26,14 @@ import {
   Image as ImageIcon,
   Tag,
   ChevronRight,
+  ChevronDown,
   FolderPlus,
   FolderMinus,
   Settings2,
   Trash,
   Eye
 } from 'lucide-react';
-import { Modal, Switch, message, Popconfirm, Image as AntImage } from 'antd';
+import { Modal, Switch, message, Popconfirm, Image as AntImage, Dropdown } from 'antd';
 import { SmartSearchBar } from '../common/SmartSearchBar';
 import { isVietnameseMatch, filterAndSortByRelevance } from '../../utils/vietnameseSearch';
 import { wsService } from '../../modules/client/services/websocket';
@@ -354,6 +355,19 @@ export const MenuManagement: React.FC = () => {
 
   const formatVND = (num: number) => new Intl.NumberFormat('vi-VN').format(num) + ' đ';
 
+  const visibleCategoriesLimit = 5;
+  const mainCategories = categories.slice(0, visibleCategoriesLimit);
+  const extraCategories = categories.slice(visibleCategoriesLimit);
+  const isExtraCategoryActive = extraCategories.includes(selectedCategory);
+
+  const extraCategoryMenuItems = extraCategories.map((cat) => ({
+    key: cat,
+    label: (
+      <span className="text-xs font-semibold px-2 py-1 block">{cat}</span>
+    ),
+    onClick: () => setSelectedCategory(cat),
+  }));
+
   return (
     <div className="space-y-4 font-sans">
       {/* TOOLBAR STICKY: CATEGORY CHIPS + CATEGORY MANAGER + SEARCH + CREATE BUTTON */}
@@ -361,7 +375,7 @@ export const MenuManagement: React.FC = () => {
         {/* Left: Category Chips & Category Manager Button */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-full">
-            {categories.map((cat) => (
+            {mainCategories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
@@ -379,6 +393,27 @@ export const MenuManagement: React.FC = () => {
                 )}
               </button>
             ))}
+
+            {/* Ant Design Dropdown for extra categories */}
+            {extraCategories.length > 0 && (
+              <Dropdown menu={{ items: extraCategoryMenuItems }} trigger={['click']}>
+                <button
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[36px] flex items-center gap-1.5 ${
+                    isExtraCategoryActive
+                      ? 'bg-orange-600 text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-dashed border-slate-300'
+                  }`}
+                >
+                  <span>{isExtraCategoryActive ? `Danh mục: ${selectedCategory}` : 'Xem thêm'}</span>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                  {isExtraCategoryActive && (
+                    <span className="bg-white/20 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                      {filteredItems.length}
+                    </span>
+                  )}
+                </button>
+              </Dropdown>
+            )}
           </div>
 
           {/* Nút Thêm / Xóa Danh Mục */}
