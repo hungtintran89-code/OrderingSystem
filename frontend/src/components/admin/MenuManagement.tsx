@@ -54,6 +54,7 @@ export const MenuManagement: React.FC = () => {
   ]);
   const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
   const [searchQuery, setSearchQuery] = useState('');
+  const [availabilityFilter, setAvailabilityFilter] = useState<'AVAILABLE' | 'OUT_OF_STOCK'>('AVAILABLE');
 
   // Category Manager Modal State
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -341,7 +342,15 @@ export const MenuManagement: React.FC = () => {
     }
   };
 
-  const filteredItems = filterAndSortByRelevance(items, searchQuery, selectedCategory);
+  const searchedAndCategorizedItems = filterAndSortByRelevance(items, searchQuery, selectedCategory);
+
+  const filteredItems = searchedAndCategorizedItems.filter((item) => {
+    if (availabilityFilter === 'AVAILABLE') {
+      return item.isAvailable;
+    } else {
+      return !item.isAvailable;
+    }
+  });
 
   const formatVND = (num: number) => new Intl.NumberFormat('vi-VN').format(num) + ' đ';
 
@@ -381,6 +390,33 @@ export const MenuManagement: React.FC = () => {
             <Settings2 className="w-3.5 h-3.5 text-orange-600" />
             <span>Quản Lý Danh Mục</span>
           </button>
+
+          {/* LOẠI HÀNG SWITCHER: CÒN HÀNG vs HẾT HÀNG */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 h-9">
+            <button
+              onClick={() => setAvailabilityFilter('AVAILABLE')}
+              className={`h-7 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                availabilityFilter === 'AVAILABLE'
+                  ? 'bg-white text-emerald-600 shadow-2xs font-bold'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Còn hàng</span>
+            </button>
+
+            <button
+              onClick={() => setAvailabilityFilter('OUT_OF_STOCK')}
+              className={`h-7 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                availabilityFilter === 'OUT_OF_STOCK'
+                  ? 'bg-white text-red-600 shadow-2xs font-bold'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <X className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Hết hàng</span>
+            </button>
+          </div>
         </div>
 
         {/* Right: Smart Autocomplete Search Bar & Create Dish Button */}
