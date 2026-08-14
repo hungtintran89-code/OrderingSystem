@@ -16,10 +16,19 @@ public class RedisWebSocketPublisher {
 
     public void publish(String destination, Object payload) {
         try {
-            String payloadJson = objectMapper.writeValueAsString(payload);
+            String payloadJson;
+            if (payload instanceof byte[]) {
+                // Chuyển mảng byte JSON thành chuỗi JSON UTF-8 thuần túy
+                payloadJson = new String((byte[]) payload, java.nio.charset.StandardCharsets.UTF_8);
+            } else if (payload instanceof String) {
+                payloadJson = (String) payload;
+            } else {
+                payloadJson = objectMapper.writeValueAsString(payload);
+            }
+
             RedisWebSocketMessage message = new RedisWebSocketMessage(destination, payloadJson);
             String messageJson = objectMapper.writeValueAsString(message);
-            
+
             log.debug("[RedisWSPublisher] Publishing broadcast to destination: {}", destination);
             redisTemplate.convertAndSend(RedisWebSocketListener.REDIS_CHANNEL, messageJson);
         } catch (Exception e) {
