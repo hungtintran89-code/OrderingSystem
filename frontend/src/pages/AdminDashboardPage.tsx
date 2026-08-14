@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DashboardKPI } from '../components/admin/DashboardKPI';
 import { MenuManagement } from '../components/admin/MenuManagement';
@@ -7,51 +7,88 @@ import { StaffTableMap } from '../components/admin/StaffTableMap';
 import { StaffManagement } from '../components/admin/StaffManagement';
 import { OrderListManagement } from '../components/admin/OrderListManagement';
 import { QuickPosManagement } from '../components/admin/QuickPosManagement';
-import { Users, Receipt, UtensilsCrossed, PieChart, ShieldCheck } from 'lucide-react';
+import { PieChart } from 'lucide-react';
 
 export const AdminDashboardPage: React.FC = () => {
   const location = useLocation();
   const path = location.pathname;
 
-  if (path.endsWith('/menu') || path.includes('/menu')) {
-    return <MenuManagement />;
+  // Track which tabs have been visited to lazy-load them
+  const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>({
+    '/app/admin': true, // Always mount DashboardKPI first
+  });
+
+  const isTabActive = (tabPath: string) => {
+    if (tabPath === '/app/admin') {
+      return path === '/app/admin';
+    }
+    return path.endsWith(tabPath) || path.includes(tabPath);
+  };
+
+  // Determine current active tab
+  const currentTab = ['/menu', '/tables-qr', '/tables', '/staff', '/orders', '/quick-pos', '/analytics'].find(
+    (t) => path.endsWith(t) || path.includes(t)
+  ) || '/app/admin';
+
+  // Mark current tab as visited to trigger component mount
+  if (!visitedTabs[currentTab]) {
+    setVisitedTabs((prev) => ({ ...prev, [currentTab]: true }));
   }
 
-  if (path.endsWith('/tables-qr') || path.includes('/tables-qr')) {
-    return <TableQRManager />;
-  }
-
-  if (path.endsWith('/tables') || path.includes('/tables')) {
-    return <StaffTableMap />;
-  }
-
-  if (path.endsWith('/staff') || path.includes('/staff')) {
-    return <StaffManagement />;
-  }
-
-  if (path.endsWith('/orders') || path.includes('/orders')) {
-    return <OrderListManagement />;
-  }
-
-  if (path.endsWith('/quick-pos') || path.includes('/quick-pos')) {
-    return <QuickPosManagement />;
-  }
-
-  if (path.endsWith('/analytics') || path.includes('/analytics')) {
-    return (
-      <div className="space-y-4 font-sans">
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-          <PieChart className="w-5 h-5 text-orange-600" />
-          <h3 className="font-bold text-sm text-slate-900">Báo Cáo Analytics & Cơ Cấu Thanh Toán Chuyên Sâu</h3>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-xs text-slate-500 shadow-2xs">
-          <p className="font-bold text-slate-900 text-sm">Tỉ Lệ Thanh Toán: VietQR (68%) vs Tiền Mặt (32%)</p>
-          <p className="mt-1">Dữ liệu được trích xuất trực tiếp từ Spring Boot AdminAnalyticsController.</p>
-        </div>
+  return (
+    <>
+      <div style={{ display: isTabActive('/app/admin') ? 'block' : 'none' }}>
+        <DashboardKPI />
       </div>
-    );
-  }
 
-  // Default Route `/app/admin` renders KPI Dashboard
-  return <DashboardKPI />;
+      {visitedTabs['/menu'] && (
+        <div style={{ display: isTabActive('/menu') ? 'block' : 'none' }}>
+          <MenuManagement />
+        </div>
+      )}
+
+      {visitedTabs['/tables-qr'] && (
+        <div style={{ display: isTabActive('/tables-qr') ? 'block' : 'none' }}>
+          <TableQRManager />
+        </div>
+      )}
+
+      {visitedTabs['/tables'] && (
+        <div style={{ display: isTabActive('/tables') ? 'block' : 'none' }}>
+          <StaffTableMap />
+        </div>
+      )}
+
+      {visitedTabs['/staff'] && (
+        <div style={{ display: isTabActive('/staff') ? 'block' : 'none' }}>
+          <StaffManagement />
+        </div>
+      )}
+
+      {visitedTabs['/orders'] && (
+        <div style={{ display: isTabActive('/orders') ? 'block' : 'none' }}>
+          <OrderListManagement />
+        </div>
+      )}
+
+      {visitedTabs['/quick-pos'] && (
+        <div style={{ display: isTabActive('/quick-pos') ? 'block' : 'none' }}>
+          <QuickPosManagement />
+        </div>
+      )}
+
+      {visitedTabs['/analytics'] && (
+        <div style={{ display: isTabActive('/analytics') ? 'block' : 'none' }} className="space-y-4 font-sans">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <PieChart className="w-5 h-5 text-orange-600" />
+            <h3 className="font-bold text-sm text-slate-900">Báo Cáo Analytics & Cơ Cấu Thanh Toán Chuyên Sâu</h3>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-xs text-slate-500 shadow-2xs">
+            <p className="font-bold text-slate-900 text-sm">Tỉ Lệ Thanh Toán: VietQR (68%) vs Tiền Mặt (32%)</p>
+            <p className="mt-1">Dữ liệu được trích xuất trực tiếp từ Spring Boot AdminAnalyticsController.</p>
+          </div>
+        </div>
+      )}
+    </>
+  );
 };

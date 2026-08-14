@@ -31,10 +31,10 @@ public class RedisWebSocketListener implements MessageListener {
             RedisWebSocketMessage webSocketMessage = objectMapper.readValue(jsonStr, RedisWebSocketMessage.class);
             log.debug("[RedisWSListener] Received Redis broadcast for: {}", webSocketMessage.getDestination());
             
-            // Deserialize back to generic Java object for SimpMessagingTemplate
+            // Giải tuần tự hóa ngược lại thành đối tượng Java tổng quát (generic) cho SimpMessagingTemplate.
             Object payloadObj = objectMapper.readValue(webSocketMessage.getPayloadJson(), Object.class);
             
-            // Set header FROM_REDIS to prevent local interceptor from republishing
+            // Thiết lập header FROM_REDIS để ngăn chặn interceptor cục bộ phát hành lại.
             SimpMessageHeaderAccessor headerAccessor = SimpMessageHeaderAccessor.create();
             headerAccessor.setHeader("FROM_REDIS", true);
             

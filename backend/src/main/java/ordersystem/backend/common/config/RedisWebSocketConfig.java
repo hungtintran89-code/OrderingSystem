@@ -1,5 +1,6 @@
-package ordersystem.backend.common.websocket;
+package ordersystem.backend.common.config;
 
+import ordersystem.backend.common.websocket.RedisWebSocketListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;

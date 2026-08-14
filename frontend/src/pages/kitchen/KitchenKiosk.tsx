@@ -378,8 +378,8 @@ export const KitchenKiosk: React.FC = () => {
       )}
 
       {/* VIEW 1: ACTIVE KITCHEN TICKETS GRID */}
-      {!loading && !error && activeTab === 'ACTIVE_KITCHEN' && (
-        <div className="space-y-4">
+      {!loading && !error && (
+        <div className={activeTab === 'ACTIVE_KITCHEN' ? 'space-y-4' : 'hidden'}>
           
           {/* FEATURE 1: BẢNG TỔNG GOM MÓN CHẾ BIẾN - GỠ BỎ PHỤ ĐỀ DẤU DÒNG '()' */}
           {aggregatedDishes.length > 0 && (
@@ -492,8 +492,8 @@ export const KitchenKiosk: React.FC = () => {
       )}
 
       {/* VIEW 2: DEDICATED VERTICAL TIMELINE KDS HISTORY LOG PAGE */}
-      {!loading && !error && activeTab === 'HISTORY_TIMELINE' && (
-        <div className="space-y-5">
+      {!loading && !error && (
+        <div className={activeTab === 'HISTORY_TIMELINE' ? 'space-y-5' : 'hidden'}>
           
           {/* HISTORY METRICS & DATE FILTER BAR */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-4">
