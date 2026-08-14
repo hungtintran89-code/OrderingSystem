@@ -8,23 +8,24 @@ export const StaffDashboardPage: React.FC = () => {
   const location = useLocation();
   const path = location.pathname;
 
+  const subPath = path.split('/').pop() || '';
+
   // Track which tabs have been visited to lazy-load them
   const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>({
-    '/app/staff': true, // Always mount StaffTableMap first
-    '/app/staff/tables': true, // Since it defaults to tables
+    'tables': true, // Always mount StaffTableMap first
   });
 
-  const isTabActive = (tabPath: string) => {
-    if (tabPath === '/app/staff') {
-      return path === '/app/staff' || path.endsWith('/tables') || path.includes('/tables');
+  const isTabActive = (tabName: string) => {
+    if (tabName === 'tables') {
+      return subPath === 'tables' || subPath === 'staff';
     }
-    return path.endsWith(tabPath) || path.includes(tabPath);
+    return subPath === tabName;
   };
 
   // Determine current active tab
-  const currentTab = ['/orders', '/quick-pos'].find(
-    (t) => path.endsWith(t) || path.includes(t)
-  ) || '/app/staff';
+  const currentTab = ['orders', 'quick-pos'].find(
+    (t) => subPath === t
+  ) || 'tables';
 
   // Mark current tab as visited to trigger component mount
   if (!visitedTabs[currentTab]) {
@@ -33,18 +34,18 @@ export const StaffDashboardPage: React.FC = () => {
 
   return (
     <>
-      <div style={{ display: isTabActive('/app/staff') ? 'block' : 'none' }}>
+      <div style={{ display: isTabActive('tables') ? 'block' : 'none' }}>
         <StaffTableMap />
       </div>
 
-      {visitedTabs['/orders'] && (
-        <div style={{ display: isTabActive('/orders') ? 'block' : 'none' }}>
+      {visitedTabs['orders'] && (
+        <div style={{ display: isTabActive('orders') ? 'block' : 'none' }}>
           <OrderListManagement />
         </div>
       )}
 
-      {visitedTabs['/quick-pos'] && (
-        <div style={{ display: isTabActive('/quick-pos') ? 'block' : 'none' }}>
+      {visitedTabs['quick-pos'] && (
+        <div style={{ display: isTabActive('quick-pos') ? 'block' : 'none' }}>
           <QuickPosManagement />
         </div>
       )}
