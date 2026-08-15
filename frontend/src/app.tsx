@@ -26,7 +26,7 @@ export const App: React.FC = () => {
         <Route
           path="/app/kitchen"
           element={
-            <ProtectedRoute allowedRoles={['KITCHEN', 'CHEF', 'MANAGER', 'ADMIN']}>
+            <ProtectedRoute allowedRoles={['KITCHEN', 'CHEF']}>
               <KitchenLayout kitchenName="Bếp Chính - Khu A" />
             </ProtectedRoute>
           }
@@ -38,7 +38,7 @@ export const App: React.FC = () => {
         <Route
           path="/app/staff"
           element={
-            <ProtectedRoute allowedRoles={['STAFF', 'WAITER', 'MANAGER', 'ADMIN']}>
+            <ProtectedRoute allowedRoles={['STAFF', 'WAITER']}>
               <StaffLayout staffName="Nguyễn Văn Phục Vụ" />
             </ProtectedRoute>
           }
@@ -77,6 +77,9 @@ export const App: React.FC = () => {
         <Route path="/staff" element={<Navigate to="/app/staff" replace />} />
         <Route path="/admin" element={<Navigate to="/app/admin" replace />} />
         <Route path="/admin/*" element={<Navigate to="/app/admin" replace />} />
+
+        {/* Fallback nội bộ */}
+        <Route path="/app/*" element={<Navigate to="/app/login" replace />} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/client" replace />} />
