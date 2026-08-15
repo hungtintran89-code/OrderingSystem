@@ -25,30 +25,20 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
 
   // 2. Check Authorization (RBAC): If role is specified and user does not match
   if (allowedRoles && allowedRoles.length > 0) {
+    const normalizedUserRole = userRole.toUpperCase().replace(/^ROLE_/, '');
     const hasPermission = allowedRoles.some((role) => {
       const normalizedRole = role.toUpperCase().replace(/^ROLE_/, '');
-      if (['ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes(normalizedRole)) {
-        return ['ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes(userRole);
-      }
-      if (['STAFF', 'WAITER'].includes(normalizedRole)) {
-        return ['STAFF', 'WAITER', 'ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes(userRole);
-      }
-      if (['KITCHEN', 'CHEF'].includes(normalizedRole)) {
-        return ['KITCHEN', 'CHEF', 'ADMIN', 'MANAGER', 'SUPER_ADMIN', 'STAFF'].includes(userRole);
-      }
-      return userRole.includes(normalizedRole);
+      return normalizedRole === normalizedUserRole;
     });
 
     if (!hasPermission) {
-      let targetPath = '/app/staff';
+      let targetPath = '/app/login';
       if (['ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes(userRole)) {
         targetPath = '/app/admin';
       } else if (['KITCHEN', 'CHEF'].includes(userRole)) {
         targetPath = '/app/kitchen';
-      }
-
-      if (location.pathname === targetPath) {
-        return <>{children}</>;
+      } else if (['STAFF', 'WAITER'].includes(userRole)) {
+        targetPath = '/app/staff';
       }
 
       message.error({
