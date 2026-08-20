@@ -677,11 +677,12 @@ export const createVietQrPaymentApi = async (
   tableNumber: string,
   totalAmount: number,
   tableId?: number | string,
-  tableSessionId?: number
+  tableSessionId?: number,
+  items?: { productId: number; quantity: number; note?: string }[]
 ): Promise<VietQrPaymentResponse> => {
   const res = await apiClient.post<ApiResponse<VietQrPaymentResponse>>(
     '/payments/create-vietqr',
-    { tableNumber, totalAmount, amount: totalAmount, tableId, tableSessionId }
+    { tableNumber, totalAmount, amount: totalAmount, tableId, tableSessionId, items }
   );
   if (res.data && res.data.data) {
     return res.data.data;
@@ -711,6 +712,9 @@ export interface SubmitQuickPosOrderPayload {
   tableId: number;
   threadId: number;
   note?: string;
+  orderType?: 'DINE_IN' | 'TAKEAWAY';
+  paymentMethod?: 'CASH' | 'VIETQR' | 'UNPAID';
+  paymentStatus?: 'PAID' | 'UNPAID';
   list: {
     productId: number;
     quantity: number;
@@ -740,11 +744,13 @@ export const confirmPaymentSuccessApi = async (
 };
 
 // 11. GET /api/v1/admin/orders/history
-export const fetchAdminOrdersApi = async (status?: string, date?: string): Promise<AdminOrder[]> => {
+export const fetchAdminOrdersApi = async (status?: string, date?: string, startDate?: string, endDate?: string): Promise<AdminOrder[]> => {
   try {
     const params: any = {};
     if (status && status !== 'ALL') params.status = status;
     if (date && date !== 'ALL') params.date = date;
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
 
     const res = await apiClient.get<ApiResponse<any>>('/admin/orders/history', { params });
     const raw = res.data?.data;
@@ -767,12 +773,16 @@ export const fetchAdminOrdersApi = async (status?: string, date?: string): Promi
 
         const calculatedTotal = items.reduce((sum: number, it: any) => sum + (it.price * it.quantity), 0);
         const orderIdStr = String(item.orderId || item.tableSessionId || item.id || `ord-${Math.random()}`);
+        const rawTableName = String(item.tableName || item.tableNumber || item.tableId || '01');
+        const rawOrderType = (item.orderType || (rawTableName.toLowerCase().includes('mang') ? 'TAKEAWAY' : 'DINE_IN')) as 'DINE_IN' | 'TAKEAWAY';
+        const displayTableName = rawOrderType === 'TAKEAWAY' ? 'Mang Về' : rawTableName;
+        const displayZone = rawOrderType === 'TAKEAWAY' ? 'Mang Về' : (item.zone || 'Tầng 1');
 
         return {
           id: orderIdStr,
           orderCode: item.orderCode || `#ORD-${orderIdStr}`,
-          tableNumber: String(item.tableName || item.tableNumber || item.tableId || '01'),
-          zone: item.zone || 'Tầng 1',
+          tableNumber: displayTableName,
+          zone: displayZone,
           createdAt: item.openedAt || item.createdAt ? new Date(item.openedAt || item.createdAt).toISOString() : new Date().toISOString(),
           status: item.status || 'PENDING',
           paymentStatus: item.paymentStatus || 'UNPAID',
@@ -781,6 +791,7 @@ export const fetchAdminOrdersApi = async (status?: string, date?: string): Promi
           items: items,
           customerNote: item.customerNote || '',
           staffName: item.staffName || '',
+          orderType: rawOrderType,
         };
       });
     }

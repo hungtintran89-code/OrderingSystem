@@ -25,7 +25,7 @@ public interface OrderService {
     void updateOrderStatus(Long orderId, OrderStatus status);
 
     // 5. Lấy tổng lịch sử order theo trạng thái & ngày
-    PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, String date, Pageable pageable);
+    PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, String date, String startDateStr, String endDateStr, Pageable pageable);
 
 
 }

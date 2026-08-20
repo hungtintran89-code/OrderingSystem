@@ -23,8 +23,14 @@ public class PaymentTransactionEntity {
     private String invoiceCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "table_session_id", nullable = false)
+    @JoinColumn(name = "table_session_id", nullable = true)
     private TableSessionEntity tableSession;
+
+    @Column(name = "order_type")
+    private String orderType;
+
+    @Column(name = "order_id")
+    private Long orderId;
 
     @Column(name = "total_amount", nullable = false)
     private Long totalAmount;
@@ -48,6 +54,9 @@ public class PaymentTransactionEntity {
 
     @Column(name = "qr_url", length = 1000)
     private String qrUrl;
+
+    @Column(name = "items_json", columnDefinition = "TEXT")
+    private String itemsJson;
 
     @Column(name = "paid_at", nullable = true)
     private Date paidAt;

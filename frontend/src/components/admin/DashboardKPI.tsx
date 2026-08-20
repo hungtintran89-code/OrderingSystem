@@ -19,7 +19,8 @@ import {
   RefreshCw,
   AlertTriangle,
   Award,
-  Calendar
+  Calendar,
+  PieChart
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -235,9 +236,9 @@ export const DashboardKPI: React.FC = () => {
     <div className="space-y-6 font-sans">
       {/* 0. TOP FILTER BAR CONTROL */}
       <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-orange-600" />
-          <h2 className="font-bold text-slate-900 text-sm sm:text-base">Mốc Phân Tích Thống Kê</h2>
+        <div className="flex items-center gap-2.5">
+          <PieChart className="w-5 h-5 text-orange-600 stroke-[2.2] flex-shrink-0" />
+          <h2 className="font-bold text-base text-slate-900 tracking-tight">Dashboard Thống Kê & KPI</h2>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">

@@ -30,7 +30,12 @@ import vn.payos.model.webhooks.WebhookData;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkRequest;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
 import vn.payos.model.v2.paymentRequests.PaymentLinkItem;
-
+import ordersystem.backend.modules.order.dto.request.OrderItemRequest;
+import ordersystem.backend.modules.order.entity.OrderItemEntity;
+import ordersystem.backend.modules.catalog.entity.ProductEntity;
+import ordersystem.backend.modules.catalog.repository.ProductRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -45,6 +50,8 @@ public class PayOSServiceImpl implements PayOSService {
     private final RestaurantTableRepository restaurantTableRepository;
     private final OrderRepository orderRepository;
     private final PaymentTransactionRepository transactionRepository;
+    private final ProductRepository productRepository;
+    private final ObjectMapper objectMapper;
 
     @Value("${app.payment.bank-code:MB}")
     private String bankCode;
@@ -112,6 +119,7 @@ public class PayOSServiceImpl implements PayOSService {
                 .totalAmount(grandTotal)
                 .paymentMethod(PaymentMethod.VIETQR)
                 .paymentStatus(PaymentStatus.PENDING)
+                .orderType("DINE_IN")
                 .build();
 
         // Save lần 1 để JPA tự động sinh payment_id (VD: payment_id = 102)
@@ -272,6 +280,27 @@ public class PayOSServiceImpl implements PayOSService {
                     description = description.substring(0, 25);
                 }
                 Long payosOrderCode = (System.currentTimeMillis() / 1000L) * 1000L + (long)(Math.random() * 999);
+
+                String itemsJson = null;
+                if (request != null && request.getItems() != null && !request.getItems().isEmpty()) {
+                    try {
+                        itemsJson = objectMapper.writeValueAsString(request.getItems());
+                    } catch (Exception e) {
+                        log.error("[PayOS] Lỗi đóng gói itemsJson: {}", e.getMessage());
+                    }
+                }
+
+                // Lưu PaymentTransactionEntity (PENDING) để Webhook đối soát khi khách quét QR thanh toán thành công
+                PaymentTransactionEntity takeawayTx = PaymentTransactionEntity.builder()
+                        .invoiceCode("INV_TV_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                        .totalAmount(finalAmount)
+                        .paymentMethod(PaymentMethod.VIETQR)
+                        .paymentStatus(PaymentStatus.PENDING)
+                        .payosOrderCode(payosOrderCode)
+                        .orderType("TAKEAWAY")
+                        .itemsJson(itemsJson)
+                        .build();
+                transactionRepository.saveAndFlush(takeawayTx);
 
                 PaymentLinkItem item = PaymentLinkItem.builder()
                         .name("Don hang " + label)

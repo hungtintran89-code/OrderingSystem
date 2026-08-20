@@ -105,4 +105,5 @@ export interface AdminOrder {
   items: AdminOrderItem[];
   customerNote?: string;
   staffName?: string;
+  orderType?: 'DINE_IN' | 'TAKEAWAY';
 }

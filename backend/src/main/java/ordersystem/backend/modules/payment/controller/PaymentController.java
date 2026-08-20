@@ -32,7 +32,7 @@ public class PaymentController {
         try {
             paymentService.processPayOSWebhook(webhookBody);
         } catch (Exception e) {
-            // Safe fallback for PayOS test webhooks
+            org.slf4j.LoggerFactory.getLogger(PaymentController.class).error("[PayOS Webhook Error] Exception in processPayOSWebhook: ", e);
         }
         return ResponseEntity.ok(ApiResponse.success("Webhook processed successfully", null));
     }

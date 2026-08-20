@@ -84,6 +84,8 @@ export const StaffTableMap: React.FC = () => {
   const [qrPaymentStatus, setQrPaymentStatus] = useState<'IDLE' | 'PENDING' | 'SUCCESS' | 'FAILED'>('IDLE');
   const [accountInfo, setAccountInfo] = useState<any>(undefined);
   const [countdownSeconds, setCountdownSeconds] = useState<number>(3);
+  const [activePayosOrderCode, setActivePayosOrderCode] = useState<number | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
 
   // Tự động reset dữ liệu QR khi đóng Modal thanh toán để đảm bảo mở lại sẽ ở trạng thái sạch 100%
   useEffect(() => {
@@ -92,6 +94,8 @@ export const StaffTableMap: React.FC = () => {
       setQrCodeImageUrl('');
       setQrPaymentStatus('IDLE');
       setAccountInfo(undefined);
+      setActivePayosOrderCode(null);
+      setActiveSessionId(null);
     }
   }, [isCheckoutModalOpen]);
 
@@ -178,15 +182,15 @@ export const StaffTableMap: React.FC = () => {
 
     // 2. Lắng nghe kênh WebSocket Alerts khi nhận Webhook thanh toán thành công
     const unsubAlerts = wsService.subscribe('/topic/admin/tables/alerts', (data) => {
-      if (data && data.type === 'PAYMENT_SUCCESS') {
+      if (data && (data.type === 'PAYMENT_SUCCESS' || data.status === 'SUCCESS')) {
         notification.success({
           message: 'Thanh Toán Thành Công! 🎉',
-          description: data.message || `Đã nhận khoản thanh toán từ ${data.tableName}`,
+          description: data.message || `Đã nhận khoản thanh toán từ ${data.tableName || 'bàn'}`,
           duration: 4,
           placement: 'topRight',
         });
 
-        // Đặt trạng thái thành SUCCESS để kích hoạt khung đếm ngược 3s
+        // Đặt trạng thái thành SUCCESS để kích hoạt khung thành công & tự đóng Modal sau 1.5s
         setQrPaymentStatus('SUCCESS');
 
         // Tải lại dữ liệu bàn
@@ -200,23 +204,17 @@ export const StaffTableMap: React.FC = () => {
     };
   }, []);
 
-  // 3. Tự động Polling kiểm tra trạng thái thanh toán PayOS mỗi 2 giây khi Modal VietQR đang mở
+  // 3. Dual-Layer Fast Polling (1.5s Interval Backup) kiểm tra trạng thái thanh toán PayOS
   useEffect(() => {
     let timer: any = null;
-    let payosCode: number | null = null;
-    const tableSessionId = activeTableOrder?.tableSessionId || selectedCheckoutTable?.tableSessionId;
+    const targetSessionId = activeSessionId || activeTableOrder?.tableSessionId || selectedCheckoutTable?.session?.tableSessionId;
 
-    if (isCheckoutModalOpen && checkoutUrl) {
-      const match = checkoutUrl.match(/\/web\/(\d+)/);
-      if (match && match[1]) {
-        payosCode = Number(match[1]);
-      }
-    }
-
-    if (isCheckoutModalOpen && (payosCode || tableSessionId) && qrPaymentStatus === 'PENDING') {
+    if (isCheckoutModalOpen && qrPaymentStatus === 'PENDING') {
       timer = setInterval(async () => {
-        const targetSessionId = tableSessionId ? Number(tableSessionId) : undefined;
-        const res = await checkPayOSPaymentStatusApi(payosCode || undefined, targetSessionId);
+        const res = await checkPayOSPaymentStatusApi(
+          activePayosOrderCode || undefined,
+          targetSessionId ? Number(targetSessionId) : undefined
+        );
         if (res && (res.status === 'SUCCESS' || res.status === 'PAID')) {
           clearInterval(timer);
           setQrPaymentStatus('SUCCESS');
@@ -224,18 +222,18 @@ export const StaffTableMap: React.FC = () => {
           notification.success({
             message: 'Thanh Toán VietQR Thành Công! 🎉',
             description: `${formatTableName(tableName)} đã nhận đủ tiền chuyển khoản từ khách hàng.`,
-            duration: 4.5,
+            duration: 4,
             placement: 'topRight',
           });
           loadTables(false);
         }
-      }, 2000);
+      }, 1500);
     }
 
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isCheckoutModalOpen, checkoutUrl, selectedCheckoutTable, activeTableOrder, qrPaymentStatus]);
+  }, [isCheckoutModalOpen, qrPaymentStatus, activePayosOrderCode, activeSessionId, selectedCheckoutTable, activeTableOrder]);
 
   const loadActiveTableOrder = async (tableId: string) => {
     setFetchingOrder(true);
@@ -331,6 +329,8 @@ export const StaffTableMap: React.FC = () => {
       setCheckoutUrl(response.checkoutUrl);
       setQrCodeImageUrl(response.qrDataUrl);
       setQrPaymentStatus('PENDING');
+      if (response.payosOrderCode) setActivePayosOrderCode(response.payosOrderCode);
+      if (response.tableSessionId) setActiveSessionId(response.tableSessionId);
       if (response.accountName || response.accountNumber) {
         setAccountInfo({
           bankName: response.bankName || 'Ngân hàng TMCP Quân đội (MBBank)',
@@ -403,23 +403,26 @@ export const StaffTableMap: React.FC = () => {
   // Helper lấy đúng 100% số tiền của bàn từ Database / API Backend
   const getTableTotalAmount = (table?: AdminTable | null): number => {
     if (!table) return 0;
+    const orders = getOrdersForTable(table.tableNumber);
+    if (orders && orders.length > 0) {
+      return orders.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    }
     if (activeTableOrder?.totalPrice !== undefined && activeTableOrder?.totalPrice !== null && activeTableOrder.totalPrice > 0) {
       return Number(activeTableOrder.totalPrice);
     }
     if (table.totalAmount !== undefined && table.totalAmount !== null && table.totalAmount > 0) {
       return Number(table.totalAmount);
     }
-    const orders = getOrdersForTable(table.tableNumber);
-    return orders.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return 0;
   };
 
   return (
     <div className="space-y-4 font-sans">
       {/* MAP STATUS LEGEND TOOLBAR STICKY */}
       <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 transition-all">
-        <div className="flex items-center gap-2">
-          <LayoutGrid className="w-5 h-5 text-orange-600" />
-          <h3 className="font-bold text-sm text-slate-900">Sơ Đồ Phục Vụ & Trạng Thái Bàn Realtime</h3>
+        <div className="flex items-center gap-2.5">
+          <LayoutGrid className="w-5 h-5 text-orange-600 stroke-[2.2] flex-shrink-0" />
+          <h2 className="font-bold text-base text-slate-900 tracking-tight">Sơ Đồ Phục Vụ & Trạng Thái Bàn Realtime</h2>
         </div>
 
         {/* 4 Status Legend Badges */}

@@ -15,12 +15,20 @@ import java.util.List;
 @Builder
 public class MasterTableOrderResponse {
 
+    private Long orderId;
+    private String orderCode;
     private Long tableId;
     private String tableName;
+    private String zone;
     private Long tableSessionId;
     private String sessionStatus;
     private Long totalPrice;
     private Date openedAt;
+    private Date createdAt;
+    private String status;
+    private String orderType;
+    private String paymentMethod;
+    private String paymentStatus;
 
     @Builder.Default
     private List<OrderItemResponse> allTableItems = new ArrayList<>();

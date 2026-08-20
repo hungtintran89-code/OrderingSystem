@@ -53,4 +53,10 @@ public class WebSocketPublisher {
     public void notifyMenuUpdate(Object menuData) {
         messagingTemplate.convertAndSend("/topic/menu/updates", menuData);
     }
+
+    // 8. Cập nhật Danh sách Đơn hàng Realtime cho Admin / Staff POS
+    @Async
+    public void notifyAdminOrdersUpdate(Object data) {
+        messagingTemplate.convertAndSend("/topic/admin/orders", data);
+    }
 }

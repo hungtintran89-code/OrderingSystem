@@ -104,14 +104,37 @@ export const QuickPosManagement: React.FC = () => {
   const [qrPaymentStatus, setQrPaymentStatus] = useState<'IDLE' | 'PENDING' | 'SUCCESS' | 'FAILED'>('IDLE');
   const [accountInfo, setAccountInfo] = useState<any>(undefined);
 
+  const [activePayosOrderCode, setActivePayosOrderCode] = useState<number | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+
   useEffect(() => {
     if (!isCheckoutModalOpen) {
       setCheckoutUrl('');
       setQrCodeImageUrl('');
       setQrPaymentStatus('IDLE');
       setAccountInfo(undefined);
+      setActivePayosOrderCode(null);
+      setActiveSessionId(null);
     }
   }, [isCheckoutModalOpen]);
+
+  // Tự động chuyển giao diện & đóng modal sau 1.5s khi thanh toán QR thành công
+  useEffect(() => {
+    let autoCloseTimer: any = null;
+    if (isCheckoutModalOpen && qrPaymentStatus === 'SUCCESS') {
+      autoCloseTimer = setTimeout(() => {
+        if (orderType === 'TAKEAWAY') {
+          setCart([]);
+          setIsCheckoutModalOpen(false);
+        } else {
+          handleConfirmCompletePayment();
+        }
+      }, 1500);
+    }
+    return () => {
+      if (autoCloseTimer) clearTimeout(autoCloseTimer);
+    };
+  }, [isCheckoutModalOpen, qrPaymentStatus, orderType]);
 
   const loadData = async () => {
     try {
@@ -144,16 +167,72 @@ export const QuickPosManagement: React.FC = () => {
     loadData();
   }, []);
 
-  // Real-time WebSocket Auto-Sync for Categories & Menu
+  // Real-time WebSocket Auto-Sync for Menu & Payment Alerts
   useEffect(() => {
-    const unsubscribe = wsService.subscribe('/topic/menu/updates', (data) => {
-      console.log('[Realtime POS] Received menu/category update via WebSocket:', data);
+    wsService.connectGeneric();
+
+    const unsubMenu = wsService.subscribe('/topic/menu/updates', (data) => {
       loadData();
     });
+
+    const unsubAlerts = wsService.subscribe('/topic/admin/tables/alerts', (data) => {
+      if (data && (data.type === 'PAYMENT_SUCCESS' || data.status === 'SUCCESS')) {
+        notification.success({
+          message: 'Thanh Toán VietQR Thành Công! 🎉',
+          description: data.message || `${orderType === 'TAKEAWAY' ? (activeTakeawayTicketId ? `Đơn mang về #${activeTakeawayTicketId}` : 'Đơn mang về') : selectedTable ? formatTableName(selectedTable.tableNumber) : 'Đơn hàng'} đã nhận đủ tiền chuyển khoản từ khách hàng.`,
+          duration: 5,
+          placement: 'topRight',
+        });
+        setQrPaymentStatus('SUCCESS');
+      }
+    });
+
+    const unsubAdminOrders = wsService.subscribe('/topic/admin/orders', (data) => {
+      if (data && (data.type === 'ORDER_PAYMENT_SUCCESS' || data.status === 'SUCCESS')) {
+        notification.success({
+          message: 'Thanh Toán VietQR Thành Công! 🎉',
+          description: `${activeTakeawayTicketId ? `Đơn mang về #${activeTakeawayTicketId}` : 'Đơn mang về'} đã nhận đủ tiền chuyển khoản từ khách hàng.`,
+          duration: 5,
+          placement: 'topRight',
+        });
+        setQrPaymentStatus('SUCCESS');
+      }
+    });
+
     return () => {
-      unsubscribe();
+      unsubMenu();
+      unsubAlerts();
+      unsubAdminOrders();
     };
   }, []);
+
+  // Fast Dual-Layer Polling (1.5s Interval Backup)
+  useEffect(() => {
+    let timer: any = null;
+    if (isCheckoutModalOpen && qrPaymentStatus === 'PENDING') {
+      timer = setInterval(async () => {
+        const targetSession = orderType === 'DINE_IN' ? (selectedTable?.tableSessionId || activeSessionId || undefined) : undefined;
+        const res = await checkPayOSPaymentStatusApi(
+          activePayosOrderCode || undefined,
+          targetSession ? Number(targetSession) : undefined
+        );
+        if (res && (res.status === 'SUCCESS' || res.status === 'PAID')) {
+          clearInterval(timer);
+          setQrPaymentStatus('SUCCESS');
+          notification.success({
+            message: 'Thanh Toán VietQR Thành Công! 🎉',
+            description: `${orderType === 'TAKEAWAY' ? (activeTakeawayTicketId ? `Đơn mang về #${activeTakeawayTicketId}` : 'Đơn mang về') : selectedTable ? formatTableName(selectedTable.tableNumber) : 'Đơn hàng'} đã nhận đủ tiền chuyển khoản từ khách hàng.`,
+            duration: 5,
+            placement: 'topRight',
+          });
+        }
+      }, 1500);
+    }
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isCheckoutModalOpen, qrPaymentStatus, activePayosOrderCode, activeSessionId, selectedTable, orderType]);
 
   const formatVND = (num: number) => new Intl.NumberFormat('vi-VN').format(num) + ' đ';
 
@@ -240,7 +319,7 @@ export const QuickPosManagement: React.FC = () => {
   const totalAmount = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
   // Send Order to Kitchen (Gọi API lưu DB & Bắn Realtime KDS)
-  const handleSendToKitchen = async () => {
+  const handleSendToKitchen = async (overridePaymentMethod?: 'CASH' | 'VIETQR', overridePaymentStatus?: 'PAID' | 'UNPAID') => {
     if (orderType === 'DINE_IN' && !selectedTable) {
       message.error('Vui lòng chọn bàn ăn trước khi gửi đơn!');
       return;
@@ -252,34 +331,48 @@ export const QuickPosManagement: React.FC = () => {
 
     try {
       setSubmittingOrder(true);
-      const tableId = orderType === 'TAKEAWAY' ? (tables[0]?.id || 1) : selectedTable?.id || 1;
+      const isTakeaway = orderType === 'TAKEAWAY';
+      const tableId = isTakeaway ? (tables[0]?.id || 1) : selectedTable?.id || 1;
 
       let targetTicket: TakeawayOrderTicket | null = null;
-      if (orderType === 'TAKEAWAY') {
+      if (isTakeaway) {
         const existing = takeawayTickets.find((t) => t.id === activeTakeawayTicketId);
         targetTicket = existing || handleCreateNewTakeawayTicket();
       }
 
       const roundLabel = targetTicket ? `Đợt ${targetTicket.rounds.length + 1}` : '';
-      const payloadNote = orderType === 'TAKEAWAY'
-        ? `Đơn mang về #${targetTicket?.id || 'Khách lẻ'} - ${roundLabel}`
+      const payloadNote = isTakeaway
+        ? `Đơn mang về #${targetTicket?.id || 'TV-01'} - ${roundLabel}`
         : undefined;
+
+      const validMethod = typeof overridePaymentMethod === 'string' ? overridePaymentMethod : undefined;
+      const validStatus = typeof overridePaymentStatus === 'string' ? overridePaymentStatus : undefined;
+
+      const pMethod = validMethod || (isTakeaway ? (paymentMethodTab === 'QR' ? 'VIETQR' : 'CASH') : 'UNPAID');
+      const pStatus = validStatus || (isTakeaway ? 'PAID' : 'UNPAID');
 
       const payload = {
         tableId,
         threadId: Math.floor(100000 + Math.random() * 900000),
         note: payloadNote,
-        list: cart.map((item) => ({
-          productId: Number(item.product.id) || 1,
-          quantity: item.quantity,
-          note: item.note || '',
-        })),
+        orderType: (isTakeaway ? 'TAKEAWAY' : 'DINE_IN') as 'DINE_IN' | 'TAKEAWAY',
+        paymentMethod: pMethod,
+        paymentStatus: pStatus,
+        list: cart.map((item) => {
+          const pIdStr = String(item.product.id).replace(/\D/g, '');
+          const pIdNum = parseInt(pIdStr, 10);
+          return {
+            productId: !isNaN(pIdNum) && pIdNum > 0 ? pIdNum : 1,
+            quantity: item.quantity,
+            note: item.note || '',
+          };
+        }),
       };
 
       await submitQuickPosOrderApi(payload);
 
       // Cập nhật thẻ đơn mang về với đợt món mới
-      if (orderType === 'TAKEAWAY' && targetTicket) {
+      if (isTakeaway && targetTicket) {
         const nowTime = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
         const newRound: TakeawayRound = {
           roundNumber: targetTicket.rounds.length + 1,
@@ -300,10 +393,14 @@ export const QuickPosManagement: React.FC = () => {
               : t
           )
         );
+
+        // Tạo mã đơn kế tiếp cho các lượt mua sau (#TV-02, #TV-03...)
+        const nextSeq = takeawayTickets.length + 1;
+        setActiveTakeawayTicketId(`TV-${String(nextSeq).padStart(2, '0')}`);
       }
 
-      const targetInfo = orderType === 'TAKEAWAY'
-        ? `Đơn Mang Về #${targetTicket?.id || ''} (${roundLabel})`
+      const targetInfo = isTakeaway
+        ? `Đơn Mang Về #${targetTicket?.id || 'TV-01'}`
         : `Bàn ${selectedTable?.tableNumber}`;
 
       message.success(`Đã gửi ${cart.length} món của ${targetInfo} xuống Bếp KDS thành công!`);
@@ -344,10 +441,21 @@ export const QuickPosManagement: React.FC = () => {
       const tableLabel = orderType === 'TAKEAWAY' ? 'MANG VE' : selectedTable?.tableNumber || '01';
       const tId = orderType === 'DINE_IN' && selectedTable ? selectedTable.id : undefined;
       const sId = orderType === 'DINE_IN' && selectedTable ? selectedTable.tableSessionId : undefined;
-      const response = await createVietQrPaymentApi(tableLabel, totalAmount, tId, sId);
+      const itemsPayload = cart.map((c) => {
+        const pIdStr = String(c.product.id).replace(/\D/g, '');
+        const pIdNum = parseInt(pIdStr, 10);
+        return {
+          productId: !isNaN(pIdNum) && pIdNum > 0 ? pIdNum : 1,
+          quantity: c.quantity,
+          note: c.note || '',
+        };
+      });
+      const response = await createVietQrPaymentApi(tableLabel, totalAmount, tId, sId, itemsPayload);
       setCheckoutUrl(response.checkoutUrl);
       setQrCodeImageUrl(response.qrDataUrl);
       setQrPaymentStatus('PENDING');
+      if (response.payosOrderCode) setActivePayosOrderCode(response.payosOrderCode);
+      if (response.tableSessionId) setActiveSessionId(response.tableSessionId);
       if (response.accountName || response.accountNumber) {
         setAccountInfo({
           bankName: response.bankName || 'Ngân hàng',
@@ -376,14 +484,14 @@ export const QuickPosManagement: React.FC = () => {
   // Complete Payment Action
   const handleConfirmCompletePayment = async () => {
     try {
+      const method = paymentMethodTab === 'QR' ? 'VIETQR' : 'CASH';
       if (orderType === 'DINE_IN' && selectedTable) {
         const recvAmount = typeof cashReceived === 'number' ? cashReceived : undefined;
-        const method = paymentMethodTab === 'QR' ? 'VIETQR' : 'CASH';
         await checkoutTableApi(selectedTable.id, method, recvAmount);
         message.success(`Đã hoàn tất thanh toán & trả ${formatTableName(selectedTable.tableNumber)}!`);
       } else if (orderType === 'TAKEAWAY') {
-        // TỰ ĐỘNG BẮN ĐƠN MANG VỀ XUỐNG BẾP KDS SAU KHI THANH TOÁN THÀNH CÔNG!
-        await handleSendToKitchen();
+        // TỰ ĐỘNG BẮN ĐƠN MANG VỀ XUỐNG BẾP KDS KÈM PHƯƠNG THỨC THANH TOÁN THỰC TẾ
+        await handleSendToKitchen(method, 'PAID');
         message.success('Thanh toán đơn mang về thành công! Đơn hàng đã chuyển xuống Bếp KDS.');
       }
       setCart([]);
@@ -411,13 +519,10 @@ export const QuickPosManagement: React.FC = () => {
     <div className="space-y-4 font-sans max-w-7xl mx-auto">
       {/* 1. POS TOPBAR TOOLBAR */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-600 shadow-2xs flex-shrink-0">
-            <UtensilsCrossed className="w-5 h-5" />
-          </div>
+        <div className="flex items-center gap-2.5">
+          <UtensilsCrossed className="w-5 h-5 text-orange-600 stroke-[2.2] flex-shrink-0" />
           <div>
-            <h2 className="font-bold text-base text-slate-900 tracking-tight">Đặt Món Nhanh Tại Bàn (Quick POS)</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Hỗ trợ Phục vụ & Thu ngân gọi món nhanh tại bàn hoặc mang về</p>
+            <h2 className="font-bold text-base text-slate-900 tracking-tight">Đặt Món Tại Bàn</h2>
           </div>
         </div>
 
@@ -719,7 +824,7 @@ export const QuickPosManagement: React.FC = () => {
                 {orderType === 'DINE_IN' ? (
                   /* NÚT ĂN TẠI BÀN: GỬI BẾP & GỌI MÓN (CÓ MÃ BÀN, KHÔNG THANH TOÁN NGAY) */
                   <button
-                    onClick={handleSendToKitchen}
+                    onClick={() => handleSendToKitchen()}
                     disabled={cart.length === 0 || submittingOrder}
                     className={`w-full h-12 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all min-h-[48px] shadow-sm ${
                       cart.length > 0 && !submittingOrder
@@ -752,12 +857,7 @@ export const QuickPosManagement: React.FC = () => {
                   </button>
                 )}
 
-                {/* DÒNG HƯỚNG DẪN TRỰC QUAN */}
-                <p className="text-[11px] text-slate-500 text-center font-medium pt-1">
-                  {orderType === 'DINE_IN'
-                    ? `💡 Món ăn sẽ được đưa ra ${selectedTable ? formatTableName(selectedTable.tableNumber) : 'bàn chính xác'}. Khách sẽ thanh toán khi kết thúc bữa ăn.`
-                    : '💡 Khách thanh toán ngay. Sau khi thu tiền (Tiền mặt / QR) thành công, đơn sẽ được gửi xuống Bếp KDS làm món.'}
-                </p>
+
               </div>
             </div>
 
@@ -848,27 +948,25 @@ export const QuickPosManagement: React.FC = () => {
       </Modal>
 
       {/* 2. INTEGRATED CHECKOUT PAYMENT MODAL FOR QUICK POS REFACTORED */}
-      {selectedTable && (
-        <PaymentCheckoutModal
-          isOpen={isCheckoutModalOpen}
-          onClose={() => setIsCheckoutModalOpen(false)}
-          tableName={orderType === 'TAKEAWAY' ? (activeTakeawayTicketId ? `Đơn Mang Về #${activeTakeawayTicketId}` : 'Mang Về (Khách lẻ)') : `Bàn ${selectedTable.tableNumber}`}
-          totalAmount={totalAmount}
-          orderItems={cart.map(c => ({ name: c.product.name, quantity: c.quantity, price: c.product.price }))}
-          orderCode={orderType === 'TAKEAWAY' ? (activeTakeawayTicketId ? `MANGVE-${activeTakeawayTicketId}` : 'MANGVE') : `POS-${selectedTable.tableNumber}`}
-          onConfirmCashPayment={(received) => {
-            setCashReceived(received);
-            handleConfirmCompletePayment();
-          }}
-          onGenerateQr={handleGenerateVietQR}
-          checkoutUrl={checkoutUrl}
-          qrCodeImageUrl={qrCodeImageUrl}
-          qrPaymentStatus={qrPaymentStatus}
-          onCancelQrPayment={handleCancelQrPayment}
-          onSimulateQrResult={handleSimulateQrResult}
-          accountInfo={accountInfo}
-        />
-      )}
+      <PaymentCheckoutModal
+        isOpen={isCheckoutModalOpen}
+        onClose={() => setIsCheckoutModalOpen(false)}
+        tableName={orderType === 'TAKEAWAY' ? (activeTakeawayTicketId ? `Đơn Mang Về #${activeTakeawayTicketId}` : 'Mang Về (Khách lẻ)') : `Bàn ${selectedTable?.tableNumber || '01'}`}
+        totalAmount={totalAmount}
+        orderItems={cart.map(c => ({ name: c.product.name, quantity: c.quantity, price: c.product.price }))}
+        orderCode={orderType === 'TAKEAWAY' ? (activeTakeawayTicketId ? `MANGVE-${activeTakeawayTicketId}` : 'MANGVE') : `POS-${selectedTable?.tableNumber || '01'}`}
+        onConfirmCashPayment={(received) => {
+          setCashReceived(received);
+          handleConfirmCompletePayment();
+        }}
+        onGenerateQr={handleGenerateVietQR}
+        checkoutUrl={checkoutUrl}
+        qrCodeImageUrl={qrCodeImageUrl}
+        qrPaymentStatus={qrPaymentStatus}
+        onCancelQrPayment={handleCancelQrPayment}
+        onSimulateQrResult={handleSimulateQrResult}
+        accountInfo={accountInfo}
+      />
 
       {/* 3. MODAL XEM CHI TIẾT CÁC ĐỢT MÓN MANG VỀ (TAKEAWAY ROUNDS DETAIL MODAL) */}
       <Modal

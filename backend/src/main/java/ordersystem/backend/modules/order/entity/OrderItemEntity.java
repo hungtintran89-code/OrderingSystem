@@ -37,8 +37,9 @@ public class OrderItemEntity {
 
     private String note;
 
-    @Column(nullable = false)
-    private Long createdByThread;
+    @Column(name = "created_by_thread", nullable = true)
+    @Builder.Default
+    private Long createdByThread = 1L;
 
     public void calculatePrice() {
         Long unitPrice = (this.price != null) ? this.price : 0L;

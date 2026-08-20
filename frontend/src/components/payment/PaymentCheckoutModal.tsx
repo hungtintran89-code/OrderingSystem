@@ -529,22 +529,28 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                     )}
 
                     {qrPaymentStatus === 'SUCCESS' && (
-                      <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-5 text-center space-y-3 shadow-sm animate-in zoom-in-95 duration-200">
-                        <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto stroke-[2.5]" />
+                      <div className="bg-emerald-50/90 border border-emerald-300 rounded-2xl p-6 text-center space-y-4 shadow-sm animate-in zoom-in-95 duration-200">
+                        <div className="w-14 h-14 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600 shadow-2xs">
+                          <CheckCircle2 className="w-9 h-9 stroke-[2.5]" />
+                        </div>
                         <div>
-                          <h3 className="font-bold text-sm md:text-base text-emerald-950">XÁC NHẬN THANH TOÁN THÀNH CÔNG</h3>
-                          <p className="text-xs text-emerald-800 mt-1 max-w-md mx-auto font-medium">
-                            Hệ thống đã xác nhận thanh toán đủ{' '}
-                            <strong className="text-emerald-950 font-bold">{formatVND(totalAmount)}</strong> cho {tableName}.
+                          <h3 className="font-extrabold text-base md:text-lg text-emerald-950 tracking-tight">
+                            XÁC NHẬN THANH TOÁN THÀNH CÔNG
+                          </h3>
+                          <p className="text-xs md:text-sm text-emerald-800 mt-1 max-w-md mx-auto font-medium leading-relaxed">
+                            Hệ thống đã xác nhận thanh toán đủ <strong className="text-emerald-950 font-extrabold">{formatVND(totalAmount)}</strong> cho {tableName}.
                           </p>
                         </div>
 
                         <button
                           type="button"
                           onClick={onClose}
-                          className="w-full h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+                          className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-xs md:text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
                         >
-                          Đóng & Hoàn Tất Clear Bàn
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>
+                            {tableName.toLowerCase().includes('mang') ? 'Đóng & Hoàn Tất Clear Giỏ Món' : 'Đóng & Hoàn Tất Clear Bàn'}
+                          </span>
                         </button>
                       </div>
                     )}
