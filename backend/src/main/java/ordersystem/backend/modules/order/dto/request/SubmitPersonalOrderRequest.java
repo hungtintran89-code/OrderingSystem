@@ -24,6 +24,9 @@ public class SubmitPersonalOrderRequest {
     private Long threadId;
 
     private String note;
+    private String orderType;
+    private String paymentMethod;
+    private String paymentStatus;
 
     @NotEmpty(message = "The list of ordered items cannot be left blank.")
     private List<OrderItemRequest> list = new ArrayList<>();

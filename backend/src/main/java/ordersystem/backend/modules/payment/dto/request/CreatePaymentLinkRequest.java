@@ -1,7 +1,8 @@
 package ordersystem.backend.modules.payment.dto.request;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.*;
+import ordersystem.backend.modules.order.dto.request.OrderItemRequest;
+import java.util.List;
 
 @Getter @Setter
 @Builder
@@ -12,4 +13,5 @@ public class CreatePaymentLinkRequest {
     private String tableNumber;
     private Long totalAmount;
     private Long amount;
+    private List<OrderItemRequest> items;
 }

@@ -258,6 +258,12 @@ export const TableQRManager: React.FC = () => {
     <div className="space-y-4 font-sans">
       {/* TOOLBAR STICKY: ZONE TABS & ACTION BUTTONS */}
       <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 transition-all">
+        {/* Page Title */}
+        <div className="flex items-center gap-2.5">
+          <QrCode className="w-5 h-5 text-orange-600 stroke-[2.2] flex-shrink-0" />
+          <h2 className="font-bold text-base text-slate-900 tracking-tight">Quản Lý Bàn & Mã QR</h2>
+        </div>
+
         {/* Zone Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           <button

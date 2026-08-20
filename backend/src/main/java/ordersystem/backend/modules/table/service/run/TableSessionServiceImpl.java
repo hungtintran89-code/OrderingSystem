@@ -78,12 +78,16 @@ public class TableSessionServiceImpl implements TableSessionService {
     @Transactional
     @CacheEvict(value = "floor_map", allEntries = true)
     public void closeSessionEntity(TableSessionEntity session) {
-        // 📌 1. Cập nhật tất cả đơn hàng chưa bị HỦY của session này thành COMPLETED
+        // 📌 1. Cập nhật tất cả đơn hàng chưa bị HỦY của session này thành COMPLETED & PAID
         List<OrderEntity> sessionOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(
                 session.getTableSessionId(), ordersystem.backend.modules.order.enums.OrderStatus.CANCELLED);
         if (sessionOrders != null && !sessionOrders.isEmpty()) {
             for (OrderEntity order : sessionOrders) {
                 order.setStatus(ordersystem.backend.modules.order.enums.OrderStatus.COMPLETED);
+                order.setPaymentStatus("PAID");
+                if (order.getPaymentMethod() == null || "UNPAID".equalsIgnoreCase(order.getPaymentMethod())) {
+                    order.setPaymentMethod("CASH");
+                }
             }
             orderRepository.saveAll(sessionOrders);
         }

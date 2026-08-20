@@ -34,7 +34,7 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({
   const menuItems = [
     { key: '/app/staff/tables', icon: LayoutGrid, label: 'Sơ đồ & Danh sách Bàn' },
     { key: '/app/staff/orders', icon: Receipt, label: 'Danh sách Đơn hàng' },
-    { key: '/app/staff/quick-pos', icon: UtensilsCrossed, label: 'Đặt món tại bàn (Quick POS)' },
+    { key: '/app/staff/quick-pos', icon: UtensilsCrossed, label: 'Đặt món tại bàn' },
   ];
 
   const handleMenuClick = (path: string) => {

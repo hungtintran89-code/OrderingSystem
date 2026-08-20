@@ -39,16 +39,71 @@ public class OrderMapper {
     }
 
     public MasterTableOrderResponse toMasterResponse(OrderEntity orderEntity, List<OrderItemResponse> allItems) {
-        Long total = allItems.stream()
-                .map(item -> item.getPriceTotal() != null ? item.getPriceTotal() : 0L)
-                .reduce(0L , Long::sum);
+        Long total = (allItems != null && !allItems.isEmpty())
+                ? allItems.stream()
+                        .mapToLong(item -> item.getPriceTotal() != null ? item.getPriceTotal() : 0L)
+                        .sum()
+                : (orderEntity.getTotalAmount() != null ? orderEntity.getTotalAmount() : 0L);
+
+        String tableName = "Bàn 01";
+        String zone = "Tầng 1";
+        Long tableId = 1L;
+        Long tableSessionId = null;
+        String sessionStatus = "ACTIVE";
+
+        if (orderEntity.getTableSession() != null) {
+            tableSessionId = orderEntity.getTableSession().getTableSessionId();
+            if (orderEntity.getTableSession().getStatus() != null) {
+                sessionStatus = orderEntity.getTableSession().getStatus().name();
+            }
+            if (orderEntity.getTableSession().getTable() != null) {
+                tableId = orderEntity.getTableSession().getTable().getTableId();
+                tableName = orderEntity.getTableSession().getTable().getTableName();
+                zone = orderEntity.getTableSession().getTable().getZone();
+            } else if (orderEntity.getTableSession().getTableName() != null) {
+                tableName = orderEntity.getTableSession().getTableName();
+            }
+        }
+
+        String orderType = (orderEntity.getOrderType() != null && !orderEntity.getOrderType().trim().isEmpty())
+                ? orderEntity.getOrderType()
+                : ("TAKEAWAY".equalsIgnoreCase(tableName) ? "TAKEAWAY" : "DINE_IN");
+
+        if ("TAKEAWAY".equalsIgnoreCase(orderType)) {
+            tableName = "Mang Về";
+            zone = "Mang Về";
+        }
+
+        String paymentMethod = orderEntity.getPaymentMethod();
+        String paymentStatus = orderEntity.getPaymentStatus();
+
+        boolean isPaidOrCompleted = orderEntity.getStatus() == ordersystem.backend.modules.order.enums.OrderStatus.COMPLETED
+                || "PAID".equalsIgnoreCase(orderEntity.getPaymentStatus())
+                || (orderEntity.getTableSession() != null && orderEntity.getTableSession().getStatus() == ordersystem.backend.modules.table.enums.SessionStatus.CLOSED);
+
+        if (paymentStatus == null || paymentStatus.trim().isEmpty() || ("UNPAID".equalsIgnoreCase(paymentStatus) && isPaidOrCompleted)) {
+            paymentStatus = isPaidOrCompleted ? "PAID" : "UNPAID";
+        }
+
+        if (paymentMethod == null || paymentMethod.trim().isEmpty() || ("UNPAID".equalsIgnoreCase(paymentMethod) && isPaidOrCompleted)) {
+            paymentMethod = isPaidOrCompleted ? "VIETQR" : "UNPAID";
+        }
 
         return MasterTableOrderResponse.builder()
-                .tableId(orderEntity.getTableSession().getTable().getTableId())
-                .tableName(orderEntity.getTableSession().getTable().getTableName())
-                .tableSessionId(orderEntity.getTableSession().getTableSessionId())
-                .sessionStatus(orderEntity.getTableSession().getStatus().name())
+                .orderId(orderEntity.getId())
+                .orderCode(orderEntity.getOrderCode())
+                .tableId(tableId)
+                .tableName(tableName)
+                .zone(zone)
+                .tableSessionId(tableSessionId)
+                .sessionStatus(sessionStatus)
                 .totalPrice(total)
+                .openedAt(orderEntity.getCreatedAt())
+                .createdAt(orderEntity.getCreatedAt())
+                .status(orderEntity.getStatus() != null ? orderEntity.getStatus().name() : "PENDING")
+                .orderType(orderType)
+                .paymentMethod(paymentMethod)
+                .paymentStatus(paymentStatus)
                 .allTableItems(allItems)
                 .build();
     }

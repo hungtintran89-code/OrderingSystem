@@ -116,35 +116,55 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     protected PersonalOrderResponse submitPersonalOrder(SubmitPersonalOrderRequest request){
 
-        // 1. Lấy Session bàn đang ACTIVE
-        RestaurantTableEntity table = restaurantTableRepository.findByTableId(request.getTableId())
-                .orElseThrow(() -> new OrderException("Không tìm thấy thông tin bàn ăn với ID: " + request.getTableId()));
+        boolean isTakeaway = (request.getOrderType() != null && "TAKEAWAY".equalsIgnoreCase(request.getOrderType()))
+                || (request.getNote() != null && request.getNote().toLowerCase().contains("mang về"));
 
-        // 2. Tìm phiên không có thì tạo mới và ĐỔI TRẠNG THÁI BÀN sang OCCUPIED
-        TableSessionEntity tableSessionEntity = tableSessionRepository.findByTableTableIdAndStatus(table.getTableId(), SessionStatus.ACTIVE)
-                .orElseGet(() -> {
+        RestaurantTableEntity table = null;
+        TableSessionEntity tableSessionEntity = null;
+
+        if (!isTakeaway) {
+            table = restaurantTableRepository.findByTableId(request.getTableId())
+                    .orElseGet(() -> restaurantTableRepository.findAll().stream().findFirst().orElse(null));
+
+            if (table != null) {
+                final RestaurantTableEntity targetTable = table;
+                tableSessionEntity = tableSessionRepository.findByTableTableIdAndStatus(targetTable.getTableId(), SessionStatus.ACTIVE)
+                        .orElseGet(() -> {
+                            targetTable.setTableStatus(TableStatus.OCCUPIED);
+                            restaurantTableRepository.save(targetTable);
+                            TableSessionEntity newSession = TableSessionEntity.builder()
+                                    .table(targetTable)
+                                    .tableName(targetTable.getTableName())
+                                    .sessionToken("sess_" + UUID.randomUUID().toString().replaceAll("-", ""))
+                                    .status(SessionStatus.ACTIVE)
+                                    .startedAt(new Date())
+                                    .build();
+                            return tableSessionRepository.save(newSession);
+                        });
+
+                if (table.getTableStatus() != TableStatus.OCCUPIED) {
                     table.setTableStatus(TableStatus.OCCUPIED);
                     restaurantTableRepository.save(table);
-                    TableSessionEntity newSession = TableSessionEntity.builder()
-                            .table(table)
-                            .tableName(table.getTableName())
-                            .sessionToken("sess_" + UUID.randomUUID().toString().replaceAll("-", ""))
-                            .status(SessionStatus.ACTIVE)
-                            .startedAt(new Date())
-                            .build();
-                    return tableSessionRepository.save(newSession);
-                });
-
-        if (table.getTableStatus() != TableStatus.OCCUPIED) {
-            table.setTableStatus(TableStatus.OCCUPIED);
-            restaurantTableRepository.save(table);
+                }
+            }
         }
 
         // 3. Tạo Đợt Đơn (Order Batch) riêng biệt cho lượt gửi này của khách
+        String orderType = isTakeaway ? "TAKEAWAY" : "DINE_IN";
+
+        String paymentMethod = request.getPaymentMethod() != null && !request.getPaymentMethod().trim().isEmpty()
+                ? request.getPaymentMethod() : "UNPAID";
+        String paymentStatus = request.getPaymentStatus() != null && !request.getPaymentStatus().trim().isEmpty()
+                ? request.getPaymentStatus() : "UNPAID";
+        OrderStatus initialStatus = "PAID".equalsIgnoreCase(paymentStatus) ? OrderStatus.COMPLETED : OrderStatus.PENDING;
+
         OrderEntity batchOrder = OrderEntity.builder()
                 .orderCode("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .tableSession(tableSessionEntity)
-                .status(OrderStatus.PENDING)
+                .orderType(orderType)
+                .paymentMethod(paymentMethod)
+                .paymentStatus(paymentStatus)
+                .status(initialStatus)
                 .totalAmount(0L)
                 .items(new ArrayList<>())
                 .build();
@@ -185,31 +205,40 @@ public class OrderServiceImpl implements OrderService {
         batchOrder.setTotalAmount(batchTotal);
         OrderEntity savedOrderEntity = orderRepository.saveAndFlush(batchOrder);
 
-        // Tính lại tổng tiền của tất cả các đợt trong session để gửi realtime tới Sơ đồ bàn Staff POS
-        List<OrderEntity> sessionActiveOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(
-                tableSessionEntity.getTableSessionId(), OrderStatus.CANCELLED);
-        Long sessionTotalAmount = sessionActiveOrders.stream()
-                .mapToLong(o -> o.getTotalAmount() != null ? o.getTotalAmount() : 0L)
-                .sum();
+        // 4. Nếu là Dine-In thì tính lại tổng tiền bàn & phát thông báo FloorMap
+        if (tableSessionEntity != null && tableSessionEntity.getTable() != null) {
+            List<OrderEntity> sessionActiveOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(
+                    tableSessionEntity.getTableSessionId(), OrderStatus.CANCELLED);
+            Long sessionTotalAmount = sessionActiveOrders.stream()
+                    .mapToLong(o -> o.getTotalAmount() != null ? o.getTotalAmount() : 0L)
+                    .sum();
 
-        FloorMapResponse updatedTableMap = FloorMapResponse.builder()
-                .tableId(tableSessionEntity.getTable().getTableId())
-                .tableName(tableSessionEntity.getTableName())
-                .status(TableStatus.OCCUPIED)
-                .tempTotalAmount(sessionTotalAmount.doubleValue())
-                .zone(tableSessionEntity.getTable().getZone())
-                .capacity(tableSessionEntity.getTable().getCapacity())
-                .build();
-        webSocketPublisher.notifyFloorMapUpdate(updatedTableMap);
+            FloorMapResponse updatedTableMap = FloorMapResponse.builder()
+                    .tableId(tableSessionEntity.getTable().getTableId())
+                    .tableName(tableSessionEntity.getTableName())
+                    .status(TableStatus.OCCUPIED)
+                    .tempTotalAmount(sessionTotalAmount.doubleValue())
+                    .zone(tableSessionEntity.getTable().getZone())
+                    .capacity(tableSessionEntity.getTable().getCapacity())
+                    .build();
+            webSocketPublisher.notifyFloorMapUpdate(updatedTableMap);
+            cartService.clearCart(tableSessionEntity.getTableSessionId(), request.getThreadId());
+        }
 
-        // 5. Xóa giỏ hàng của thiết bị (threadId) vừa gửi đơn
-        cartService.clearCart(tableSessionEntity.getTableSessionId(), request.getThreadId());
+        // 5. Phát thông báo Realtime sang Danh sách Đơn hàng Admin
+        try {
+            webSocketPublisher.notifyAdminOrdersUpdate(savedOrderEntity);
+        } catch (Exception ignored) {}
 
         // 6. Tạo vé bếp (KitchenTicketEntity) nguyên tử cho từng món trong đợt gửi này
-        String tableName = (tableSessionEntity.getTable() != null && tableSessionEntity.getTable().getTableName() != null)
-                ? tableSessionEntity.getTable().getTableName() : "Bàn 01";
-        String areaName = (tableSessionEntity.getTable() != null && tableSessionEntity.getTable().getZone() != null)
-                ? tableSessionEntity.getTable().getZone() : "Khu A";
+        String tableName = isTakeaway
+                ? "Mang Về"
+                : ((tableSessionEntity != null && tableSessionEntity.getTable() != null && tableSessionEntity.getTable().getTableName() != null)
+                        ? tableSessionEntity.getTable().getTableName() : "Bàn 01");
+        String areaName = isTakeaway
+                ? "Mang Về"
+                : ((tableSessionEntity != null && tableSessionEntity.getTable() != null && tableSessionEntity.getTable().getZone() != null)
+                        ? tableSessionEntity.getTable().getZone() : "Khu A");
 
         for (OrderItemEntity item : savedOrderEntity.getItems()) {
             KitchenTicketEntity ticket = KitchenTicketEntity.builder()
@@ -233,7 +262,7 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        return getPersonalOrder(tableSessionEntity.getTableSessionId(), request.getThreadId());
+        return getPersonalOrder(tableSessionEntity != null ? tableSessionEntity.getTableSessionId() : null, request.getThreadId());
     }
 
     // 2. Khách mở điện thoại cá nhân lên xem -> CHỈ HIỂN THỊ MÓN DO THREAD ĐÓ ĐẶT
@@ -331,11 +360,20 @@ public class OrderServiceImpl implements OrderService {
     // 5. Xem lịch sử Đơn hàng
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, String date, Pageable pageable) {
+    public PageResponse<MasterTableOrderResponse> getOrderHistory(OrderStatus status, String date, String startDateStr, String endDateStr, Pageable pageable) {
         Date startDate = null;
         Date endDate = null;
 
-        if (date != null && !date.trim().isEmpty() && !"ALL".equalsIgnoreCase(date.trim())) {
+        if (startDateStr != null && !startDateStr.trim().isEmpty() && endDateStr != null && !endDateStr.trim().isEmpty()) {
+            try {
+                java.time.LocalDate startLd = java.time.LocalDate.parse(startDateStr.trim());
+                java.time.LocalDate endLd = java.time.LocalDate.parse(endDateStr.trim());
+                java.time.LocalDateTime startLdt = startLd.atStartOfDay();
+                java.time.LocalDateTime endLdt = endLd.atTime(java.time.LocalTime.MAX);
+                startDate = Date.from(startLdt.atZone(java.time.ZoneId.systemDefault()).toInstant());
+                endDate = Date.from(endLdt.atZone(java.time.ZoneId.systemDefault()).toInstant());
+            } catch (Exception ignored) {}
+        } else if (date != null && !date.trim().isEmpty() && !"ALL".equalsIgnoreCase(date.trim())) {
             try {
                 java.time.LocalDate localDate = java.time.LocalDate.parse(date.trim());
                 java.time.LocalDateTime startLdt = localDate.atStartOfDay();

@@ -26,7 +26,7 @@ public class OrderEntity {
     private String orderCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "table_session_id", nullable = false)
+    @JoinColumn(name = "table_session_id", nullable = true)
     private TableSessionEntity tableSession;
 
     @Column(nullable = false)
@@ -36,6 +36,18 @@ public class OrderEntity {
     @Column(nullable = false)
     @Builder.Default
     private OrderStatus status = OrderStatus.PENDING;
+
+    @Column(name = "order_type")
+    @Builder.Default
+    private String orderType = "DINE_IN";
+
+    @Column(name = "payment_method")
+    @Builder.Default
+    private String paymentMethod = "UNPAID";
+
+    @Column(name = "payment_status")
+    @Builder.Default
+    private String paymentStatus = "UNPAID";
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

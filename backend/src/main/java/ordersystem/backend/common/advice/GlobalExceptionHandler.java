@@ -102,12 +102,17 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Access denied: You do not have permission", 403));
     }
 
-    // 9. Lỗi CSDL (Dữ liệu quá dài, vi phạm ràng buộc): Trả về thông báo Tiếng Việt sạch sẽ
+    // 9. Lỗi CSDL (Ràng buộc CSDL, trùng lặp key, NULL constraint): Trả về thông báo Tiếng Việt sạch sẽ
     @ExceptionHandler({org.springframework.dao.DataIntegrityViolationException.class, org.hibernate.JDBCException.class})
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(Exception ex) {
         log.error("[DATABASE ERROR] Data integrity violation: ", ex);
+        String causeMsg = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+        String userMsg = "Lỗi hệ thống CSDL: Dữ liệu không hợp lệ hoặc vi phạm ràng buộc!";
+        if (causeMsg != null && (causeMsg.contains("value too long") || causeMsg.contains("varying"))) {
+            userMsg = "Dữ liệu hình ảnh hoặc thông tin nhập vào quá dài. Vui lòng chọn hình ảnh có dung lượng nhỏ hơn!";
+        }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Dữ liệu hình ảnh hoặc thông tin nhập vào quá dài. Vui lòng chọn hình ảnh có dung lượng nhỏ hơn!", 400));
+                .body(ApiResponse.error(userMsg, 400));
     }
 
     // 10. Lỗi 500: Lỗi hệ thống không lường trước (Catch-all trả về Tiếng Việt mượt mà)

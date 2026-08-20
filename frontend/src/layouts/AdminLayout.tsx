@@ -53,7 +53,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       items: [
         { key: '/app/admin/tables', icon: LayoutGrid, label: 'Sơ đồ & Danh sách Bàn' },
         { key: '/app/admin/orders', icon: Receipt, label: 'Danh sách Đơn hàng' },
-        { key: '/app/admin/quick-pos', icon: UtensilsCrossed, label: 'Đặt món tại bàn (Quick POS)' },
+        { key: '/app/admin/quick-pos', icon: UtensilsCrossed, label: 'Đặt món tại bàn' },
       ],
     },
   ];
@@ -102,7 +102,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       '/app/admin/analytics': 'Báo cáo & Analytics',
       '/app/admin/tables': 'Sơ đồ & Danh sách Bàn',
       '/app/admin/orders': 'Danh sách Đơn hàng',
-      '/app/admin/quick-pos': 'Đặt món tại bàn (Quick POS)',
+      '/app/admin/quick-pos': 'Đặt món tại bàn',
     };
 
     const currentTitle = routeTitles[currentPath] || 'Quản trị & Vận hành';

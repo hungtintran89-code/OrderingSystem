@@ -37,8 +37,10 @@ public class AdminOrderController {
     public ResponseEntity<ApiResponse<?>> getOrderHistory(
             @RequestParam(required = false) OrderStatus status,
             @RequestParam(required = false) String date,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
             Pageable pageable) {
-        PageResponse<MasterTableOrderResponse> history = orderService.getOrderHistory(status, date, pageable);
+        PageResponse<MasterTableOrderResponse> history = orderService.getOrderHistory(status, date, startDate, endDate, pageable);
 
         return ResponseEntity.ok(ApiResponse.success("Order history retrieved successfully", history));
     }
