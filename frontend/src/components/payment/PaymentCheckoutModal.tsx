@@ -43,6 +43,8 @@ export interface PaymentCheckoutModalProps {
   qrPaymentStatus?: 'IDLE' | 'PENDING' | 'SUCCESS' | 'FAILED';
   onCancelQrPayment: () => void;
   onSimulateQrResult?: (status: 'SUCCESS' | 'FAILED') => void;
+  onManualSyncPayment?: () => void;
+  countdownSeconds?: number;
   accountInfo?: PaymentAccountInfo;
 }
 
@@ -60,6 +62,8 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
   qrPaymentStatus = 'IDLE',
   onCancelQrPayment,
   onSimulateQrResult,
+  onManualSyncPayment,
+  countdownSeconds,
   accountInfo = {
     bankName: 'Ngân hàng TMCP Quân đội (MBBank)',
     accountName: 'TRAN HUNG TIN',
@@ -440,14 +444,26 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                               </div>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={onCancelQrPayment}
-                              className="px-4 py-1 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-2xs active:scale-95"
-                            >
-                              <Ban className="w-3.5 h-3.5 text-slate-500" />
-                              <span>Huỷ Giao Dịch</span>
-                            </button>
+                            <div className="flex items-center gap-2">
+                              {onManualSyncPayment && (
+                                <button
+                                  type="button"
+                                  onClick={onManualSyncPayment}
+                                  className="px-3 py-1 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-2xs active:scale-95"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Kiểm tra thanh toán</span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={onCancelQrPayment}
+                                className="px-3 py-1 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-2xs active:scale-95"
+                              >
+                                <Ban className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Huỷ Giao Dịch</span>
+                              </button>
+                            </div>
                           </div>
 
                           {/* CỘT PHẢI: CHI TIẾT CHUYỂN KHOẢN GỌN GÀNG FIT MÀN HÌNH */}
@@ -535,11 +551,16 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                         </div>
                         <div>
                           <h3 className="font-extrabold text-base md:text-lg text-emerald-950 tracking-tight">
-                            XÁC NHẬN THANH TOÁN THÀNH CÔNG
+                            XÁC NHẬN THANH TOÁN THÀNH CÔNG 🎉
                           </h3>
                           <p className="text-xs md:text-sm text-emerald-800 mt-1 max-w-md mx-auto font-medium leading-relaxed">
-                            Hệ thống đã xác nhận thanh toán đủ <strong className="text-emerald-950 font-extrabold">{formatVND(totalAmount)}</strong> cho {tableName}.
+                            Hệ thống đã nhận đủ <strong className="text-emerald-950 font-extrabold">{formatVND(totalAmount)}</strong> cho {tableName}.
                           </p>
+                          {countdownSeconds !== undefined && countdownSeconds > 0 && (
+                            <p className="text-xs font-bold text-emerald-700 mt-2 bg-emerald-100/80 px-3 py-1 rounded-full inline-block">
+                              Tự động hoàn tất trong <span className="text-emerald-950 text-sm font-extrabold">{countdownSeconds}s</span>...
+                            </p>
+                          )}
                         </div>
 
                         <button

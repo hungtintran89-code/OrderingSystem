@@ -279,7 +279,6 @@ public class PayOSServiceImpl implements PayOSService {
                 if (description.length() > 25) {
                     description = description.substring(0, 25);
                 }
-                Long payosOrderCode = (System.currentTimeMillis() / 1000L) * 1000L + (long)(Math.random() * 999);
 
                 String itemsJson = null;
                 if (request != null && request.getItems() != null && !request.getItems().isEmpty()) {
@@ -290,17 +289,23 @@ public class PayOSServiceImpl implements PayOSService {
                     }
                 }
 
-                // Lưu PaymentTransactionEntity (PENDING) để Webhook đối soát khi khách quét QR thanh toán thành công
+                // 1. Khởi tạo PaymentTransactionEntity (PENDING)
                 PaymentTransactionEntity takeawayTx = PaymentTransactionEntity.builder()
                         .invoiceCode("INV_TV_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                         .totalAmount(finalAmount)
                         .paymentMethod(PaymentMethod.VIETQR)
                         .paymentStatus(PaymentStatus.PENDING)
-                        .payosOrderCode(payosOrderCode)
                         .orderType("TAKEAWAY")
                         .itemsJson(itemsJson)
                         .build();
-                transactionRepository.saveAndFlush(takeawayTx);
+
+                // Save lần 1 để JPA tự sinh payment_id trong DB
+                takeawayTx = transactionRepository.saveAndFlush(takeawayTx);
+
+                // Lấy payment_id gán cho payosOrderCode (Đồng bộ 100% chuẩn hệ thống ngân hàng với luồng bàn ăn)
+                Long payosOrderCode = takeawayTx.getPaymentId();
+                takeawayTx.setPayosOrderCode(payosOrderCode);
+                takeawayTx = transactionRepository.saveAndFlush(takeawayTx);
 
                 PaymentLinkItem item = PaymentLinkItem.builder()
                         .name("Don hang " + label)
@@ -322,6 +327,10 @@ public class PayOSServiceImpl implements PayOSService {
                     PayOS payOS = payOSConfig.getPayOSInstance();
                     log.info("[PayOS] Gọi PayOS SDK tạo QR thật cho đơn Mang về / Takeaway - orderCode={} - amount={}", payosOrderCode, finalAmount);
                     CreatePaymentLinkResponse responseData = payOS.paymentRequests().create(paymentData);
+
+                    // Cập nhật qrUrl vào DB
+                    takeawayTx.setQrUrl(responseData.getQrCode());
+                    transactionRepository.save(takeawayTx);
 
                     String qrImgUrl;
                     if (responseData.getQrCode() != null && !responseData.getQrCode().isBlank()) {

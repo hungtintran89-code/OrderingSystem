@@ -14,7 +14,7 @@ public class RedisWebSocketPublisher {
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
 
-    public void publish(String destination, Object payload) {
+    public boolean publish(String destination, Object payload) {
         try {
             String payloadJson;
             if (payload instanceof byte[]) {
@@ -31,8 +31,10 @@ public class RedisWebSocketPublisher {
 
             log.debug("[RedisWSPublisher] Publishing broadcast to destination: {}", destination);
             redisTemplate.convertAndSend(RedisWebSocketListener.REDIS_CHANNEL, messageJson);
+            return true;
         } catch (Exception e) {
-            log.error("[RedisWSPublisher] Failed to publish message to Redis: ", e);
+            log.warn("[RedisWSPublisher] Redis server offline, fallback sang Local WebSocket Dispatch: {}", e.getMessage());
+            return false;
         }
     }
 }

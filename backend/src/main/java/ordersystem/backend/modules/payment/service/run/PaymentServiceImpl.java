@@ -251,102 +251,7 @@ public class PaymentServiceImpl implements PaymentService {
                     completeSessionAndReleaseTable(session, sessionOrders);
                 } else {
                     // Đối với Đơn Mang Về (Takeaway): TỰ ĐỘNG KHỞI TẠO VÀ LƯU CSDL VÀ PHÁT WEBSOCKET KDS + DOANH THU + ORDER LIST
-                    OrderEntity takeawayOrder = null;
-                    if (currentTx.getOrderId() != null) {
-                        takeawayOrder = orderRepository.findById(currentTx.getOrderId()).orElse(null);
-                    }
-                    if (takeawayOrder == null) {
-                        List<OrderItemEntity> orderItems = new ArrayList<>();
-                        if (currentTx.getItemsJson() != null && !currentTx.getItemsJson().isBlank()) {
-                            try {
-                                List<OrderItemRequest> itemReqs = objectMapper.readValue(
-                                        currentTx.getItemsJson(),
-                                        new TypeReference<List<OrderItemRequest>>() {}
-                                );
-                                if (itemReqs != null) {
-                                    for (OrderItemRequest req : itemReqs) {
-                                        ProductEntity p = productRepository.findById(req.getProductId()).orElse(null);
-                                        if (p != null) {
-                                            OrderItemEntity itemEntity = OrderItemEntity.builder()
-                                                    .product(p)
-                                                    .quantity(req.getQuantity())
-                                                    .price(p.getProductPrice())
-                                                    .note(req.getNote())
-                                                    .createdByThread(1L)
-                                                    .build();
-                                            orderItems.add(itemEntity);
-                                        }
-                                    }
-                                }
-                            } catch (Exception e) {
-                                log.error("[PayOS Webhook] Lỗi đọc itemsJson cho Takeaway Order: {}", e.getMessage());
-                            }
-                        }
-
-                        takeawayOrder = OrderEntity.builder()
-                                .orderCode("ORD-TV-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                                .orderType("TAKEAWAY")
-                                .paymentMethod("VIETQR")
-                                .paymentStatus("PAID")
-                                .status(OrderStatus.COMPLETED)
-                                .totalAmount(receivedAmount)
-                                .items(new ArrayList<>())
-                                .build();
-                        
-                        for (OrderItemEntity item : orderItems) {
-                            item.setOrder(takeawayOrder);
-                        }
-                        takeawayOrder.setItems(orderItems);
-
-                        takeawayOrder = orderRepository.saveAndFlush(takeawayOrder);
-                        currentTx.setOrderId(takeawayOrder.getId());
-                        transactionRepository.save(currentTx);
-
-                        // 1. Tạo vé bếp KitchenTicketEntity & phát WebSocket xuống Bếp KDS
-                        if (takeawayOrder.getItems() != null && !takeawayOrder.getItems().isEmpty()) {
-                            for (OrderItemEntity item : takeawayOrder.getItems()) {
-                                KitchenTicketEntity ticket = KitchenTicketEntity.builder()
-                                        .orderId(takeawayOrder.getId())
-                                        .orderItemId(item.getOrderItemId())
-                                        .tableNumber("Mang Về")
-                                        .areaName("Mang Về")
-                                        .productId(item.getProduct().getProductId())
-                                        .productName(item.getProduct().getProductName())
-                                        .quantity(item.getQuantity())
-                                        .note(item.getNote())
-                                        .status(KitchenItemStatus.PENDING)
-                                        .build();
-                                try {
-                                    KitchenTicketEntity savedTicket = kitchenTicketRepository.save(ticket);
-                                    KitchenTicketResponse ticketResponse = kitchenTicketMapper.toResponse(savedTicket);
-                                    webSocketPublisher.notifyKitchenOrders(ticketResponse);
-                                } catch (Exception e) {
-                                    log.error("[PayOS Webhook] Lỗi tạo vé bếp cho takeawayOrderId={}: {}", takeawayOrder.getId(), e.getMessage());
-                                }
-                            }
-                        }
-                    }
-
-                    // 2. Phát thông báo Realtime cho Danh sách Đơn hàng & Doanh thu
-                    try {
-                        webSocketPublisher.notifyAdminOrdersUpdate(takeawayOrder);
-                    } catch (Exception ignored) {}
-
-                    // 3. Phát tín hiệu WebSocket cho POS Modal hiển thị xanh & tự đóng
-                    messagingTemplate.convertAndSend("/topic/admin/tables/alerts", Map.of(
-                            "type", "PAYMENT_SUCCESS",
-                            "status", "SUCCESS",
-                            "payosOrderCode", payosOrderCode,
-                            "tableName", "Mang Về",
-                            "message", "✅ Đã nhận thanh toán " + receivedAmount + "đ qua VietQR cho Đơn Mang Về!"
-                    ));
-
-                    messagingTemplate.convertAndSend("/topic/admin/orders", Map.of(
-                            "type", "ORDER_PAYMENT_SUCCESS",
-                            "status", "SUCCESS",
-                            "payosOrderCode", payosOrderCode,
-                            "tableName", "Mang Về"
-                    ));
+                    processTakeawayOrderSuccess(currentTx, receivedAmount);
                 }
 
                 log.info("[PayOS Webhook] Xử lý THÀNH CÔNG cho {} qua VietQR PayOS #{}", (session != null ? session.getTableName() : "Mang Về"), payosOrderCode);
@@ -368,17 +273,17 @@ public class PaymentServiceImpl implements PaymentService {
             currentTx.setPaymentStatus(PaymentStatus.CANCELLED);
             messagingTemplate.convertAndSend("/topic/admin/tables/alerts", Map.of(
                     "type", "PAYMENT_CANCELLED",
-                    "tableName", session.getTableName(),
-                    "message", "Giao dịch mã #" + payosOrderCode + " của " + session.getTableName() + " đã bị hủy."
+                    "tableName", session != null ? session.getTableName() : "Mang Về",
+                    "message", "Giao dịch mã #" + payosOrderCode + " của " + (session != null ? session.getTableName() : "Mang Về") + " đã bị hủy."
             ));
-            log.info("Giao dịch #{} của bàn {} bị hủy.", payosOrderCode, session.getTableName());
+            log.info("Giao dịch #{} của bàn {} bị hủy.", payosOrderCode, session != null ? session.getTableName() : "Mang Về");
         // CASE 3: Giao dịch thất bại
         } else {
             currentTx.setPaymentStatus(PaymentStatus.FAILED);
             messagingTemplate.convertAndSend("/topic/admin/tables/alerts", Map.of(
                     "type", "PAYMENT_FAILED",
-                    "tableName", session.getTableName(),
-                    "message", "Giao dịch #" + payosOrderCode + " của " + session.getTableName() + " thất bại."
+                    "tableName", session != null ? session.getTableName() : "Mang Về",
+                    "message", "Giao dịch #" + payosOrderCode + " của " + (session != null ? session.getTableName() : "Mang Về") + " thất bại."
             ));
         }
     }
@@ -434,6 +339,8 @@ public class PaymentServiceImpl implements PaymentService {
                 List<OrderEntity> sessionOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(
                         session.getTableSessionId(), OrderStatus.CANCELLED);
                 completeSessionAndReleaseTable(session, sessionOrders);
+            } else if (session == null) {
+                processTakeawayOrderSuccess(currentTx, currentTx.getReceivedAmount() != null ? currentTx.getReceivedAmount() : currentTx.getTotalAmount());
             }
 
             return PaymentStatusResponse.builder()
@@ -462,13 +369,7 @@ public class PaymentServiceImpl implements PaymentService {
                                     session.getTableSessionId(), OrderStatus.CANCELLED);
                             completeSessionAndReleaseTable(session, sessionOrders);
                         } else {
-                            messagingTemplate.convertAndSend("/topic/admin/tables/alerts", Map.of(
-                                    "type", "PAYMENT_SUCCESS",
-                                    "status", "SUCCESS",
-                                    "payosOrderCode", currentTx.getPayosOrderCode(),
-                                    "tableName", "Mang Về",
-                                    "message", "✅ Thanh toán đơn Mang về qua VietQR thành công!"
-                            ));
+                            processTakeawayOrderSuccess(currentTx, linkData.getAmountPaid());
                         }
 
                         return PaymentStatusResponse.builder()
@@ -657,4 +558,115 @@ public class PaymentServiceImpl implements PaymentService {
                 "tableId", (table != null ? table.getTableId() : null)
         ));
     }
+
+    /**
+     * Helper: Khởi tạo Đơn Mang Về (Takeaway Order), lưu DB, tạo vé bếp KDS và phát sự kiện WebSocket Realtime
+     */
+    private OrderEntity processTakeawayOrderSuccess(PaymentTransactionEntity currentTx, long receivedAmount) {
+        OrderEntity takeawayOrder = null;
+        if (currentTx.getOrderId() != null) {
+            takeawayOrder = orderRepository.findById(currentTx.getOrderId()).orElse(null);
+        }
+
+        if (takeawayOrder == null) {
+            List<OrderItemEntity> orderItems = new ArrayList<>();
+            if (currentTx.getItemsJson() != null && !currentTx.getItemsJson().isBlank()) {
+                try {
+                    List<OrderItemRequest> itemReqs = objectMapper.readValue(
+                            currentTx.getItemsJson(),
+                            new TypeReference<List<OrderItemRequest>>() {}
+                    );
+                    if (itemReqs != null) {
+                        for (OrderItemRequest req : itemReqs) {
+                            ProductEntity p = productRepository.findById(req.getProductId()).orElse(null);
+                            if (p != null) {
+                                OrderItemEntity itemEntity = OrderItemEntity.builder()
+                                        .product(p)
+                                        .quantity(req.getQuantity())
+                                        .price(p.getProductPrice())
+                                        .note(req.getNote())
+                                        .createdByThread(1L)
+                                        .build();
+                                orderItems.add(itemEntity);
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("[PayOS] Lỗi đọc itemsJson cho Takeaway Order: {}", e.getMessage());
+                }
+            }
+
+            takeawayOrder = OrderEntity.builder()
+                    .orderCode("ORD-TV-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                    .orderType("TAKEAWAY")
+                    .paymentMethod("VIETQR")
+                    .paymentStatus("PAID")
+                    .status(OrderStatus.COMPLETED)
+                    .totalAmount(receivedAmount > 0 ? receivedAmount : currentTx.getTotalAmount())
+                    .items(new ArrayList<>())
+                    .build();
+
+            for (OrderItemEntity item : orderItems) {
+                item.setOrder(takeawayOrder);
+            }
+            takeawayOrder.setItems(orderItems);
+
+            takeawayOrder = orderRepository.saveAndFlush(takeawayOrder);
+            currentTx.setOrderId(takeawayOrder.getId());
+            currentTx.setPaymentStatus(PaymentStatus.SUCCESS);
+            currentTx.setReceivedAmount(receivedAmount > 0 ? receivedAmount : currentTx.getTotalAmount());
+            if (currentTx.getPaidAt() == null) currentTx.setPaidAt(new Date());
+            transactionRepository.save(currentTx);
+
+            // 1. Tạo vé bếp KitchenTicketEntity & phát WebSocket xuống Bếp KDS
+            if (takeawayOrder.getItems() != null && !takeawayOrder.getItems().isEmpty()) {
+                for (OrderItemEntity item : takeawayOrder.getItems()) {
+                    KitchenTicketEntity ticket = KitchenTicketEntity.builder()
+                            .orderId(takeawayOrder.getId())
+                            .orderItemId(item.getOrderItemId())
+                            .tableNumber("Mang Về")
+                            .areaName("Mang Về")
+                            .productId(item.getProduct().getProductId())
+                            .productName(item.getProduct().getProductName())
+                            .quantity(item.getQuantity())
+                            .note(item.getNote())
+                            .status(KitchenItemStatus.PENDING)
+                            .build();
+                    try {
+                        KitchenTicketEntity savedTicket = kitchenTicketRepository.save(ticket);
+                        KitchenTicketResponse ticketResponse = kitchenTicketMapper.toResponse(savedTicket);
+                        webSocketPublisher.notifyKitchenOrders(ticketResponse);
+                    } catch (Exception e) {
+                        log.error("[PayOS] Lỗi tạo vé bếp cho takeawayOrderId={}: {}", takeawayOrder.getId(), e.getMessage());
+                    }
+                }
+            }
+        }
+
+        // 2. Phát thông báo Realtime cho Danh sách Đơn hàng & Doanh thu
+        try {
+            webSocketPublisher.notifyAdminOrdersUpdate(takeawayOrder);
+        } catch (Exception ignored) {}
+
+        Long payosCode = currentTx.getPayosOrderCode() != null ? currentTx.getPayosOrderCode() : 0L;
+
+        // 3. Phát tín hiệu WebSocket cho POS Modal hiển thị xanh & tự đóng
+        messagingTemplate.convertAndSend("/topic/admin/tables/alerts", Map.of(
+                "type", "PAYMENT_SUCCESS",
+                "status", "SUCCESS",
+                "payosOrderCode", payosCode,
+                "tableName", "Mang Về",
+                "message", "✅ Đã nhận thanh toán " + (takeawayOrder.getTotalAmount()) + "đ qua VietQR cho Đơn Mang Về!"
+        ));
+
+        messagingTemplate.convertAndSend("/topic/admin/orders", Map.of(
+                "type", "ORDER_PAYMENT_SUCCESS",
+                "status", "SUCCESS",
+                "payosOrderCode", payosCode,
+                "tableName", "Mang Về"
+        ));
+
+        return takeawayOrder;
+    }
 }
+
