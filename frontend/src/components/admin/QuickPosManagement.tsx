@@ -37,7 +37,7 @@ import {
   Eye,
   Send
 } from 'lucide-react';
-import { Modal, Radio, Input, Segmented, Popconfirm, message } from 'antd';
+import { Modal, Radio, Input, Segmented, Popconfirm, message, notification } from 'antd';
 import { filterAndSortByRelevance } from '../../utils/vietnameseSearch';
 import { PaymentCheckoutModal } from '../payment/PaymentCheckoutModal';
 import { wsService } from '../../modules/client/services/websocket';
@@ -246,6 +246,30 @@ export const QuickPosManagement: React.FC = () => {
       return str;
     }
     return `Bàn ${str}`;
+  };
+
+  // Nút Kiểm Tra Thanh Toán Thủ Công (Manual Sync Payment Check)
+  const handleManualSyncConfirm = async () => {
+    try {
+      const targetSession = orderType === 'DINE_IN' ? (selectedTable?.tableSessionId || activeSessionId || undefined) : undefined;
+      const res = await checkPayOSPaymentStatusApi(
+        activePayosOrderCode || undefined,
+        targetSession ? Number(targetSession) : undefined
+      );
+      if (res && (res.status === 'SUCCESS' || res.status === 'PAID')) {
+        setQrPaymentStatus('SUCCESS');
+        notification.success({
+          message: 'Xác Nhận Thanh Toán Thành Công! 🎉',
+          description: `${orderType === 'TAKEAWAY' ? (activeTakeawayTicketId ? `Đơn mang về #${activeTakeawayTicketId}` : 'Đơn mang về') : selectedTable ? formatTableName(selectedTable.tableNumber) : 'Đơn hàng'} đã nhận đủ tiền chuyển khoản từ khách hàng.`,
+          duration: 5,
+          placement: 'topRight',
+        });
+      } else {
+        message.warning('Chưa ghi nhận tín hiệu thanh toán thành công từ ngân hàng/PayOS. Vui lòng thử lại sau giây lát.');
+      }
+    } catch (err: any) {
+      message.error('Lỗi khi kiểm tra đối soát trạng thái thanh toán.');
+    }
   };
 
   // Categories & Zones list (Merge DB Categories + Product Categories)
