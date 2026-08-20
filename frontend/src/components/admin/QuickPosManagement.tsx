@@ -106,6 +106,7 @@ export const QuickPosManagement: React.FC = () => {
 
   const [activePayosOrderCode, setActivePayosOrderCode] = useState<number | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [countdownSeconds, setCountdownSeconds] = useState<number>(3);
 
   useEffect(() => {
     if (!isCheckoutModalOpen) {
@@ -118,23 +119,26 @@ export const QuickPosManagement: React.FC = () => {
     }
   }, [isCheckoutModalOpen]);
 
-  // Tự động chuyển giao diện & đóng modal sau 1.5s khi thanh toán QR thành công
+  // Đếm ngược 3 giây khi thanh toán QR thành công ➔ Tự động đóng modal & hoàn tất đơn xuống Bếp KDS
   useEffect(() => {
-    let autoCloseTimer: any = null;
-    if (isCheckoutModalOpen && qrPaymentStatus === 'SUCCESS') {
-      autoCloseTimer = setTimeout(() => {
-        if (orderType === 'TAKEAWAY') {
-          setCart([]);
-          setIsCheckoutModalOpen(false);
-        } else {
-          handleConfirmCompletePayment();
-        }
-      }, 1500);
+    let timer: any = null;
+    if (qrPaymentStatus === 'SUCCESS' && isCheckoutModalOpen) {
+      setCountdownSeconds(3);
+      timer = setInterval(() => {
+        setCountdownSeconds((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            handleConfirmCompletePayment();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     }
     return () => {
-      if (autoCloseTimer) clearTimeout(autoCloseTimer);
+      if (timer) clearInterval(timer);
     };
-  }, [isCheckoutModalOpen, qrPaymentStatus, orderType]);
+  }, [qrPaymentStatus, isCheckoutModalOpen]);
 
   const loadData = async () => {
     try {
@@ -965,6 +969,8 @@ export const QuickPosManagement: React.FC = () => {
         qrPaymentStatus={qrPaymentStatus}
         onCancelQrPayment={handleCancelQrPayment}
         onSimulateQrResult={handleSimulateQrResult}
+        onManualSyncPayment={handleManualSyncConfirm}
+        countdownSeconds={countdownSeconds}
         accountInfo={accountInfo}
       />
 

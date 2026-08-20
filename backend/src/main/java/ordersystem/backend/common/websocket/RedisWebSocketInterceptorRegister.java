@@ -40,14 +40,16 @@ public class RedisWebSocketInterceptorRegister {
                     if (destination != null && destination.startsWith("/topic/")) {
                         Object fromRedis = accessor.getHeader("FROM_REDIS");
                         
-                        // If this message was not sent from Redis, publish to Redis and cancel the local dispatch
+                        // If this message was not sent from Redis, publish to Redis
                         if (fromRedis == null || !((Boolean) fromRedis)) {
-                            redisPublisher.publish(destination, message.getPayload());
-                            return null; // Stop local dispatching of the message
+                            boolean published = redisPublisher.publish(destination, message.getPayload());
+                            if (published) {
+                                return null; // Stop local dispatching of the message only if Redis handled it
+                            }
                         }
                     }
                 }
-                return message; // Let it dispatch normally if it has the FROM_REDIS header or is a control message
+                return message; // Let it dispatch normally if Redis is offline or message has FROM_REDIS header
             }
         });
     }
