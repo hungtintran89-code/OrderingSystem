@@ -1,5 +1,5 @@
 import apiClient, { ApiResponse } from './api';
-import { KitchenOrder, OrderStatus, KdsHistoryLogItem } from '../types/kds';
+import { KitchenOrder, OrderStatus, KdsHistoryLogItem, KitchenOrderItem } from '../types/kds';
 import { message } from 'antd';
 
 // Web Audio API Alert Synthesizer
@@ -14,7 +14,7 @@ export const playNewOrderSound = () => {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
       gain.gain.setValueAtTime(0.15, ctx.currentTime + startTime + duration);
-      osc.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start(ctx.currentTime + startTime);
@@ -171,6 +171,7 @@ export const fetchKitchenHistoryLog = async (): Promise<KdsHistoryLogItem[]> => 
             name: t.productName || t.name || 'Món ăn',
             quantity: Number(t.quantity || 1),
             note: t.note || '',
+            category: t.category || 'other',
           };
 
           const createdMs = t.createdAt ? new Date(t.createdAt).getTime() : (t.updatedAt ? new Date(t.updatedAt).getTime() - 5 * 60 * 1000 : Date.now() - 5 * 60 * 1000);

@@ -65,6 +65,12 @@ export interface AdminTable {
   totalAmount?: number;
   qrUrl: string;
   qrToken?: string;
+  tableSessionId?: number;
+  session?: {
+    tableSessionId?: number;
+    status?: string;
+    [key: string]: any;
+  };
 }
 
 export type StaffRole = 'SUPER_ADMIN' | 'MANAGER' | 'STAFF' | 'KITCHEN';
@@ -106,4 +112,5 @@ export interface AdminOrder {
   customerNote?: string;
   staffName?: string;
   orderType?: 'DINE_IN' | 'TAKEAWAY';
+  tableSessionId?: number;
 }

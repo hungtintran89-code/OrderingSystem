@@ -1,11 +1,11 @@
-export type OrderStatus = 'PENDING' | 'IN_PROGRESS' | 'READY';
+export type OrderStatus = 'PENDING' | 'IN_PROGRESS' | 'READY' | 'COMPLETED' | 'CANCELLED';
 
 export interface KitchenOrderItem {
   id: string;
   name: string;
   quantity: number;
   note?: string;
-  category: 'grill' | 'soup' | 'drink' | 'other';
+  category?: 'grill' | 'soup' | 'drink' | 'other' | string;
   isCompleted?: boolean;
 }
 

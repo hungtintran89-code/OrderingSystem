@@ -669,6 +669,7 @@ export interface VietQrPaymentResponse {
   bankName?: string;
   accountName?: string;
   accountNumber?: string;
+  tableSessionId?: number;
 }
 
 // 10. POST /api/v1/payments/create-vietqr
@@ -727,11 +728,11 @@ export const checkPayOSPaymentStatusApi = async (
 };
 
 export interface SubmitQuickPosOrderPayload {
-  tableId: number;
+  tableId: number | string;
   threadId: number;
   note?: string;
   orderType?: 'DINE_IN' | 'TAKEAWAY';
-  paymentMethod?: 'CASH' | 'VIETQR' | 'UNPAID';
+  paymentMethod?: 'CASH' | 'VIETQR' | 'UNPAID' | string;
   paymentStatus?: 'PAID' | 'UNPAID';
   list: {
     productId: number;

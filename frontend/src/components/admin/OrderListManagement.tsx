@@ -487,7 +487,7 @@ export const OrderListManagement: React.FC = () => {
           <AlertTriangle className="w-8 h-8 text-red-600 mx-auto" />
           <h3 className="text-sm font-semibold text-red-900">{error}</h3>
           <button
-            onClick={loadOrders}
+            onClick={() => loadOrders()}
             className="h-9 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
