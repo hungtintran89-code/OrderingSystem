@@ -732,10 +732,14 @@ export const submitQuickPosOrderApi = async (payload: SubmitQuickPosOrderPayload
 };
 
 export const confirmPaymentSuccessApi = async (
-  tableSessionId: number
+  tableSessionId?: number,
+  payosOrderCode?: number
 ): Promise<boolean> => {
   try {
-    const res = await apiClient.post<ApiResponse<any>>(`/payments/confirm-success/${tableSessionId}`);
+    const url = tableSessionId
+      ? `/payments/confirm-success/${tableSessionId}`
+      : `/payments/confirm-success?payosOrderCode=${payosOrderCode}`;
+    const res = await apiClient.post<ApiResponse<any>>(url);
     return res.data?.success ?? true;
   } catch (err) {
     console.error('Error confirming payment:', err);

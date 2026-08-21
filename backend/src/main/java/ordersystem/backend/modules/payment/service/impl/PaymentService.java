@@ -18,4 +18,5 @@ public interface PaymentService {
     PayOSConfigResponse getPayOSConfig();
     PaymentStatusResponse checkAndSyncPaymentStatus(Long payosOrderCode, Long tableSessionId);
     PaymentStatusResponse confirmPaymentSuccess(Long tableSessionId);
+    PaymentStatusResponse confirmPaymentSuccess(Long tableSessionId, Long payosOrderCode);
 }
