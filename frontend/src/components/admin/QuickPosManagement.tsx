@@ -7,7 +7,9 @@ import {
   createVietQrPaymentApi, 
   updateTableStatusApi, 
   checkoutTableApi,
-  submitQuickPosOrderApi 
+  submitQuickPosOrderApi,
+  checkPayOSPaymentStatusApi,
+  confirmPaymentSuccessApi
 } from '../../api/adminApi';
 import {
   UtensilsCrossed,
