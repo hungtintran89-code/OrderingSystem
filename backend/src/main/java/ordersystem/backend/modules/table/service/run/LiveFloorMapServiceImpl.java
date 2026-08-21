@@ -82,12 +82,19 @@ public class LiveFloorMapServiceImpl implements LiveFloorMapService {
             TableSessionEntity session = tableSessionMap.get(table.getTableId());
             boolean isOccupied = (session != null);
             Double tempAmount = isOccupied ? sessionTotalAmountMap.getOrDefault(session.getTableSessionId(), 0L).doubleValue() : 0.0;
-            // Nếu bàn có Session ACTIVE -> OCCUPIED (Màu đỏ), Không có -> EMPTY (Màu xanh)
+            
+            // Nếu bàn đang ở trạng thái CALLING_STAFF hoặc BILL_REQUESTED -> giữ nguyên màu vàng/đỏ đặc biệt
+            TableStatus effectiveStatus = table.getTableStatus();
+            if (effectiveStatus == TableStatus.CALLING_STAFF || effectiveStatus == TableStatus.BILL_REQUESTED) {
+                // Giữ nguyên trạng thái ưu tiên hiển thị cảnh báo
+            } else {
+                effectiveStatus = isOccupied ? TableStatus.OCCUPIED : TableStatus.EMPTY;
+            }
 
             return FloorMapResponse.builder()
                     .tableId(table.getTableId())
                     .tableName(table.getTableName())
-                    .status(isOccupied ? TableStatus.OCCUPIED : TableStatus.EMPTY)
+                    .status(effectiveStatus)
                     .tempTotalAmount(tempAmount)
                     .qrUrl(table.getQrUrl())
                     .qrImageBase64(table.getQrImageBase64())

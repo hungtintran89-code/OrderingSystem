@@ -326,6 +326,7 @@ export function CustomerApp() {
         cartCount={totalCartCount}
         onOpenCart={() => setIsCartOpen(true)}
         onOpenHistory={() => setIsHistoryOpen(true)}
+        onOpenService={() => setIsServiceOpen(true)}
       />
 
       {/* Main Layout Container */}
@@ -395,16 +396,7 @@ export function CustomerApp() {
         </div>
       </main>
 
-      {/* Floating Action Button (Only Service Request Button) */}
-      <div className="fixed bottom-24 right-4 sm:right-6 flex flex-col gap-3 z-30">
-        <button
-          onClick={() => setIsServiceOpen(true)}
-          className="w-13 h-13 rounded-full bg-white shadow-xl border border-gray-100 flex items-center justify-center text-orange-600 active:scale-95 transition-all hover:bg-orange-50 hover:scale-105 cursor-pointer"
-          title="Gọi phục vụ tại bàn"
-        >
-          <Bell className="w-5 h-5 text-orange-600" />
-        </button>
-      </div>
+
 
       {/* Mobile / Tablet Floating Order Bar */}
       {totalCartCount > 0 && (
