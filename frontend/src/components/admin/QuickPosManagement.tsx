@@ -173,6 +173,26 @@ export const QuickPosManagement: React.FC = () => {
     loadData();
   }, []);
 
+  // Helper: Hiển thị 1 thông báo Toast duy nhất cho mỗi lượt thanh toán (tránh nhảy trùng 3 Toast)
+  const lastNotifiedCodeRef = React.useRef<string | number | null>(null);
+  const showPaymentSuccessToast = (code?: string | number, desc?: string) => {
+    const key = code || activePayosOrderCode || activeTakeawayTicketId || 'SUCCESS';
+    if (lastNotifiedCodeRef.current === key) return;
+    lastNotifiedCodeRef.current = key;
+
+    notification.success({
+      key: `payment-success-${key}`,
+      message: 'Thanh Toán VietQR Thành Công! 🎉',
+      description: desc || `${orderType === 'TAKEAWAY' ? (activeTakeawayTicketId ? `Đơn mang về #${activeTakeawayTicketId}` : 'Đơn mang về') : selectedTable ? formatTableName(selectedTable.tableNumber) : 'Đơn hàng'} đã nhận đủ tiền chuyển khoản từ khách hàng.`,
+      duration: 5,
+      placement: 'topRight',
+    });
+
+    setTimeout(() => {
+      lastNotifiedCodeRef.current = null;
+    }, 5000);
+  };
+
   // Real-time WebSocket Auto-Sync for Menu & Payment Alerts
   useEffect(() => {
     wsService.connectGeneric();
@@ -183,24 +203,14 @@ export const QuickPosManagement: React.FC = () => {
 
     const unsubAlerts = wsService.subscribe('/topic/admin/tables/alerts', (data) => {
       if (data && (data.type === 'PAYMENT_SUCCESS' || data.status === 'SUCCESS')) {
-        notification.success({
-          message: 'Thanh Toán VietQR Thành Công! 🎉',
-          description: data.message || `${orderType === 'TAKEAWAY' ? (activeTakeawayTicketId ? `Đơn mang về #${activeTakeawayTicketId}` : 'Đơn mang về') : selectedTable ? formatTableName(selectedTable.tableNumber) : 'Đơn hàng'} đã nhận đủ tiền chuyển khoản từ khách hàng.`,
-          duration: 5,
-          placement: 'topRight',
-        });
+        showPaymentSuccessToast(data.payosOrderCode, data.message);
         setQrPaymentStatus('SUCCESS');
       }
     });
 
     const unsubAdminOrders = wsService.subscribe('/topic/admin/orders', (data) => {
       if (data && (data.type === 'ORDER_PAYMENT_SUCCESS' || data.status === 'SUCCESS')) {
-        notification.success({
-          message: 'Thanh Toán VietQR Thành Công! 🎉',
-          description: `${activeTakeawayTicketId ? `Đơn mang về #${activeTakeawayTicketId}` : 'Đơn mang về'} đã nhận đủ tiền chuyển khoản từ khách hàng.`,
-          duration: 5,
-          placement: 'topRight',
-        });
+        showPaymentSuccessToast(data.payosOrderCode);
         setQrPaymentStatus('SUCCESS');
       }
     });
@@ -210,27 +220,23 @@ export const QuickPosManagement: React.FC = () => {
       unsubAlerts();
       unsubAdminOrders();
     };
-  }, []);
+  }, [orderType, activeTakeawayTicketId, selectedTable, activePayosOrderCode]);
 
   // Fast Dual-Layer Polling (1.5s Interval Backup)
   useEffect(() => {
     let timer: any = null;
-    if (isCheckoutModalOpen && qrPaymentStatus === 'PENDING') {
+    const targetSession = orderType === 'DINE_IN' ? (selectedTable?.tableSessionId || activeSessionId || undefined) : undefined;
+    const validOrderCode = activePayosOrderCode || undefined;
+    const validSession = targetSession ? Number(targetSession) : undefined;
+
+    // Chỉ kích hoạt Polling khi Modal đang mở, trạng thái PENDING VÀ thực sự có OrderCode hoặc SessionId hợp lệ
+    if (isCheckoutModalOpen && qrPaymentStatus === 'PENDING' && (validOrderCode || validSession)) {
       timer = setInterval(async () => {
-        const targetSession = orderType === 'DINE_IN' ? (selectedTable?.tableSessionId || activeSessionId || undefined) : undefined;
-        const res = await checkPayOSPaymentStatusApi(
-          activePayosOrderCode || undefined,
-          targetSession ? Number(targetSession) : undefined
-        );
+        const res = await checkPayOSPaymentStatusApi(validOrderCode, validSession);
         if (res && (res.status === 'SUCCESS' || res.status === 'PAID')) {
           clearInterval(timer);
           setQrPaymentStatus('SUCCESS');
-          notification.success({
-            message: 'Thanh Toán VietQR Thành Công! 🎉',
-            description: `${orderType === 'TAKEAWAY' ? (activeTakeawayTicketId ? `Đơn mang về #${activeTakeawayTicketId}` : 'Đơn mang về') : selectedTable ? formatTableName(selectedTable.tableNumber) : 'Đơn hàng'} đã nhận đủ tiền chuyển khoản từ khách hàng.`,
-            duration: 5,
-            placement: 'topRight',
-          });
+          showPaymentSuccessToast(validOrderCode);
         }
       }, 1500);
     }
