@@ -274,7 +274,7 @@ export const OrderListManagement: React.FC = () => {
   const filteredOrders = groupOrdersBySession(rawFiltered);
 
   return (
-    <div className="space-y-4 font-sans max-w-7xl mx-auto">
+    <div className="space-y-4 font-sans w-full">
       {/* 1. TOPBAR & LIVE REALTIME HEADER */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
         {/* Header Title & Actions */}
@@ -748,30 +748,6 @@ export const OrderListManagement: React.FC = () => {
               <span className="font-bold text-lg font-mono text-orange-600">{formatVND(selectedOrder.totalAmount)}</span>
             </div>
 
-            {/* Status Change Controls */}
-            <div className="space-y-2 pt-2 border-t border-slate-100">
-              <label className="font-semibold text-slate-700 block">Đổi trạng thái đơn hàng:</label>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => handleUpdateStatus(selectedOrder.id, 'PREPARING')}
-                  className="p-2 rounded-lg border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-900 font-medium cursor-pointer text-center text-xs"
-                >
-                  Bếp Đang Làm
-                </button>
-                <button
-                  onClick={() => handleUpdateStatus(selectedOrder.id, 'SERVED')}
-                  className="p-2 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-900 font-medium cursor-pointer text-center text-xs"
-                >
-                  Đã Lên Món
-                </button>
-                <button
-                  onClick={() => handleUpdateStatus(selectedOrder.id, 'PAID')}
-                  className="p-2 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-medium cursor-pointer text-center text-xs"
-                >
-                  Đã Hoàn Tất
-                </button>
-              </div>
-            </div>
 
             {/* Print Slip Action */}
             <div className="pt-2 flex justify-end gap-2">

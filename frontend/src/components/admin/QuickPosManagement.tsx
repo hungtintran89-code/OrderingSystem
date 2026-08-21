@@ -566,7 +566,7 @@ export const QuickPosManagement: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 font-sans max-w-7xl mx-auto">
+    <div className="space-y-4 font-sans w-full">
       {/* 1. POS TOPBAR TOOLBAR */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
