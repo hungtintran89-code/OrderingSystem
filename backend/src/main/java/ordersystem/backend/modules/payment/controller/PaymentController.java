@@ -48,9 +48,10 @@ public class PaymentController {
     @PostMapping({"/confirm-success/{tableSessionId}", "/confirm-success"})
     public ResponseEntity<ApiResponse<PaymentStatusResponse>> confirmPaymentSuccess(
             @PathVariable(required = false) Long tableSessionId,
-            @RequestParam(required = false) Long session) {
+            @RequestParam(required = false) Long session,
+            @RequestParam(required = false) Long payosOrderCode) {
         Long targetSessionId = (tableSessionId != null) ? tableSessionId : session;
-        PaymentStatusResponse response = paymentService.confirmPaymentSuccess(targetSessionId);
+        PaymentStatusResponse response = paymentService.confirmPaymentSuccess(targetSessionId, payosOrderCode);
         return ResponseEntity.ok(ApiResponse.success("Payment confirmed successfully", response));
     }
 

@@ -391,51 +391,72 @@ public class PaymentServiceImpl implements PaymentService {
                 .payosOrderCode(currentTx.getPayosOrderCode())
                 .tableSessionId(session != null ? session.getTableSessionId() : null)
                 .tableId(table != null ? table.getTableId() : null)
-                .tableName(session != null ? session.getTableName() : null)
+                .tableName(session != null ? session.getTableName() : "Mang Về")
                 .build();
     }
 
     @Override
     @Transactional
     public PaymentStatusResponse confirmPaymentSuccess(Long tableSessionId) {
-        if (tableSessionId == null) {
-            throw new PaymentException("tableSessionId không hợp lệ");
+        return confirmPaymentSuccess(tableSessionId, null);
+    }
+
+    @Override
+    @Transactional
+    public PaymentStatusResponse confirmPaymentSuccess(Long tableSessionId, Long payosOrderCode) {
+        if (tableSessionId == null && payosOrderCode == null) {
+            throw new PaymentException("Thông tin xác nhận thanh toán không hợp lệ!");
         }
 
-        TableSessionEntity session = tableSessionRepository.findById(tableSessionId)
-                .orElseThrow(() -> new PaymentException("Không tìm thấy phiên làm việc bàn: " + tableSessionId));
-
-        PaymentTransactionEntity currentTx = transactionRepository
-                .findByTableSessionTableSessionIdAndPaymentStatus(tableSessionId, PaymentStatus.PENDING)
-                .orElse(null);
-
-        if (currentTx == null) {
-            // Nếu không có giao dịch PENDING, tìm giao dịch gần nhất
+        PaymentTransactionEntity currentTx = null;
+        if (payosOrderCode != null) {
+            currentTx = transactionRepository.findByPayosOrderCode(payosOrderCode).orElse(null);
+        }
+        if (currentTx == null && tableSessionId != null) {
+            currentTx = transactionRepository
+                    .findByTableSessionTableSessionIdAndPaymentStatus(tableSessionId, PaymentStatus.PENDING)
+                    .orElse(null);
+        }
+        if (currentTx == null && tableSessionId != null) {
             currentTx = transactionRepository.findByTableSessionTableSessionId(tableSessionId).stream()
                     .reduce((first, second) -> second)
                     .orElse(null);
         }
 
-        if (currentTx != null) {
-            currentTx.setPaymentStatus(PaymentStatus.SUCCESS);
-            currentTx.setReceivedAmount(currentTx.getTotalAmount());
-            currentTx.setPaidAt(new Date());
-            transactionRepository.save(currentTx);
+        if (currentTx == null) {
+            throw new PaymentException("Không tìm thấy giao dịch thanh toán để xác nhận!");
         }
 
-        List<OrderEntity> sessionOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(
-                tableSessionId, OrderStatus.CANCELLED);
+        TableSessionEntity session = currentTx.getTableSession();
+        if (currentTx.getOrderType() != null && "TAKEAWAY".equalsIgnoreCase(currentTx.getOrderType())) {
+            session = null;
+        }
 
-        completeSessionAndReleaseTable(session, sessionOrders);
+        currentTx.setPaymentStatus(PaymentStatus.SUCCESS);
+        currentTx.setReceivedAmount(currentTx.getTotalAmount() != null ? currentTx.getTotalAmount() : 0L);
+        if (currentTx.getPaidAt() == null) currentTx.setPaidAt(new Date());
+        transactionRepository.save(currentTx);
 
-        RestaurantTableEntity table = session.getTable();
-        return PaymentStatusResponse.builder()
-                .status("SUCCESS")
-                .payosOrderCode(currentTx != null ? currentTx.getPayosOrderCode() : null)
-                .tableSessionId(tableSessionId)
-                .tableId(table != null ? table.getTableId() : null)
-                .tableName(session.getTableName())
-                .build();
+        if (session != null) {
+            List<OrderEntity> sessionOrders = orderRepository.findAllByTableSessionTableSessionIdAndStatusNot(
+                    session.getTableSessionId(), OrderStatus.CANCELLED);
+            completeSessionAndReleaseTable(session, sessionOrders);
+            RestaurantTableEntity table = session.getTable();
+            return PaymentStatusResponse.builder()
+                    .status("SUCCESS")
+                    .payosOrderCode(currentTx.getPayosOrderCode())
+                    .tableSessionId(session.getTableSessionId())
+                    .tableId(table != null ? table.getTableId() : null)
+                    .tableName(session.getTableName())
+                    .build();
+        } else {
+            processTakeawayOrderSuccess(currentTx, currentTx.getReceivedAmount() != null ? currentTx.getReceivedAmount() : currentTx.getTotalAmount());
+            return PaymentStatusResponse.builder()
+                    .status("SUCCESS")
+                    .payosOrderCode(currentTx.getPayosOrderCode())
+                    .tableName("Mang Về")
+                    .build();
+        }
     }
 
     @Override

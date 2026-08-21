@@ -28,6 +28,7 @@ import ordersystem.backend.modules.catalog.dto.request.UpdateCategoryRequest;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CatalogServiceImpl implements CatalogService {
     final private CategoryRepository categoryRepository ;
     final private ProductRepository productRepository ;
@@ -52,12 +53,17 @@ public class CatalogServiceImpl implements CatalogService {
     @CacheEvict( value = "categories" , allEntries = true)
     public CategoryMenuResponse createCategory(CreateCategoryRequest createCategoryRequest ){
 
-        if( categoryRepository.findByCategoryName(createCategoryRequest.getCategoryName()).isPresent()){
-            throw new CatalogException("This category already exists!") ;
+        String categoryName = createCategoryRequest.getCategoryName() != null ? createCategoryRequest.getCategoryName().trim() : "";
+        if (categoryName.isBlank()) {
+            throw new CatalogException("Tên danh mục không được để trống!");
+        }
+
+        if( categoryRepository.findByCategoryNameIgnoreCase(categoryName).isPresent()){
+            throw new CatalogException("Danh mục '" + categoryName + "' đã tồn tại!");
         }
 
         CategoryEntity categoryEntity = CategoryEntity.builder()
-                .categoryName(createCategoryRequest.getCategoryName())
+                .categoryName(categoryName)
                 .build();
         CategoryEntity categorySaved = categoryRepository.save(categoryEntity) ;
         CategoryMenuResponse response = catalogMapper.toCategoryMenuResponse(categorySaved) ;
