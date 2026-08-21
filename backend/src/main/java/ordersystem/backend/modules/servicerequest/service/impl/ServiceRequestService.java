@@ -15,4 +15,7 @@ public interface ServiceRequestService {
 
     //Nhân viên xác nhận xử lí xong yêu cầu
     ServiceRequestResponse completedRequest(Long requestId);
+
+    //Nhân viên bấm hoàn tác 3s
+    ServiceRequestResponse undoRequest(Long requestId);
 }

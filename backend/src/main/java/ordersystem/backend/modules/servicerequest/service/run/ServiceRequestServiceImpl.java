@@ -173,4 +173,36 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
         webSocketPublisher.notifyServiceRequest(serviceRequestMapper.toServiceRequestResponse(currentRequest));
         return serviceRequestMapper.toServiceRequestResponse(currentRequest);
     }
+
+    @Override
+    @Transactional
+    public ServiceRequestResponse undoRequest(Long requestId) {
+        ServiceRequestEntity currentRequest = serviceRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Service request not found with id: " + requestId));
+
+        currentRequest.setRequestStatus(RequestStatus.PENDING);
+        currentRequest.setCompletedAt(null);
+        serviceRequestRepository.save(currentRequest);
+
+        if (currentRequest.getTableId() != null) {
+            restaurantTableRepository.findById(currentRequest.getTableId()).ifPresent(table -> {
+                String reqTypeName = currentRequest.getRequestType() != null ? currentRequest.getRequestType().name() : "";
+                TableStatus targetStatus = (reqTypeName.contains("BILL") || reqTypeName.contains("PAYMENT"))
+                        ? TableStatus.BILL_REQUESTED : TableStatus.CALLING_STAFF;
+
+                table.setTableStatus(targetStatus);
+                restaurantTableRepository.save(table);
+                eventPublisher.publishEvent(new TableStateChangeEvent(
+                        this,
+                        table.getTableId(),
+                        table.getTableName(),
+                        targetStatus
+                ));
+            });
+        }
+
+        ServiceRequestResponse response = serviceRequestMapper.toServiceRequestResponse(currentRequest);
+        webSocketPublisher.notifyServiceRequest(response);
+        return response;
+    }
 }

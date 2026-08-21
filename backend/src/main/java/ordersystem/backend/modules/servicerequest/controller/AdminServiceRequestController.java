@@ -34,6 +34,15 @@ public class AdminServiceRequestController {
 
         return ResponseEntity.ok(ApiResponse.success("success", response));
     }
+
+    //Hoàn tác 3s
+    @PostMapping("/{requestId}/undo")
+    @PreAuthorize("hasAnyRole('MANAGER', 'STAFF')")
+    public ResponseEntity<ApiResponse<ServiceRequestResponse>> undoServiceRequest(@PathVariable Long requestId){
+        ServiceRequestResponse response = serviceRequestService.undoRequest(requestId);
+
+        return ResponseEntity.ok(ApiResponse.success("success", response));
+    }
 }
 
 
