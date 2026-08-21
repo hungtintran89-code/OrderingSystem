@@ -280,11 +280,11 @@ export const OrderListManagement: React.FC = () => {
         {/* Header Title & Actions */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <Receipt className="w-5 h-5 text-orange-600 stroke-[2.2] flex-shrink-0" />
+            <Receipt className="w-6 h-6 text-orange-600 stroke-[2.2] flex-shrink-0" />
             <div className="flex items-center gap-2.5">
-              <h2 className="font-bold text-base text-slate-900 tracking-tight">Danh Sách Đơn Hàng Realtime</h2>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Live Realtime
+              <h2 className="font-extrabold text-xl sm:text-2xl text-slate-900 tracking-tight">Danh Sách Đơn Hàng</h2>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Trực tuyến
               </span>
             </div>
           </div>

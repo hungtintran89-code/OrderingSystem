@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { HungTriFoodLogo } from '../components/common/HungTriFoodLogo';
 import { useNavigate } from 'react-router-dom';
 import { Utensils, User, Lock, Eye, EyeOff, Info } from 'lucide-react';
 import { message } from 'antd';
@@ -74,11 +75,8 @@ export const LoginPage: React.FC = () => {
           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#F97316] to-orange-400" />
 
           {/* Brand Header */}
-          <div className="text-center mb-8 mt-2">
-            <div className="flex items-center justify-center gap-2 mb-1 text-[#F97316]">
-              <Utensils className="w-7 h-7 text-[#F97316]" />
-              <h1 className="font-extrabold text-2xl tracking-tight text-[#F97316]">Phở &amp; Beyond</h1>
-            </div>
+          <div className="text-center mb-8 mt-2 flex flex-col items-center">
+            <HungTriFoodLogo size="lg" showText={true} />
             <h2 className="text-xl font-bold text-gray-900 mt-4">Đăng nhập hệ thống</h2>
           </div>
 

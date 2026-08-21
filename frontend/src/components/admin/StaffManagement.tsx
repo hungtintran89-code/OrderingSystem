@@ -186,8 +186,8 @@ export const StaffManagement: React.FC = () => {
       {/* HEADER TOOLBAR */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <ShieldCheck className="w-5 h-5 text-orange-600 stroke-[2.2] flex-shrink-0" />
-          <h2 className="font-bold text-base text-slate-900 tracking-tight">Quản Lý Nhân Viên & Phân Quyền</h2>
+          <Users className="w-6 h-6 text-orange-600 stroke-[2.2] flex-shrink-0" />
+          <h2 className="font-extrabold text-xl sm:text-2xl text-slate-900 tracking-tight">Quản Lý Nhân Viên & Phân Quyền</h2>
         </div>
 
         <button

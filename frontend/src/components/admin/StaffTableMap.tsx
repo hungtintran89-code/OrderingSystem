@@ -421,8 +421,8 @@ export const StaffTableMap: React.FC = () => {
       {/* MAP STATUS LEGEND TOOLBAR STICKY */}
       <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 transition-all">
         <div className="flex items-center gap-2.5">
-          <LayoutGrid className="w-5 h-5 text-orange-600 stroke-[2.2] flex-shrink-0" />
-          <h2 className="font-bold text-base text-slate-900 tracking-tight">Sơ Đồ Phục Vụ & Trạng Thái Bàn Realtime</h2>
+          <LayoutGrid className="w-6 h-6 text-orange-600 stroke-[2.2] flex-shrink-0" />
+          <h2 className="font-extrabold text-xl sm:text-2xl text-slate-900 tracking-tight">Sơ Đồ Phục Vụ & Trạng Thái Bàn</h2>
         </div>
 
         {/* 4 Status Legend Badges */}

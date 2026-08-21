@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { HungTriFoodLogo } from '../components/common/HungTriFoodLogo';
 import { Input, Badge, Button, Drawer, Tag, Modal, Radio, message } from 'antd';
 import { Outlet } from 'react-router-dom';
 import {
@@ -101,12 +102,10 @@ export const ClientLayout: React.FC<ClientLayoutProps> = ({
           <div className="flex items-center justify-between gap-3">
             {/* Left: Brand Logo + Table Badge */}
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-orange-600 flex items-center justify-center text-white shadow-sm">
-                <UtensilsCrossed className="w-5 h-5" />
-              </div>
+              <HungTriFoodLogo size="sm" showText={false} />
               <div>
-                <h1 className="font-semibold text-sm md:text-base text-slate-900 leading-tight">
-                  Phở Ngon 1989
+                <h1 className="font-bold text-sm md:text-base text-slate-900 leading-tight">
+                  Hùng Trí Food
                 </h1>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />

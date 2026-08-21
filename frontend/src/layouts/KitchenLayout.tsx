@@ -72,7 +72,7 @@ export const KitchenLayout: React.FC<KitchenLayoutProps> = ({
             <div className="flex items-center gap-2">
               <h1 className="font-bold text-sm md:text-base text-slate-900 leading-tight">Bếp Chính - Khu A</h1>
               <Tag color="orange" className="text-[10px] font-semibold border-none px-2 py-0.5 rounded-md">
-                KDS REALTIME
+                MÀN HÌNH BẾP (KDS)
               </Tag>
             </div>
           </div>

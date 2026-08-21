@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { HungTriFoodLogo } from '../components/common/HungTriFoodLogo';
 import { Breadcrumb, Dropdown, Drawer, Input, message } from 'antd';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -157,14 +158,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       {/* Brand Header */}
       <div className="p-4 border-b border-slate-100 flex items-center min-h-[64px]">
         <div className="flex items-center gap-2.5 overflow-hidden">
-          <div className="w-9 h-9 rounded-xl bg-orange-600 flex items-center justify-center text-white shadow-sm flex-shrink-0">
-            <UtensilsCrossed className="w-5 h-5" />
-          </div>
+          <HungTriFoodLogo size="sm" showText={false} />
           <div className={`transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap ${
             collapsed && !isMobile ? 'max-w-0 opacity-0 pointer-events-none' : 'max-w-[200px] opacity-100'
           }`}>
-            <h2 className="font-bold text-sm text-slate-900 tracking-tight truncate">QUẢN TRỊ VIÊN</h2>
-            <p className="text-[10px] font-medium text-slate-400 truncate">Admin Portal</p>
+            <h2 className="font-extrabold text-xs text-orange-600 tracking-wider truncate">HÙNG TRÍ FOOD</h2>
+            <p className="text-[10px] font-medium text-slate-400 truncate">Quản Trị Viên (Admin)</p>
           </div>
         </div>
       </div>
