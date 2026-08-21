@@ -740,7 +740,7 @@ export const confirmPaymentSuccessApi = async (
       ? `/payments/confirm-success/${tableSessionId}`
       : `/payments/confirm-success?payosOrderCode=${payosOrderCode}`;
     const res = await apiClient.post<ApiResponse<any>>(url);
-    return res.data?.success ?? true;
+    return res.status === 200 || res.data?.code === 200;
   } catch (err) {
     console.error('Error confirming payment:', err);
     return false;
