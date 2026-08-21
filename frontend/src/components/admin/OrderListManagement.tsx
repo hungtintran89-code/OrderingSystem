@@ -647,7 +647,7 @@ export const OrderListManagement: React.FC = () => {
 
                   <div className="flex items-center justify-between text-xs border-b border-slate-100 pb-2">
                     {isTakeaway ? (
-                      <span className="font-semibold text-purple-700">Mang Về (Takeaway)</span>
+                      <span className="font-semibold text-purple-700">Mang Về</span>
                     ) : (
                       <span className="font-semibold text-orange-600">{cleanTableName} ({ord.zone})</span>
                     )}
@@ -710,7 +710,7 @@ export const OrderListManagement: React.FC = () => {
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex justify-between items-center">
               <div>
                 <h4 className="font-bold text-slate-900 text-sm">
-                  {selectedOrder.orderType === 'TAKEAWAY' ? 'Đơn Mang Về (Takeaway)' : `Bàn ${selectedOrder.tableNumber} • ${selectedOrder.zone}`}
+                  {selectedOrder.orderType === 'TAKEAWAY' ? 'Đơn Mang Về' : `Bàn ${selectedOrder.tableNumber} • ${selectedOrder.zone}`}
                 </h4>
                 <p className="text-slate-500 font-mono text-[11px] mt-0.5">
                   Mã đơn: <strong className="text-slate-800">{selectedOrder.orderCode}</strong> • {getPaymentMethodBadge(selectedOrder.paymentMethod, selectedOrder.paymentStatus).label}

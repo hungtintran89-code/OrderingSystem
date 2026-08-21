@@ -71,8 +71,8 @@ export const QuickPosManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ORDER TYPE: DINE_IN vs TAKEAWAY
-  const [orderType, setOrderType] = useState<'DINE_IN' | 'TAKEAWAY'>('DINE_IN');
+  // ORDER TYPE: DINE_IN vs TAKEAWAY (Mặc định: TAKEAWAY - Mang Về)
+  const [orderType, setOrderType] = useState<'DINE_IN' | 'TAKEAWAY'>('TAKEAWAY');
 
   // Selected Table & Table Picker Modal
   const [selectedTable, setSelectedTable] = useState<AdminTable | null>(null);
@@ -602,12 +602,12 @@ export const QuickPosManagement: React.FC = () => {
               }`}
             >
               <ShoppingBag className="w-3.5 h-3.5" />
-              <span>Mang Về (Takeaway)</span>
+              <span>Mang Về</span>
             </button>
           </div>
 
-          {/* CHỌN BÀN ĂN (CHỈ HIỆN KHI ĂN TẠI BÀN) */}
-          {orderType === 'DINE_IN' ? (
+          {/* CHỌN BÀN ĂN (CHỈ HIỆN KHI ĂN TẠI BÀN) - KHÔNG GÂY NHẢY TOOLBAR */}
+          {orderType === 'DINE_IN' && (
             <button
               onClick={() => setIsTableModalOpen(true)}
               className="h-10 px-3.5 rounded-xl border border-orange-300 bg-orange-50/90 hover:bg-orange-100 text-orange-950 font-bold text-xs flex items-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-98"
@@ -620,11 +620,6 @@ export const QuickPosManagement: React.FC = () => {
               </span>
               <ChevronDown className="w-4 h-4 text-orange-600" />
             </button>
-          ) : (
-            <div className="h-10 px-3.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 font-semibold text-xs flex items-center gap-2">
-              <ShoppingBag className="w-4 h-4 text-purple-600" />
-              <span>Đơn Mang Về (Takeaway)</span>
-            </div>
           )}
 
           <button
