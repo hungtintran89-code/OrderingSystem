@@ -569,16 +569,36 @@ export const QuickPosManagement: React.FC = () => {
     <div className="space-y-4 font-sans w-full">
       {/* 1. POS TOPBAR TOOLBAR */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <UtensilsCrossed className="w-5 h-5 text-orange-600 stroke-[2.2] flex-shrink-0" />
-          <div>
-            <h2 className="font-bold text-base text-slate-900 tracking-tight">Đặt Món Tại Bàn</h2>
+        {/* CỘT BÊN TRÁI: TIÊU ĐỀ & NÚT CHỌN BÀN (CHỈ HIỆN KHI ĂN TẠI BÀN) */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <UtensilsCrossed className="w-5 h-5 text-orange-600 stroke-[2.2] flex-shrink-0" />
+            <div>
+              <h2 className="font-bold text-base text-slate-900 tracking-tight">
+                {orderType === 'TAKEAWAY' ? 'Đặt Món Mang Về' : 'Đặt Món Tại Bàn'}
+              </h2>
+            </div>
           </div>
+
+          {/* CHỌN BÀN ĂN NẰM BÊN TRÁI - KHÔNG GÂY NHẢY NÚT BẤM BÊN PHẢI */}
+          {orderType === 'DINE_IN' && (
+            <button
+              onClick={() => setIsTableModalOpen(true)}
+              className="h-9 px-3 rounded-xl border border-orange-300 bg-orange-50/90 hover:bg-orange-100 text-orange-950 font-bold text-xs flex items-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-98"
+              title="Mở sơ đồ bàn để chọn chính xác tránh nhầm lẫn"
+            >
+              <MapPin className="w-4 h-4 text-orange-600" />
+              <span>{selectedTable ? `${formatTableName(selectedTable.tableNumber)} (${selectedTable.zone})` : 'Chọn Bàn'}</span>
+              <span className="px-2 py-0.5 rounded-md bg-white text-emerald-700 font-bold text-[10px] border border-slate-200">
+                {selectedTable?.status === 'EMPTY' ? 'Trống' : 'Đang ăn'}
+              </span>
+              <ChevronDown className="w-4 h-4 text-orange-600" />
+            </button>
+          )}
         </div>
 
-        {/* CỤM LOẠI ĐƠN & SƠ ĐỒ CHỌN BÀN */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          
+        {/* CỘT BÊN PHẢI: CỤM NÚT SWITCHER & REFRESH CỐ ĐỊNH 100% */}
+        <div className="flex items-center gap-2.5">
           {/* LOẠI ĐƠN SWITCHER: ĂN TẠI BÀN vs MANG VỀ */}
           <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
@@ -605,22 +625,6 @@ export const QuickPosManagement: React.FC = () => {
               <span>Mang Về</span>
             </button>
           </div>
-
-          {/* CHỌN BÀN ĂN (CHỈ HIỆN KHI ĂN TẠI BÀN) - KHÔNG GÂY NHẢY TOOLBAR */}
-          {orderType === 'DINE_IN' && (
-            <button
-              onClick={() => setIsTableModalOpen(true)}
-              className="h-10 px-3.5 rounded-xl border border-orange-300 bg-orange-50/90 hover:bg-orange-100 text-orange-950 font-bold text-xs flex items-center gap-2 cursor-pointer shadow-2xs transition-all active:scale-98"
-              title="Mở sơ đồ bàn để chọn chính xác tránh nhầm lẫn"
-            >
-              <MapPin className="w-4 h-4 text-orange-600" />
-              <span>{selectedTable ? `${formatTableName(selectedTable.tableNumber)} (${selectedTable.zone})` : 'Chọn Bàn'}</span>
-              <span className="px-2 py-0.5 rounded-md bg-white text-emerald-700 font-bold text-[10px] border border-slate-200">
-                {selectedTable?.status === 'EMPTY' ? 'Trống' : 'Đang ăn'}
-              </span>
-              <ChevronDown className="w-4 h-4 text-orange-600" />
-            </button>
-          )}
 
           <button
             onClick={loadData}
