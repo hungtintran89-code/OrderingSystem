@@ -37,21 +37,37 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.success("Webhook processed successfully", null));
     }
 
+    private Long parseSafeLong(String raw) {
+        if (raw == null || raw.isBlank() || "undefined".equalsIgnoreCase(raw) || "null".equalsIgnoreCase(raw)) {
+            return null;
+        }
+        try {
+            return Long.parseLong(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     @GetMapping({"/check-status/{payosOrderCode}", "/check-status"})
     public ResponseEntity<ApiResponse<PaymentStatusResponse>> checkPaymentStatus(
-            @PathVariable(required = false) Long payosOrderCode,
-            @RequestParam(required = false) Long tableSessionId) {
-        PaymentStatusResponse response = paymentService.checkAndSyncPaymentStatus(payosOrderCode, tableSessionId);
+            @PathVariable(required = false) String payosOrderCode,
+            @RequestParam(required = false) String tableSessionId) {
+        Long validOrderCode = parseSafeLong(payosOrderCode);
+        Long validSessionId = parseSafeLong(tableSessionId);
+
+        PaymentStatusResponse response = paymentService.checkAndSyncPaymentStatus(validOrderCode, validSessionId);
         return ResponseEntity.ok(ApiResponse.success("Checked payment status successfully", response));
     }
 
     @PostMapping({"/confirm-success/{tableSessionId}", "/confirm-success"})
     public ResponseEntity<ApiResponse<PaymentStatusResponse>> confirmPaymentSuccess(
-            @PathVariable(required = false) Long tableSessionId,
-            @RequestParam(required = false) Long session,
-            @RequestParam(required = false) Long payosOrderCode) {
-        Long targetSessionId = (tableSessionId != null) ? tableSessionId : session;
-        PaymentStatusResponse response = paymentService.confirmPaymentSuccess(targetSessionId, payosOrderCode);
+            @PathVariable(required = false) String tableSessionId,
+            @RequestParam(required = false) String session,
+            @RequestParam(required = false) String payosOrderCode) {
+        Long validSessionId = parseSafeLong(tableSessionId != null ? tableSessionId : session);
+        Long validOrderCode = parseSafeLong(payosOrderCode);
+
+        PaymentStatusResponse response = paymentService.confirmPaymentSuccess(validSessionId, validOrderCode);
         return ResponseEntity.ok(ApiResponse.success("Payment confirmed successfully", response));
     }
 

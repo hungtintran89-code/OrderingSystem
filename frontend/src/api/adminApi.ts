@@ -690,14 +690,32 @@ export const createVietQrPaymentApi = async (
   throw new Error('Backend trả về response không hợp lệ khi tạo QR thanh toán');
 };
 
+const parseValidNumber = (val: any): number | undefined => {
+  if (val === null || val === undefined || val === 'undefined' || val === 'null') return undefined;
+  const num = Number(val);
+  return !isNaN(num) && num > 0 ? num : undefined;
+};
+
 export const checkPayOSPaymentStatusApi = async (
-  payosOrderCode?: number,
-  tableSessionId?: number
+  payosOrderCode?: number | string,
+  tableSessionId?: number | string
 ): Promise<{ status: string; tableName?: string; tableId?: number }> => {
+  const validOrderCode = parseValidNumber(payosOrderCode);
+  const validSessionId = parseValidNumber(tableSessionId);
+
+  // Nếu cả 2 đều không phải số hợp lệ -> dừng ngay không gửi HTTP request rác
+  if (!validOrderCode && !validSessionId) {
+    return { status: 'PENDING' };
+  }
+
   try {
-    const url = payosOrderCode
-      ? `/payments/check-status/${payosOrderCode}${tableSessionId ? `?tableSessionId=${tableSessionId}` : ''}`
-      : `/payments/check-status?tableSessionId=${tableSessionId}`;
+    const params = new URLSearchParams();
+    if (validSessionId) params.append('tableSessionId', String(validSessionId));
+
+    const url = validOrderCode
+      ? `/payments/check-status/${validOrderCode}${params.toString() ? `?${params.toString()}` : ''}`
+      : `/payments/check-status?${params.toString()}`;
+
     const res = await apiClient.get<ApiResponse<{ status: string; tableName?: string; tableId?: number }>>(url);
     if (res.data && res.data.data) {
       return res.data.data;
@@ -732,13 +750,24 @@ export const submitQuickPosOrderApi = async (payload: SubmitQuickPosOrderPayload
 };
 
 export const confirmPaymentSuccessApi = async (
-  tableSessionId?: number,
-  payosOrderCode?: number
+  tableSessionId?: number | string,
+  payosOrderCode?: number | string
 ): Promise<boolean> => {
+  const validSessionId = parseValidNumber(tableSessionId);
+  const validOrderCode = parseValidNumber(payosOrderCode);
+
+  if (!validSessionId && !validOrderCode) {
+    return false;
+  }
+
   try {
-    const url = tableSessionId
-      ? `/payments/confirm-success/${tableSessionId}`
-      : `/payments/confirm-success?payosOrderCode=${payosOrderCode}`;
+    const params = new URLSearchParams();
+    if (validOrderCode) params.append('payosOrderCode', String(validOrderCode));
+
+    const url = validSessionId
+      ? `/payments/confirm-success/${validSessionId}${params.toString() ? `?${params.toString()}` : ''}`
+      : `/payments/confirm-success?${params.toString()}`;
+
     const res = await apiClient.post<ApiResponse<any>>(url);
     return res.status === 200 || res.data?.code === 200;
   } catch (err) {
