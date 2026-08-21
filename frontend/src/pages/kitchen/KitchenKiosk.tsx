@@ -223,15 +223,12 @@ export const KitchenKiosk: React.FC = () => {
 
   // Recall / Undo Last Ticket
   const handleRecallOrder = async () => {
-    const { orders: updated, recalledTicket } = await recallLastOrderApi();
+    const updated = await recallLastOrderApi();
     setOrders(updated);
     const updatedHistory = await fetchKitchenHistoryLog();
     setHistoryLog(updatedHistory);
     setRecalledOrderNotice(null);
-    if (recalledTicket) {
-      playNewOrderSound();
-      message.info(`Đã khôi phục đơn ${recalledTicket.orderCode} (${recalledTicket.tableName}) quay về Bếp!`);
-    }
+    playNewOrderSound();
   };
 
   // Recall specific item from history timeline
@@ -245,9 +242,9 @@ export const KitchenKiosk: React.FC = () => {
   };
 
   // Trigger Simulated Order
-  const handleSimulateNewOrder = () => {
-    const newOrder = createSimulatedOrder();
-    setOrders((prev) => [...prev, newOrder]);
+  const handleSimulateNewOrder = async () => {
+    const updated = await createSimulatedOrder();
+    setOrders(updated);
     message.success('Đã thêm 1 đơn hàng mới thử nghiệm vào KDS!');
   };
 
