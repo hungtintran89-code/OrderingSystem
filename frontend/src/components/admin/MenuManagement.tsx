@@ -375,8 +375,8 @@ export const MenuManagement: React.FC = () => {
       <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 transition-all">
         {/* Page Title */}
         <div className="flex items-center gap-2.5 w-full pb-1.5 border-b border-slate-100 mb-1">
-          <UtensilsCrossed className="w-5 h-5 text-orange-600 stroke-[2.2] flex-shrink-0" />
-          <h2 className="font-bold text-base text-slate-900 tracking-tight">Quản Lý Thực Đơn & Topping</h2>
+          <UtensilsCrossed className="w-6 h-6 text-orange-600 stroke-[2.2] flex-shrink-0" />
+          <h2 className="font-extrabold text-xl sm:text-2xl text-slate-900 tracking-tight">Quản Lý Thực Đơn & Topping</h2>
         </div>
 
         {/* Left: Category Chips & Category Manager Button */}

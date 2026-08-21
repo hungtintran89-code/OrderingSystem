@@ -572,9 +572,9 @@ export const QuickPosManagement: React.FC = () => {
         {/* CỘT BÊN TRÁI: TIÊU ĐỀ & NÚT CHỌN BÀN (CHỈ HIỆN KHI ĂN TẠI BÀN) */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2.5">
-            <UtensilsCrossed className="w-5 h-5 text-orange-600 stroke-[2.2] flex-shrink-0" />
+            <UtensilsCrossed className="w-6 h-6 text-orange-600 stroke-[2.2] flex-shrink-0" />
             <div>
-              <h2 className="font-bold text-base text-slate-900 tracking-tight">
+              <h2 className="font-extrabold text-xl sm:text-2xl text-slate-900 tracking-tight">
                 {orderType === 'TAKEAWAY' ? 'Đặt Món Mang Về' : 'Đặt Món Tại Bàn'}
               </h2>
             </div>

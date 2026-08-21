@@ -2,6 +2,8 @@ import React from 'react';
 import type { TableInfo } from '../../types';
 import { ShoppingBag, History as HistoryIcon, UtensilsCrossed } from 'lucide-react';
 
+import { HungTriFoodLogo } from '../../../../components/common/HungTriFoodLogo';
+
 interface HeaderProps {
   currentTable: TableInfo;
   cartCount: number;
@@ -20,12 +22,10 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand Logo & Name */}
         <div className="flex items-center gap-2.5 min-w-0 pr-2">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center font-bold shadow-md shadow-orange-500/20 shrink-0">
-            <UtensilsCrossed className="w-5 h-5" />
-          </div>
+          <HungTriFoodLogo size="md" showText={false} />
           <div className="min-w-0">
             <h1 className="font-headline font-black text-base sm:text-xl text-gray-900 tracking-tight leading-tight truncate">
-              Phở &amp; Beyond
+              Hùng Trí Food
             </h1>
             <p className="text-[11px] text-gray-500 font-label font-bold truncate">
               {currentTable.tableName}
