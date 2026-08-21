@@ -509,7 +509,7 @@ export const StaffTableMap: React.FC = () => {
 
                     <div className="space-y-1 mt-2">
                       <p className="text-xs font-semibold">{statusText}</p>
-                      {table.occupiedMinutes && (
+                      {Boolean(table.occupiedMinutes) && (
                         <p className="text-[11px] font-mono opacity-75 flex items-center gap-1">
                           <Clock className="w-3 h-3" /> {table.occupiedMinutes} phút
                         </p>
