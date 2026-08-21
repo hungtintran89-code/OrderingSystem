@@ -7,6 +7,7 @@ interface ServiceRequestModalProps {
   onClose: () => void;
   onRequest: (type: RequestType) => void;
   tableName: string;
+  canRequestBill?: boolean;
 }
 
 export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
@@ -14,6 +15,7 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
   onClose,
   onRequest,
   tableName,
+  canRequestBill = true,
 }) => {
   if (!isOpen) return null;
 
@@ -73,15 +75,25 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
               </button>
 
               <button
-                onClick={() => handleSelect('REQUEST_PAYMENT')}
-                className="w-full p-4 bg-emerald-50/80 hover:bg-emerald-100 border border-emerald-200/80 rounded-2xl flex items-center gap-3.5 transition-all active:scale-[0.98] group shadow-sm hover:shadow-md cursor-pointer"
+                disabled={!canRequestBill}
+                onClick={() => canRequestBill && handleSelect('REQUEST_BILL')}
+                className={`w-full p-4 border rounded-2xl flex items-center gap-3.5 transition-all shadow-sm ${
+                  canRequestBill
+                    ? 'bg-emerald-50/80 hover:bg-emerald-100 border-emerald-200/80 cursor-pointer active:scale-[0.98] group hover:shadow-md'
+                    : 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
+                }`}
+                title={!canRequestBill ? 'Bạn cần gọi món trước khi yêu cầu tính tiền' : undefined}
               >
-                <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform flex-shrink-0">
+                <div className={`w-11 h-11 rounded-xl text-white flex items-center justify-center shadow-md flex-shrink-0 ${
+                  canRequestBill ? 'bg-emerald-600 group-hover:scale-105 transition-transform' : 'bg-slate-400'
+                }`}>
                   <CreditCard className="w-6 h-6" />
                 </div>
                 <div className="text-left">
                   <p className="font-headline font-bold text-base text-gray-900">Yêu cầu tính tiền</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Thanh toán tiền mặt hoặc VietQR PayOS</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {canRequestBill ? 'Thanh toán tiền mặt hoặc VietQR PayOS' : '⚠️ Bạn cần đặt món trước khi gọi tính tiền'}
+                  </p>
                 </div>
               </button>
             </div>

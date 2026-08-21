@@ -4,6 +4,9 @@ import lombok.RequiredArgsConstructor;
 import ordersystem.backend.modules.order.entity.OrderEntity;
 import ordersystem.backend.modules.order.enums.OrderStatus;
 import ordersystem.backend.modules.order.repository.OrderRepository;
+import ordersystem.backend.modules.servicerequest.entity.ServiceRequestEntity;
+import ordersystem.backend.modules.servicerequest.enums.RequestStatus;
+import ordersystem.backend.modules.servicerequest.repository.ServiceRequestRepository;
 import ordersystem.backend.modules.table.dto.response.FloorMapResponse;
 import ordersystem.backend.modules.table.entity.RestaurantTableEntity;
 import ordersystem.backend.modules.table.entity.TableSessionEntity;
@@ -25,7 +28,8 @@ public class LiveFloorMapServiceImpl implements LiveFloorMapService {
 
     private final RestaurantTableRepository restaurantTableRepository;
     private final TableSessionRepository tableSessionRepository;
-    private final OrderRepository orderRepository; //
+    private final OrderRepository orderRepository;
+    private final ServiceRequestRepository serviceRequestRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -39,15 +43,32 @@ public class LiveFloorMapServiceImpl implements LiveFloorMapService {
             return Collections.emptyList();
         }
 
+        // Tra cứu tất cả các Service Request đang ở trạng thái PENDING
+        List<ServiceRequestEntity> pendingRequests = serviceRequestRepository.findAllByRequestStatus(RequestStatus.PENDING);
+        Map<Long, TableStatus> pendingStatusMap = new HashMap<>();
+        for (ServiceRequestEntity req : pendingRequests) {
+            if (req.getTableId() != null) {
+                String reqType = req.getRequestType() != null ? req.getRequestType().name() : "";
+                TableStatus newStatus = (reqType.contains("BILL") || reqType.contains("PAYMENT"))
+                        ? TableStatus.BILL_REQUESTED : TableStatus.CALLING_STAFF;
+
+                // Quy tắc ưu tiên cao nhất: BILL_REQUESTED (Đỏ 🔴) > CALLING_STAFF (Vàng 🟡)
+                TableStatus currentStatus = pendingStatusMap.get(req.getTableId());
+                if (currentStatus != TableStatus.BILL_REQUESTED) {
+                    pendingStatusMap.put(req.getTableId(), newStatus);
+                }
+            }
+        }
+
         // 2. Lấy TẤT CẢ các SESSION đang ACTIVE trong 1 Query duy nhất (Query 2 - Giải quyết N+1 )
         List<TableSessionEntity> activeSessionTables = tableSessionRepository.findAllByStatus(SessionStatus.ACTIVE);
 
         // Gom nhóm Session theo tableId bằng Map để tra cứu O(1)
         Map<Long, TableSessionEntity> tableSessionMap = activeSessionTables.stream()
                 .collect(Collectors.toMap(
-                        session -> session.getTable().getTableId(), // 👈 Dùng Lambda ở đây
-                        session -> session,                         // Hoặc có thể dùng Function.identity()
-                        (s1, s2) -> s1 //Merge Function (Xử lý trùng Key), giữ lại session cũ khi có session trùng
+                        session -> session.getTable().getTableId(),
+                        session -> session,
+                        (s1, s2) -> s1
                 ));
 
 
@@ -83,8 +104,11 @@ public class LiveFloorMapServiceImpl implements LiveFloorMapService {
             boolean isOccupied = (session != null);
             Double tempAmount = isOccupied ? sessionTotalAmountMap.getOrDefault(session.getTableSessionId(), 0L).doubleValue() : 0.0;
             
-            // Nếu bàn đang ở trạng thái CALLING_STAFF hoặc BILL_REQUESTED -> giữ nguyên màu vàng/đỏ đặc biệt
-            TableStatus effectiveStatus = table.getTableStatus();
+            // Ưu tiên cao nhất: Nếu bàn có Service Request PENDING chưa confirm -> BẮT BUỘC giữ màu Vàng / Đỏ liên tục
+            TableStatus effectiveStatus = pendingStatusMap.get(table.getTableId());
+            if (effectiveStatus == null) {
+                effectiveStatus = table.getTableStatus();
+            }
             if (effectiveStatus == TableStatus.CALLING_STAFF || effectiveStatus == TableStatus.BILL_REQUESTED) {
                 // Giữ nguyên trạng thái ưu tiên hiển thị cảnh báo
             } else {

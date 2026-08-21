@@ -32,10 +32,20 @@ export const ServiceRequestProvider: React.FC<{ children: React.ReactNode }> = (
   const [lastConfirmedRequest, setLastConfirmedRequest] = useState<ServiceRequestItem | null>(null);
   const [undoTimerSeconds, setUndoTimerSeconds] = useState<number>(0);
 
+  // Helper: Khử trùng lặp danh sách theo tableId (Mỗi bàn chỉ xuất hiện 1 dòng duy nhất)
+  const deduplicateByTable = (list: ServiceRequestItem[]): ServiceRequestItem[] => {
+    const map = new Map<number | string, ServiceRequestItem>();
+    list.forEach((item) => {
+      const key = item.tableId || item.tableName || item.id;
+      map.set(key, item);
+    });
+    return Array.from(map.values());
+  };
+
   // 1. Load active pending requests from backend
   const loadActiveRequests = useCallback(async () => {
     const list = await fetchActiveServiceRequestsApi();
-    setPendingRequests(list);
+    setPendingRequests(deduplicateByTable(list));
   }, []);
 
   // 2. Add incoming request to Toast stack (if toasts.length < 3)
@@ -168,12 +178,12 @@ export const ServiceRequestProvider: React.FC<{ children: React.ReactNode }> = (
       if (data) {
         if (data.requestStatus === 'PENDING') {
           setPendingRequests((prev) => {
-            const exists = prev.some((r) => r.id === data.id);
-            return exists ? prev : [data, ...prev];
+            const filtered = prev.filter((r) => r.tableId !== data.tableId && r.tableName !== data.tableName);
+            return [data, ...filtered];
           });
           addIncomingToast(data);
         } else if (data.requestStatus === 'COMPLETED') {
-          setPendingRequests((prev) => prev.filter((r) => r.id !== data.id));
+          setPendingRequests((prev) => prev.filter((r) => r.id !== data.id && r.tableId !== data.tableId));
           dismissToast(data.id);
         }
       }

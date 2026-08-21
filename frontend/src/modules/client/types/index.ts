@@ -69,7 +69,7 @@ export interface ApiResponse<T> {
   data: T;
 }
 
-export type RequestType = 'CALL_STAFF' | 'REQUEST_PAYMENT' | 'WATER' | 'UTENSILS' | 'OTHER';
+export type RequestType = 'CALL_STAFF' | 'REQUEST_BILL' | 'REQUEST_PAYMENT' | 'WATER' | 'UTENSILS' | 'OTHER';
 
 export interface TableInfo {
   tableId: number;

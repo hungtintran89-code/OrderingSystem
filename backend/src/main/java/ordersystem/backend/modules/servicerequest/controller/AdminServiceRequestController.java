@@ -19,7 +19,7 @@ public class AdminServiceRequestController {
 
     //Xem danh sách đang chờ xử lí
     @GetMapping("/active")
-    @PreAuthorize("hasAnyRole('MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
     public ResponseEntity<ApiResponse<List<ServiceRequestResponse>>> getActiveServiceRequest(){
         List<ServiceRequestResponse> response = serviceRequestService.getActiveRequest();
 
@@ -28,7 +28,7 @@ public class AdminServiceRequestController {
 
     //Xác nhận hoàn thành xử lí
     @PatchMapping("/{requestId}/complete")
-    @PreAuthorize("hasAnyRole('MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
     public ResponseEntity<ApiResponse<ServiceRequestResponse>> completedServiceRequest(@PathVariable Long requestId){
         ServiceRequestResponse response = serviceRequestService.completedRequest(requestId);
 
@@ -37,7 +37,7 @@ public class AdminServiceRequestController {
 
     //Hoàn tác 3s
     @PostMapping("/{requestId}/undo")
-    @PreAuthorize("hasAnyRole('MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
     public ResponseEntity<ApiResponse<ServiceRequestResponse>> undoServiceRequest(@PathVariable Long requestId){
         ServiceRequestResponse response = serviceRequestService.undoRequest(requestId);
 

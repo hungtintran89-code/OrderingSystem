@@ -198,9 +198,39 @@ export const StaffTableMap: React.FC = () => {
       }
     });
 
+    // 3. Lắng nghe kênh WebSocket Service Requests khi khách vừa gọi trợ giúp / gọi tính tiền ➔ Đổi màu bàn LẬP TỨC 1ms
+    const unsubServiceReqs = wsService.subscribe('/topic/admin/service-requests', (data) => {
+      if (data) {
+        setTables((prevTables) => {
+          if (!prevTables || prevTables.length === 0) return prevTables;
+
+          return prevTables.map((tbl) => {
+            const isMatch =
+              (data.tableId && String(data.tableId) === tbl.id) ||
+              (data.tableName && formatTableName(data.tableName) === formatTableName(tbl.tableNumber)) ||
+              (data.tableName && data.tableName === tbl.tableNumber);
+
+            if (isMatch) {
+              if (data.requestStatus === 'PENDING') {
+                const reqType = data.requestType || '';
+                const newStatus: TableStatus = (reqType.includes('BILL') || reqType.includes('PAYMENT'))
+                  ? 'BILL_REQUESTED'
+                  : 'CALLING_STAFF';
+                return { ...tbl, status: newStatus };
+              } else if (data.requestStatus === 'COMPLETED') {
+                loadTables(false);
+              }
+            }
+            return tbl;
+          });
+        });
+      }
+    });
+
     return () => {
       if (unsubFloorMap) unsubFloorMap();
       if (unsubAlerts) unsubAlerts();
+      if (unsubServiceReqs) unsubServiceReqs();
     };
   }, []);
 
@@ -484,10 +514,10 @@ export const StaffTableMap: React.FC = () => {
                 cardStyle = 'bg-slate-100 text-slate-900 border-slate-300 hover:border-slate-400';
                 statusText = 'Đang có khách';
               } else if (table.status === 'CALLING_STAFF') {
-                cardStyle = 'bg-amber-50 text-amber-900 border-amber-300 animate-pulse hover:border-amber-400';
+                cardStyle = 'bg-amber-50 text-amber-900 border-2 border-amber-400 animate-pulse hover:border-amber-500 shadow-sm';
                 statusText = '🔔 Gọi phục vụ';
               } else if (table.status === 'BILL_REQUESTED') {
-                cardStyle = 'bg-red-50 text-red-900 border-red-300 font-bold hover:border-red-400';
+                cardStyle = 'bg-red-50 text-red-900 border-2 border-red-500 animate-pulse font-extrabold hover:border-red-600 shadow-md';
                 statusText = '💳 Yêu cầu tính tiền';
               }
 

@@ -456,6 +456,7 @@ export function CustomerApp() {
         onClose={() => setIsServiceOpen(false)}
         onRequest={handleServiceRequest}
         tableName={currentTable.tableName}
+        canRequestBill={Boolean((personalOrders?.myItems && personalOrders.myItems.length > 0) || cartItems.length > 0)}
       />
     </div>
   );
