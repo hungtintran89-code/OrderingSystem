@@ -963,3 +963,45 @@ export const fetchMasterTableOrderApi = async (tableId: string): Promise<any> =>
   }
   return null;
 };
+
+export interface ServiceRequestItem {
+  id: number;
+  tableId: number;
+  tableName: string;
+  sessionId: string;
+  requestType: 'CALL_STAFF' | 'REQUEST_BILL' | 'CALL_WAITER' | 'REQUEST_PAYMENT' | string;
+  requestStatus: 'PENDING' | 'COMPLETED';
+  createdAt?: string;
+}
+
+export const fetchActiveServiceRequestsApi = async (): Promise<ServiceRequestItem[]> => {
+  try {
+    const res = await apiClient.get<ApiResponse<ServiceRequestItem[]>>('/admin/service-requests/active');
+    if (res.data && res.data.data && Array.isArray(res.data.data)) {
+      return res.data.data;
+    }
+  } catch (err) {
+    console.error('Error fetching active service requests:', err);
+  }
+  return [];
+};
+
+export const completeServiceRequestApi = async (requestId: number): Promise<ServiceRequestItem | null> => {
+  try {
+    const res = await apiClient.patch<ApiResponse<ServiceRequestItem>>(`/admin/service-requests/${requestId}/complete`);
+    return res.data?.data || null;
+  } catch (err) {
+    console.error('Error completing service request:', err);
+    return null;
+  }
+};
+
+export const undoServiceRequestApi = async (requestId: number): Promise<ServiceRequestItem | null> => {
+  try {
+    const res = await apiClient.post<ApiResponse<ServiceRequestItem>>(`/admin/service-requests/${requestId}/undo`);
+    return res.data?.data || null;
+  } catch (err) {
+    console.error('Error undoing service request:', err);
+    return null;
+  }
+};

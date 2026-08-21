@@ -17,6 +17,10 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { UserProfileModal } from '../components/UserProfileModal';
+import { ServiceRequestProvider } from '../context/ServiceRequestContext';
+import { BellNotificationDrawer } from '../components/notifications/BellNotificationDrawer';
+import { ServiceToastStack } from '../components/notifications/ServiceToastStack';
+import { UndoSnackbar } from '../components/notifications/UndoSnackbar';
 
 interface AdminLayoutProps {
   children?: React.ReactNode;
@@ -226,103 +230,114 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans">
-      {/* DESKTOP SIDEBAR - STICKY FIXED LEFT SIDEBAR */}
-      <aside
-        className={`sticky top-0 h-screen z-30 hidden md:block flex-shrink-0 transition-[width] duration-300 ease-in-out ${
-          collapsed ? 'w-20' : 'w-64'
-        }`}
-      >
-        {renderSidebarContent(false)}
-      </aside>
+    <ServiceRequestProvider>
+      <div className="min-h-screen bg-slate-50 flex font-sans">
+        {/* DESKTOP SIDEBAR - STICKY FIXED LEFT SIDEBAR */}
+        <aside
+          className={`sticky top-0 h-screen z-30 hidden md:block flex-shrink-0 transition-[width] duration-300 ease-in-out ${
+            collapsed ? 'w-20' : 'w-64'
+          }`}
+        >
+          {renderSidebarContent(false)}
+        </aside>
 
-      {/* MOBILE DRAWER SIDEBAR */}
-      <Drawer
-        placement="left"
-        onClose={() => setMobileDrawerOpen(false)}
-        open={mobileDrawerOpen}
-        styles={{ body: { padding: 0 } }}
-        width={270}
-      >
-        {renderSidebarContent(true)}
-      </Drawer>
+        {/* MOBILE DRAWER SIDEBAR */}
+        <Drawer
+          placement="left"
+          onClose={() => setMobileDrawerOpen(false)}
+          open={mobileDrawerOpen}
+          styles={{ body: { padding: 0 } }}
+          width={270}
+        >
+          {renderSidebarContent(true)}
+        </Drawer>
 
-      {/* RIGHT MAIN CONTENT AREA */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* TOPBAR */}
-        <header className="bg-white border-b border-slate-200 px-3 md:px-4 py-3 sticky top-0 z-20 flex items-center justify-between gap-2 md:gap-3 shadow-2xs">
-          <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-            {/* Hamburger Button (Mobile) */}
-            <button
-              onClick={() => setMobileDrawerOpen(true)}
-              className="md:hidden text-slate-700 p-2 rounded-lg bg-slate-100 hover:bg-slate-200 min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer flex-shrink-0"
-              title="Menu danh mục"
-            >
-              <MenuIcon className="w-5 h-5" />
-            </button>
-
-            {/* Nút Mũi Tên Quay Về Trang Chủ ADMIN (/app/admin) */}
-            <button
-              onClick={() => navigate('/app/admin')}
-              className="md:hidden h-10 px-2.5 rounded-lg border border-slate-200 bg-slate-100/90 hover:bg-orange-50 hover:border-orange-300 text-slate-700 hover:text-orange-600 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95 flex-shrink-0"
-              title="Quay về Trang chủ Admin"
-            >
-              <ArrowLeft className="w-4 h-4 text-slate-700 stroke-[2.5]" />
-              <span className="hidden sm:inline">Trang chủ Admin</span>
-            </button>
-
-            {/* Global Search Input */}
-            <div className="flex-1 max-w-[200px] sm:max-w-xs">
-              <Input
-                placeholder="Tìm kiếm hệ thống..."
-                prefix={<Search className="w-3.5 h-3.5 text-slate-400 mr-1" />}
-                className="rounded-lg border-slate-200 bg-slate-50 text-xs py-1.5 focus:border-orange-500"
-                allowClear
-              />
-            </div>
-          </div>
-
-          {/* Right Header Actions */}
-          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-            {/* Profile Dropdown */}
-            <Dropdown menu={{ items: userDropdownItems }} trigger={['click']}>
-              <button className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
-                <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-medium flex items-center justify-center text-xs">
-                  {userName.slice(0, 2).toUpperCase()}
-                </div>
-                <div className="hidden lg:block text-left">
-                  <p className="text-xs font-semibold text-slate-900 leading-tight">{userName}</p>
-                  <p className="text-[10px] text-slate-500">{userRole}</p>
-                </div>
+        {/* RIGHT MAIN CONTENT AREA */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* TOPBAR */}
+          <header className="bg-white border-b border-slate-200 px-3 md:px-4 py-3 sticky top-0 z-20 flex items-center justify-between gap-2 md:gap-3 shadow-2xs">
+            <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+              {/* Hamburger Button (Mobile) */}
+              <button
+                onClick={() => setMobileDrawerOpen(true)}
+                className="md:hidden text-slate-700 p-2 rounded-lg bg-slate-100 hover:bg-slate-200 min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer flex-shrink-0"
+                title="Menu danh mục"
+              >
+                <MenuIcon className="w-5 h-5" />
               </button>
-            </Dropdown>
-          </div>
-        </header>
 
-        {/* MAIN BODY CONTAINER */}
-        <main className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto">
-          {/* Dynamic & Clickable Breadcrumb */}
-          <div className="bg-white px-3.5 py-2 rounded-lg border border-slate-200 shadow-2xs inline-block">
-            <Breadcrumb items={getBreadcrumbItems()} />
-          </div>
+              {/* Nút Mũi Tên Quay Về Trang Chủ ADMIN (/app/admin) */}
+              <button
+                onClick={() => navigate('/app/admin')}
+                className="md:hidden h-10 px-2.5 rounded-lg border border-slate-200 bg-slate-100/90 hover:bg-orange-50 hover:border-orange-300 text-slate-700 hover:text-orange-600 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95 flex-shrink-0"
+                title="Quay về Trang chủ Admin"
+              >
+                <ArrowLeft className="w-4 h-4 text-slate-700 stroke-[2.5]" />
+                <span className="hidden sm:inline">Trang chủ Admin</span>
+              </button>
 
-          {/* Render Page Content */}
-          <div className="bg-white rounded-xl p-4 md:p-6 border border-slate-200 shadow-2xs min-h-[480px]">
-            {children || <Outlet />}
-          </div>
-        </main>
+              {/* Global Search Input */}
+              <div className="flex-1 max-w-[200px] sm:max-w-xs">
+                <Input
+                  placeholder="Tìm kiếm hệ thống..."
+                  prefix={<Search className="w-3.5 h-3.5 text-slate-400 mr-1" />}
+                  className="rounded-lg border-slate-200 bg-slate-50 text-xs py-1.5 focus:border-orange-500"
+                  allowClear
+                />
+              </div>
+            </div>
+
+            {/* Right Header Actions */}
+            <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+              {/* Bell Notification Icon & Sliding Drawer */}
+              <BellNotificationDrawer />
+
+              {/* Profile Dropdown */}
+              <Dropdown menu={{ items: userDropdownItems }} trigger={['click']}>
+                <button className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
+                  <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-medium flex items-center justify-center text-xs">
+                    {userName.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="hidden lg:block text-left">
+                    <p className="text-xs font-semibold text-slate-900 leading-tight">{userName}</p>
+                    <p className="text-[10px] text-slate-500">{userRole}</p>
+                  </div>
+                </button>
+              </Dropdown>
+            </div>
+          </header>
+
+          {/* MAIN BODY CONTAINER */}
+          <main className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto">
+            {/* Dynamic & Clickable Breadcrumb */}
+            <div className="bg-white px-3.5 py-2 rounded-lg border border-slate-200 shadow-2xs inline-block">
+              <Breadcrumb items={getBreadcrumbItems()} />
+            </div>
+
+            {/* Render Page Content */}
+            <div className="bg-white rounded-xl p-4 md:p-6 border border-slate-200 shadow-2xs min-h-[480px]">
+              {children || <Outlet />}
+            </div>
+          </main>
+        </div>
+
+        {/* Real-Time Toast Notification Stack (Max 3, 3s Progress Bar) */}
+        <ServiceToastStack />
+
+        {/* 3-Second Undo Snackbar */}
+        <UndoSnackbar />
+
+        {/* USER PROFILE & PASSWORD MODAL FOR ADMIN */}
+        <UserProfileModal
+          open={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          userName={userName}
+          userRole={userRole}
+          isAdmin={true}
+          onUpdateName={(newName) => setUserName(newName)}
+        />
       </div>
-
-      {/* USER PROFILE & PASSWORD MODAL FOR ADMIN */}
-      <UserProfileModal
-        open={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-        userName={userName}
-        userRole={userRole}
-        isAdmin={true}
-        onUpdateName={(newName) => setUserName(newName)}
-      />
-    </div>
+    </ServiceRequestProvider>
   );
 };
 

@@ -73,14 +73,19 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Khai báo danh sách Origin cụ thể thay vì Wildcard "*"
-        configuration.setAllowedOrigins(allowedOrigins);
+        // Cho phép tất cả domain Vercel, Render và Localhost hoạt động với credentials
+        configuration.setAllowedOriginPatterns(List.of(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "https://*.vercel.app",
+                "https://*.onrender.com"
+        ));
 
         // Cho phép các HTTP Methods
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
         // Cho phép tất cả Headers (Authorization, Content-Type, X-Session-Token,...)
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Session-Token", "Accept"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Session-Token", "Accept", "Origin", "X-Requested-With"));
 
         // Cho phép gửi credentials (cookies, authorization headers)
         configuration.setAllowCredentials(true);
