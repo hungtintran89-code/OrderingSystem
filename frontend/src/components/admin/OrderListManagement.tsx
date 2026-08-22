@@ -519,8 +519,8 @@ export const OrderListManagement: React.FC = () => {
 
       {/* VIEW MODE 1: REDESIGNED CLEAN COMMERCIAL DATA TABLE */}
       {!loading && !error && filteredOrders.length > 0 && viewMode === 'TABLE' && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs flex-1 min-h-0 max-h-[calc(100vh-250px)] flex flex-col overflow-hidden mb-2">
-          <div className="overflow-y-scroll custom-scrollbar flex-1 min-h-0 pr-1">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs flex-1 min-h-0 flex flex-col overflow-hidden mb-2">
+          <div className="overflow-y-auto custom-scrollbar flex-1 min-h-0 pr-1">
             <table className="w-full text-left text-sm text-slate-700 border-collapse">
               <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-600 font-bold uppercase text-xs tracking-wider whitespace-nowrap sticky top-0 z-20 shadow-2xs">
                 <tr>
@@ -617,7 +617,7 @@ export const OrderListManagement: React.FC = () => {
 
       {/* VIEW MODE 2: KANBAN GRID CARDS */}
       {!loading && !error && filteredOrders.length > 0 && viewMode === 'GRID' && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-3 sm:p-4 flex-1 min-h-0 max-h-[calc(100vh-345px)] pb-6 overflow-y-auto custom-scrollbar">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-3 sm:p-4 flex-1 min-h-0 pb-6 overflow-y-auto custom-scrollbar">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {filteredOrders.map((ord) => {
             const badge = getStatusBadge(ord.status);

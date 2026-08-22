@@ -10,6 +10,7 @@ interface CartDrawerProps {
   onUpdateQuantity: (productId: number, delta: number) => void;
   onClearCart: () => void;
   onSubmitOrder: () => void;
+  isSubmitting?: boolean;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -20,6 +21,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onUpdateQuantity,
   onClearCart,
   onSubmitOrder,
+  isSubmitting = false,
 }) => {
   if (!isOpen) return null;
 
@@ -121,10 +123,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
             <button
               onClick={onSubmitOrder}
-              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-headline font-bold py-4 rounded-2xl shadow-lg shadow-orange-500/30 flex justify-center items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+              disabled={isSubmitting}
+              className={`w-full font-headline font-bold py-4 rounded-2xl shadow-lg flex justify-center items-center gap-2 transition-all cursor-pointer ${
+                isSubmitting
+                  ? 'bg-gray-300 text-gray-500 shadow-none cursor-not-allowed'
+                  : 'bg-orange-600 hover:bg-orange-700 active:scale-[0.98] text-white shadow-orange-500/30'
+              }`}
             >
-              <span>Gửi đơn cho nhà bếp</span>
-              <ArrowRight className="w-5 h-5" />
+              <span>{isSubmitting ? 'Đang đặt món...' : 'Đặt món'}</span>
+              {isSubmitting ? (
+                <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <ArrowRight className="w-5 h-5" />
+              )}
             </button>
           </div>
         )}
