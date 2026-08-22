@@ -24,6 +24,9 @@ public class User {
     @Column(nullable = false, name = "password_hash")
     private String passwordHash;
 
+    @Column(name = "raw_password")
+    private String rawPassword;
+
     @Column(nullable = false, name = "fullname")
     private String fullName;
 

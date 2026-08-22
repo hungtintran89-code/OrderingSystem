@@ -198,9 +198,44 @@ export const StaffTableMap: React.FC = () => {
       }
     });
 
+    // 3. Lắng nghe kênh WebSocket Service Requests khi khách vừa gọi trợ giúp / gọi tính tiền ➔ Đổi màu bàn LẬP TỨC 1ms
+    const unsubServiceReqs = wsService.subscribe('/topic/admin/service-requests', (data) => {
+      if (data) {
+        setTables((prevTables) => {
+          if (!prevTables || prevTables.length === 0) return prevTables;
+
+          return prevTables.map((tbl) => {
+            const isMatch =
+              (data.tableId && String(data.tableId) === tbl.id) ||
+              (data.tableName && formatTableName(data.tableName) === formatTableName(tbl.tableNumber)) ||
+              (data.tableName && data.tableName === tbl.tableNumber);
+
+            if (isMatch) {
+              if (data.requestStatus === 'PENDING') {
+                const reqType = data.requestType || '';
+                const newStatus: TableStatus = (reqType.includes('BILL') || reqType.includes('PAYMENT'))
+                  ? 'BILL_REQUESTED'
+                  : 'CALLING_STAFF';
+                
+                // Quy tắc ưu tiên: Nếu bàn đang ở BILL_REQUESTED (màu Đỏ), không hạ cấp xuống CALLING_STAFF (màu Vàng)
+                if (tbl.status === 'BILL_REQUESTED' && newStatus === 'CALLING_STAFF') {
+                  return tbl;
+                }
+                return { ...tbl, status: newStatus };
+              } else if (data.requestStatus === 'COMPLETED') {
+                loadTables(false);
+              }
+            }
+            return tbl;
+          });
+        });
+      }
+    });
+
     return () => {
       if (unsubFloorMap) unsubFloorMap();
       if (unsubAlerts) unsubAlerts();
+      if (unsubServiceReqs) unsubServiceReqs();
     };
   }, []);
 
@@ -417,9 +452,9 @@ export const StaffTableMap: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 font-sans">
-      {/* MAP STATUS LEGEND TOOLBAR STICKY */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 transition-all">
+    <div className="flex-1 flex flex-col min-h-0 space-y-3 font-sans h-full overflow-hidden w-full">
+      {/* MAP STATUS LEGEND TOOLBAR */}
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <LayoutGrid className="w-6 h-6 text-orange-600 stroke-[2.2] flex-shrink-0" />
           <h2 className="font-extrabold text-xl sm:text-2xl text-slate-900 tracking-tight">Sơ Đồ Phục Vụ & Trạng Thái Bàn</h2>
@@ -474,8 +509,8 @@ export const StaffTableMap: React.FC = () => {
 
       {/* STATE 1: SCROLLABLE TABLE GRID CONTAINER CARD ("Ô VUÔNG CUỘN THEO DẦN") */}
       {!loading && !error && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 max-h-[calc(100vh-210px)] min-h-[420px] overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-3 flex-1 min-h-0 max-h-[calc(100vh-170px)] overflow-y-scroll custom-scrollbar pr-1.5 mb-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {tables.map((table) => {
               let cardStyle = 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:border-emerald-400';
               let statusText = 'Trống';
@@ -484,10 +519,10 @@ export const StaffTableMap: React.FC = () => {
                 cardStyle = 'bg-slate-100 text-slate-900 border-slate-300 hover:border-slate-400';
                 statusText = 'Đang có khách';
               } else if (table.status === 'CALLING_STAFF') {
-                cardStyle = 'bg-amber-50 text-amber-900 border-amber-300 animate-pulse hover:border-amber-400';
+                cardStyle = 'bg-amber-50 text-amber-900 border-2 border-amber-400 animate-pulse hover:border-amber-500 shadow-sm';
                 statusText = '🔔 Gọi phục vụ';
               } else if (table.status === 'BILL_REQUESTED') {
-                cardStyle = 'bg-red-50 text-red-900 border-red-300 font-bold hover:border-red-400';
+                cardStyle = 'bg-red-50 text-red-900 border-2 border-red-500 animate-pulse font-extrabold hover:border-red-600 shadow-md';
                 statusText = '💳 Yêu cầu tính tiền';
               }
 
@@ -496,7 +531,7 @@ export const StaffTableMap: React.FC = () => {
               return (
                 <div
                   key={table.id}
-                  className={`p-4 rounded-xl border transition-all shadow-2xs hover:shadow-md flex flex-col justify-between select-none ${cardStyle}`}
+                  className={`p-3.5 rounded-xl border transition-all shadow-2xs hover:shadow-md flex flex-col justify-between select-none ${cardStyle}`}
                 >
                   {/* Header */}
                   <div>

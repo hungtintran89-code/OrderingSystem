@@ -55,54 +55,54 @@ export const KitchenTicketCard: React.FC<KitchenTicketCardProps> = ({
         />
       </div>
 
-      {/* 1. Ticket Header - Clean & Balanced */}
-      <div className="p-3.5 bg-slate-50/60 border-b border-slate-100 flex items-center justify-between">
+      {/* 1. Ticket Header - Compact & Balanced */}
+      <div className="p-2.5 bg-slate-50/60 border-b border-slate-100 flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-bold text-base text-slate-900 leading-tight">
+          <div className="flex items-center gap-1.5">
+            <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-tight">
               {order.tableName}
             </h3>
             <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-mono text-[10px]">
               {order.orderCode}
             </span>
           </div>
-          <span className="text-[11px] font-medium text-slate-400 mt-0.5 block">
+          <span className="text-[10px] font-medium text-slate-400 mt-0.5 block">
             Tiến độ: {completedCount}/{totalCount} món ({progressPercent}%)
           </span>
         </div>
 
-        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs ${timerBadgeClass}`}>
-          <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] ${timerBadgeClass}`}>
+          <Clock className="w-3 h-3 flex-shrink-0" />
           <span>{elapsedMinutes} phút</span>
         </div>
       </div>
 
-      {/* 2. Ticket Items List - Clean Minimalist Spacing */}
-      <div className="p-3.5 space-y-2 flex-1 overflow-y-auto max-h-80 divide-y divide-slate-100">
+      {/* 2. Ticket Items List - Compact Minimalist Spacing */}
+      <div className="p-2.5 space-y-1.5 flex-1 overflow-y-auto max-h-56 divide-y divide-slate-100">
         {(order?.items || []).map((item, idx) => (
           <div
             key={`ticket-item-${order.id}-${item.id}-${idx}`}
             onClick={() => onToggleItem(order.id, item.id)}
-            className={`pt-2 first:pt-0 space-y-1 cursor-pointer select-none transition-all ${
+            className={`pt-1.5 first:pt-0 space-y-1 cursor-pointer select-none transition-all ${
               item.isCompleted
-                ? 'bg-emerald-50/50 p-2 rounded-xl border border-emerald-100'
-                : 'p-1 hover:bg-slate-50 rounded-xl'
+                ? 'bg-emerald-50/50 p-1.5 rounded-lg border border-emerald-100'
+                : 'p-1 hover:bg-slate-50 rounded-lg'
             }`}
             title="Chạm vào để tick món đã chế biến xong"
           >
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
                 <div
-                  className={`w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-colors ${
+                  className={`w-4.5 h-4.5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
                     item.isCompleted
                       ? 'bg-emerald-600 border-emerald-600 text-white'
                       : 'border-slate-300 bg-white hover:border-orange-400'
                   }`}
                 >
-                  {item.isCompleted && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                  {item.isCompleted && <Check className="w-3 h-3 stroke-[3]" />}
                 </div>
                 <span
-                  className={`font-semibold text-xs sm:text-sm leading-snug truncate ${
+                  className={`font-semibold text-xs leading-snug break-words ${
                     item.isCompleted ? 'line-through text-emerald-800' : 'text-slate-900'
                   }`}
                 >
@@ -110,14 +110,14 @@ export const KitchenTicketCard: React.FC<KitchenTicketCardProps> = ({
                 </span>
               </div>
 
-              <span className="bg-orange-50 text-orange-700 border border-orange-200/60 font-bold text-xs px-2 py-0.5 rounded-md flex-shrink-0">
+              <span className="bg-orange-50 text-orange-700 border border-orange-200/60 font-bold text-[11px] px-1.5 py-0.5 rounded flex-shrink-0">
                 x{item.quantity}
               </span>
             </div>
 
             {/* Notes Highlight Box */}
             {item.note && (
-              <div className="bg-amber-50/70 border border-amber-200/60 p-2 rounded-lg text-[11px] text-amber-900 font-medium leading-tight ml-7">
+              <div className="bg-amber-50/70 border border-amber-200/60 p-1.5 rounded text-[10px] text-amber-900 font-medium leading-tight ml-6">
                 📌 <strong>Ghi chú:</strong> {item.note}
               </div>
             )}
@@ -126,7 +126,7 @@ export const KitchenTicketCard: React.FC<KitchenTicketCardProps> = ({
       </div>
 
       {/* 3. Ergonomic Touch Action Button */}
-      <div className="p-3 bg-slate-50/50 border-t border-slate-100">
+      <div className="p-2.5 bg-slate-50/50 border-t border-slate-100">
         <button
           onClick={() => {
             if (allItemsCompleted) {
@@ -134,9 +134,9 @@ export const KitchenTicketCard: React.FC<KitchenTicketCardProps> = ({
             }
           }}
           disabled={!allItemsCompleted}
-          className={`w-full h-11 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all min-h-[44px] ${
+          className={`w-full h-9 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all min-h-[36px] ${
             allItemsCompleted
-              ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-md active:scale-95'
+              ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm active:scale-95'
               : 'bg-slate-100 text-slate-400 border border-slate-200/80 cursor-not-allowed'
           }`}
         >

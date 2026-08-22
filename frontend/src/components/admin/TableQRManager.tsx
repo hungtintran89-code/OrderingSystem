@@ -255,9 +255,9 @@ export const TableQRManager: React.FC = () => {
   const selectedTablesList = tables.filter((t) => selectedTableIds.includes(t.id));
 
   return (
-    <div className="space-y-4 font-sans">
+    <div className="flex-1 flex flex-col min-h-0 space-y-3 font-sans h-full overflow-hidden">
       {/* TOOLBAR STICKY: ZONE TABS & ACTION BUTTONS */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 transition-all">
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
         {/* Page Title */}
         <div className="flex items-center gap-2.5">
           <QrCode className="w-6 h-6 text-orange-600 stroke-[2.2] flex-shrink-0" />
@@ -368,7 +368,7 @@ export const TableQRManager: React.FC = () => {
 
       {/* STATE 4: SUCCESS TABLE CARDS GRID INSIDE SCROLLABLE CONTAINER CARD */}
       {!loading && !error && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 max-h-[calc(100vh-210px)] min-h-[420px] overflow-y-auto custom-scrollbar">
+        <div className="flex-1 min-h-0 p-3 sm:p-4 overflow-y-auto custom-scrollbar">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredTables.map((table) => {
               const isSelected = selectedTableIds.includes(table.id);

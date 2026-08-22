@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { AdminMenuItem, AdminTable } from '../../types/admin';
-import { 
-  fetchAdminMenuItemsApi, 
-  fetchAdminTablesApi, 
+import {
+  fetchAdminMenuItemsApi,
+  fetchAdminTablesApi,
   fetchAdminCategoriesListApi,
-  createVietQrPaymentApi, 
-  updateTableStatusApi, 
+  createVietQrPaymentApi,
+  updateTableStatusApi,
   checkoutTableApi,
   submitQuickPosOrderApi,
   checkPayOSPaymentStatusApi,
@@ -153,7 +153,7 @@ export const QuickPosManagement: React.FC = () => {
       ]);
       setMenuItems(itemsData);
       setTables(tablesData);
-      
+
       if (Array.isArray(categoriesData)) {
         const catNames = categoriesData.map((c) => c.categoryName).filter(Boolean);
         setDbCategories(catNames);
@@ -430,11 +430,11 @@ export const QuickPosManagement: React.FC = () => {
           prev.map((t) =>
             t.id === targetTicket!.id
               ? {
-                  ...t,
-                  rounds: [...t.rounds, newRound],
-                  totalAmount: t.totalAmount + roundAmount,
-                  status: 'PENDING_KDS',
-                }
+                ...t,
+                rounds: [...t.rounds, newRound],
+                totalAmount: t.totalAmount + roundAmount,
+                status: 'PENDING_KDS',
+              }
               : t
           )
         );
@@ -566,9 +566,9 @@ export const QuickPosManagement: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 font-sans w-full">
+    <div className="flex-1 flex flex-col min-h-0 space-y-3 font-sans h-full overflow-hidden w-full">
       {/* 1. POS TOPBAR TOOLBAR */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
         {/* CỘT BÊN TRÁI: TIÊU ĐỀ & NÚT CHỌN BÀN (CHỈ HIỆN KHI ĂN TẠI BÀN) */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2.5">
@@ -603,11 +603,10 @@ export const QuickPosManagement: React.FC = () => {
           <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
               onClick={() => setOrderType('DINE_IN')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                orderType === 'DINE_IN'
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${orderType === 'DINE_IN'
                   ? 'bg-white text-orange-600 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               <Utensils className="w-3.5 h-3.5" />
               <span>Ăn Tại Bàn</span>
@@ -615,11 +614,10 @@ export const QuickPosManagement: React.FC = () => {
 
             <button
               onClick={() => setOrderType('TAKEAWAY')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                orderType === 'TAKEAWAY'
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${orderType === 'TAKEAWAY'
                   ? 'bg-purple-600 text-white shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               <ShoppingBag className="w-3.5 h-3.5" />
               <span>Mang Về</span>
@@ -670,11 +668,11 @@ export const QuickPosManagement: React.FC = () => {
 
       {/* STATE 1: MAIN 2-COLUMN SPLIT POS INTERFACE */}
       {!loading && !error && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0 h-full overflow-hidden">
+
           {/* LEFT COLUMN: MENU DISHES GRID & CATEGORY TABS (7 COLS ON LARGE) */}
-          <div className="lg:col-span-7 xl:col-span-8 space-y-4">
-            
+          <div className="lg:col-span-7 xl:col-span-8 flex flex-col h-full min-h-0 overflow-hidden space-y-3">
+
             {/* SEARCH & CATEGORIES SCROLLABLE BAR */}
             <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3">
               <div className="relative">
@@ -694,11 +692,10 @@ export const QuickPosManagement: React.FC = () => {
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
-                      selectedCategory === cat
+                    className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${selectedCategory === cat
                         ? 'bg-slate-900 text-white shadow-2xs'
                         : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                    }`}
+                      }`}
                   >
                     {cat === 'all' ? 'Tất cả món' : cat}
                   </button>
@@ -706,8 +703,8 @@ export const QuickPosManagement: React.FC = () => {
               </div>
             </div>
 
-            {/* PRODUCT CARDS TOUCH GRID WITH INTERNAL SCROLLBAR */}
-            <div className="max-h-[calc(100vh-240px)] min-h-[500px] overflow-y-auto pr-1">
+            {/* PRODUCT CARDS TOUCH GRID WITH ALWAYS-VISIBLE INTERNAL SCROLLBAR */}
+            <div className="flex-1 min-h-0 max-h-[calc(100vh-275px)] overflow-y-scroll custom-scrollbar pr-1.5 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
               {filteredMenuItems.length === 0 ? (
                 <div className="bg-white rounded-2xl p-12 border border-slate-200/80 text-center space-y-3 shadow-2xs my-4">
                   <UtensilsCrossed className="w-10 h-10 text-slate-300 mx-auto" />
@@ -719,47 +716,49 @@ export const QuickPosManagement: React.FC = () => {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-3">
                   {filteredMenuItems.map((item) => (
                     <div
                       key={item.id}
                       onClick={() => handleAddToCart(item)}
-                      className={`bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-2xs hover:shadow-md transition-all cursor-pointer select-none flex flex-col justify-between group active:scale-98 ${
+                      className={`relative aspect-[4/3] rounded-2xl border border-slate-200/80 overflow-hidden shadow-2xs hover:shadow-lg transition-all cursor-pointer select-none group active:scale-98 ${
                         !item.isAvailable ? 'opacity-50 grayscale' : ''
                       }`}
                     >
-                      <div className="relative h-28 w-full bg-slate-100 overflow-hidden">
-                        <img
-                          src={item.imageUrl}
-                          alt={item.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white font-mono text-[10px] font-bold">
-                          {item.sku}
-                        </span>
-                        {!item.isAvailable && (
-                          <span className="absolute inset-0 bg-black/50 text-white font-bold text-xs flex items-center justify-center">
-                            Tạm hết hàng
-                          </span>
-                        )}
-                      </div>
+                      {/* 100% FULL-BLEED DISH IMAGE */}
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600';
+                        }}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
 
-                      <div className="p-3 space-y-1.5">
-                        <h4 className="font-bold text-slate-900 text-xs line-clamp-1 group-hover:text-orange-600 transition-colors">
-                          {item.name}
-                        </h4>
-                        
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                          <span className="font-semibold text-slate-900 text-xs sm:text-sm">
+                      {!item.isAvailable && (
+                        <span className="absolute inset-0 bg-black/60 backdrop-blur-xs text-white font-bold text-xs flex items-center justify-center z-10">
+                          Tạm hết hàng
+                        </span>
+                      )}
+
+                      {/* FROSTED GLASS & GRADIENT OVERLAY AT BOTTOM OF THE IMAGE */}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2.5 pt-6 backdrop-blur-[2px] flex items-end justify-between gap-1.5 z-10">
+                        <div className="space-y-0.5 overflow-hidden">
+                          <h4 className="font-bold text-white text-xs sm:text-[13px] leading-snug break-words drop-shadow-sm group-hover:text-orange-300 transition-colors">
+                            {item.name}
+                          </h4>
+                          <p className="font-black text-orange-300 text-xs sm:text-[13px] font-mono drop-shadow-sm tracking-tight">
                             {formatVND(item.price)}
-                          </span>
-                          <button
-                            type="button"
-                            className="w-7 h-7 rounded-lg bg-orange-50 hover:bg-orange-600 text-orange-600 hover:text-white flex items-center justify-center transition-colors shadow-2xs font-bold text-xs"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
+                          </p>
                         </div>
+
+                        {/* PLUS '+' BUTTON AT BOTTOM RIGHT */}
+                        <button
+                          type="button"
+                          className="w-7 h-7 rounded-xl bg-orange-500 hover:bg-orange-600 active:scale-95 text-white flex items-center justify-center transition-all shadow-md flex-shrink-0 font-bold"
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -768,14 +767,12 @@ export const QuickPosManagement: React.FC = () => {
             </div>
           </div>
 
-          {/* RIGHT COLUMN: CART & TAKEAWAY LIVE ORDERS QUEUE PANEL */}
-          <div className="lg:col-span-5 xl:col-span-4 space-y-4">
-            
-            {/* CARD 1: GIỎ ĐƠN TẠM TÍNH (ĐANG CHỌN CHO ĐỢT MÓN MỚI) */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-4 sticky top-4">
-              
+          {/* RIGHT COLUMN: CART & TAKEAWAY LIVE ORDERS QUEUE PANEL (SPLIT INTO 2 DIV BLOCKS) */}
+          <div className="lg:col-span-5 xl:col-span-4 flex flex-col h-full min-h-0 overflow-hidden space-y-3">
+            {/* KHỐI DIV 1 (TRÊN): GIỎ HÀNG VÀ DANH SÁCH MÓN VỪA HƠN 2 MÓN (MAX-H 250PX) */}
+            <div className="flex-shrink-0 flex flex-col overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3">
               {/* Cart Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <ShoppingBag className="w-5 h-5 text-orange-600" />
                   <div>
@@ -804,14 +801,14 @@ export const QuickPosManagement: React.FC = () => {
                 )}
               </div>
 
-              {/* Cart Items List */}
+              {/* Cart Items List: LỚN HƠN 2 MÓN VÌA TÍ (MAX-H 250PX), HÉ LỘ MÓN THỨ 3 VÀ CÓ THANH CUỘN */}
               {cart.length === 0 ? (
-                <div className="py-8 text-center space-y-2 border-2 border-dashed border-slate-100 rounded-xl">
+                <div className="py-6 text-center space-y-2 border-2 border-dashed border-slate-100 rounded-xl my-auto">
                   <ShoppingBag className="w-8 h-8 text-slate-300 mx-auto" />
                   <p className="text-xs text-slate-500 font-medium">Chạm chọn món ăn bên trái để thêm vào giỏ</p>
                 </div>
               ) : (
-                <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                <div className="max-h-[250px] overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
                   {cart.map((item) => (
                     <div key={item.product.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
                       <div className="flex justify-between items-start">
@@ -854,9 +851,12 @@ export const QuickPosManagement: React.FC = () => {
                   ))}
                 </div>
               )}
+            </div>
 
+            {/* KHỐI DIV 2 (DƯỚI): TỔNG TIỀN VÀ NÚT BẤM CỐ ĐỊNH 100% Ở ĐÁY HÀNG KHÔNG DI CHUYỂN */}
+            <div className="flex-shrink-0 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3">
               {/* Total Amount Summary */}
-              <div className="pt-3 border-t border-slate-200/80 space-y-2">
+              <div className="space-y-2">
                 <div className="flex justify-between items-center text-xs text-slate-600 font-medium">
                   <span>Số lượng món tạm tính:</span>
                   <span className="font-bold text-slate-900">{cart.reduce((s, i) => s + i.quantity, 0)} món</span>
@@ -868,18 +868,16 @@ export const QuickPosManagement: React.FC = () => {
                 </div>
               </div>
 
-              {/* OPERATION BUTTONS: DINE_IN (GỬI BẾP CÓ MÃ BÀN) vs TAKEAWAY (THANH TOÁN 2 TAB KHÔNG CẦN BÀN) */}
-              <div className="pt-2 space-y-2">
+              {/* OPERATION BUTTONS: DINE_IN vs TAKEAWAY (GIỮ NGUYÊN 100% NHƯ ẢNH 3) */}
+              <div>
                 {orderType === 'DINE_IN' ? (
-                  /* NÚT ĂN TẠI BÀN: GỬI BẾP & GỌI MÓN (CÓ MÃ BÀN, KHÔNG THANH TOÁN NGAY) */
                   <button
                     onClick={() => handleSendToKitchen()}
                     disabled={cart.length === 0 || submittingOrder}
-                    className={`w-full h-12 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all min-h-[48px] shadow-sm ${
-                      cart.length > 0 && !submittingOrder
+                    className={`w-full h-12 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all min-h-[48px] shadow-sm ${cart.length > 0 && !submittingOrder
                         ? 'bg-orange-600 hover:bg-orange-700 active:scale-98 text-white cursor-pointer ring-2 ring-orange-500/20'
                         : 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
-                    }`}
+                      }`}
                   >
                     <Send className={`w-4 h-4 ${submittingOrder ? 'animate-spin' : ''}`} />
                     <span>
@@ -889,27 +887,22 @@ export const QuickPosManagement: React.FC = () => {
                     </span>
                   </button>
                 ) : (
-                  /* NÚT MANG VỀ: THANH TOÁN ĐƠN MANG VỀ (KHÔNG CẦN MÃ BÀN, MỞ MODAL 2 TAB TIỀN MẶT / QR) */
                   <button
                     onClick={handleOpenCheckoutModal}
                     disabled={cart.length === 0}
-                    className={`w-full h-12 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all min-h-[48px] shadow-sm ${
-                      cart.length > 0
+                    className={`w-full h-12 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all min-h-[48px] shadow-sm ${cart.length > 0
                         ? 'bg-purple-600 hover:bg-purple-700 active:scale-98 text-white cursor-pointer ring-2 ring-purple-500/20'
                         : 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
-                    }`}
+                      }`}
                   >
                     <CreditCard className="w-4 h-4" />
                     <span>
-                      Thanh Toán Đơn Mang Về {activeTakeawayTicketId ? `#${activeTakeawayTicketId}` : ''}
+                      Thanh Toán Đơn Mang Về {activeTakeawayTicketId ? '#' + activeTakeawayTicketId : ''}
                     </span>
                   </button>
                 )}
-
-
               </div>
             </div>
-
           </div>
         </div>
       )}
@@ -936,11 +929,10 @@ export const QuickPosManagement: React.FC = () => {
                 <button
                   key={zone}
                   onClick={() => setSelectedZoneFilter(zone)}
-                  className={`px-3 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
-                    selectedZoneFilter === zone
+                  className={`px-3 py-1 rounded-lg font-bold transition-colors cursor-pointer ${selectedZoneFilter === zone
                       ? 'bg-slate-900 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
+                    }`}
                 >
                   {zone === 'ALL' ? 'Tất cả khu vực' : zone}
                 </button>
@@ -968,13 +960,12 @@ export const QuickPosManagement: React.FC = () => {
                     setIsTableModalOpen(false);
                     message.success(`Đã chọn ${formatTableName(tbl.tableNumber)} (${tbl.zone})`);
                   }}
-                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer shadow-2xs space-y-2 select-none ${
-                    isCurrentSelected
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer shadow-2xs space-y-2 select-none ${isCurrentSelected
                       ? 'border-orange-500 bg-orange-50/80 ring-2 ring-orange-200'
                       : isEmpty
-                      ? 'border-emerald-200 bg-emerald-50/60 hover:border-emerald-400'
-                      : 'border-slate-200 bg-slate-100 hover:border-slate-400'
-                  }`}
+                        ? 'border-emerald-200 bg-emerald-50/60 hover:border-emerald-400'
+                        : 'border-slate-200 bg-slate-100 hover:border-slate-400'
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-base text-slate-900">{formatTableName(tbl.tableNumber)}</span>

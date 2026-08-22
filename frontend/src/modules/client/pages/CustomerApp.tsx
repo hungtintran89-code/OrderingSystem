@@ -353,8 +353,8 @@ export function CustomerApp() {
               onSelectCategory={(id) => setActiveCategoryId(id)}
             />
 
-            {/* Food Grid Without Category Section Headers */}
-            <div className="mt-4">
+            {/* Food Grid Container With Explicit Internal Scrollbar */}
+            <div className="mt-4 max-h-[calc(100vh-210px)] overflow-y-scroll custom-scrollbar pr-1.5 pb-4">
               {allFilteredProducts.length === 0 ? (
                 <div className="bg-white rounded-3xl p-10 text-center shadow-sm border border-gray-100 my-8">
                   <Search className="w-10 h-10 text-gray-300 mx-auto mb-2" />
@@ -426,6 +426,18 @@ export function CustomerApp() {
         </div>
       )}
 
+      {/* LARGE FLOATING BELL BUTTON (NÚT CHUÔNG TO YÊU CẦU PHỤC VỤ CỐ ĐỊNH GÓC DƯỚI BÊN PHẢI) */}
+      <button
+        onClick={() => setIsServiceOpen(true)}
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-amber-600 text-white shadow-2xl hover:shadow-orange-500/50 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center cursor-pointer border-2 border-white ring-4 ring-orange-500/20 group"
+        title="Bấm để Gọi phục vụ hoặc Yêu cầu tính tiền"
+      >
+        <span className="absolute -top-2 bg-amber-900 text-amber-100 text-[10px] font-black px-2 py-0.5 rounded-full shadow-md whitespace-nowrap border border-amber-400/50 font-label group-hover:scale-105 transition-transform">
+          Gọi phục vụ
+        </span>
+        <Bell className="w-7 h-7 stroke-[2.5] text-white animate-bounce-subtle drop-shadow-md" />
+      </button>
+
       {/* Modals & Drawers */}
       <ProductNoteModal
         product={selectedProduct}
@@ -456,6 +468,7 @@ export function CustomerApp() {
         onClose={() => setIsServiceOpen(false)}
         onRequest={handleServiceRequest}
         tableName={currentTable.tableName}
+        canRequestBill={Boolean((personalOrders?.myItems && personalOrders.myItems.length > 0) || cartItems.length > 0)}
       />
     </div>
   );

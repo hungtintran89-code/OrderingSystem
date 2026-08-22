@@ -37,15 +37,6 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Action Controls */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Call Staff Button (Nút Gọi Phục Vụ Nổi Bật Nằm Cạnh Ô Lịch Sử) */}
-          <button
-            onClick={onOpenService}
-            className="flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-headline font-extrabold text-xs sm:text-sm transition-all active:scale-95 border border-amber-300/80 shadow-xs cursor-pointer"
-            title="Gọi nhân viên phục vụ hoặc Yêu cầu tính tiền"
-          >
-            <Bell className="w-4.5 h-4.5 text-amber-600 shrink-0 stroke-[2.5]" />
-            <span className="whitespace-nowrap">Gọi phục vụ</span>
-          </button>
 
           {/* Order History Button */}
           <button

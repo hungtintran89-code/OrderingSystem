@@ -146,7 +146,7 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({
   );
 
   const content = (
-    <div className="flex h-screen bg-slate-100 font-sans text-slate-900 overflow-hidden">
+    <div className="flex h-screen max-h-screen bg-slate-100 font-sans text-slate-900 overflow-hidden">
       {/* Desktop Sidebar */}
       <aside className={`hidden md:block h-full transition-all duration-300 ease-in-out z-20 ${
         collapsed ? 'w-20' : 'w-64'
@@ -169,7 +169,7 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         {/* Header Bar */}
-        <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between z-10 shadow-2xs">
+        <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between z-10 shadow-2xs flex-shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileDrawerOpen(true)}
@@ -207,7 +207,7 @@ export const StaffLayout: React.FC<StaffLayoutProps> = ({
         </header>
 
         {/* MAIN BODY AREA */}
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto">
+        <main className="flex-1 p-3 md:p-4 flex flex-col min-h-0 overflow-hidden">
           {children || <Outlet />}
         </main>
       </div>

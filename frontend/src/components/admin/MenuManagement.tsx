@@ -370,9 +370,9 @@ export const MenuManagement: React.FC = () => {
   }));
 
   return (
-    <div className="space-y-4 font-sans">
+    <div className="flex-1 flex flex-col min-h-0 space-y-3 font-sans h-full overflow-hidden">
       {/* TOOLBAR STICKY: PAGE TITLE + CATEGORY CHIPS + SEARCH */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 transition-all">
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
         {/* Page Title */}
         <div className="flex items-center gap-2.5 w-full pb-1.5 border-b border-slate-100 mb-1">
           <UtensilsCrossed className="w-6 h-6 text-orange-600 stroke-[2.2] flex-shrink-0" />
@@ -529,62 +529,62 @@ export const MenuManagement: React.FC = () => {
 
       {/* STATE 1: SCROLLABLE CONTAINER CARD ("Ô VUÔNG CUỘN THEO DẦN") */}
       {!loading && !error && filteredItems.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col max-h-[calc(100vh-210px)] min-h-[420px] overflow-hidden">
-          <div className="overflow-auto flex-1 custom-scrollbar">
-            <table className="w-full text-left text-xs text-slate-700 relative border-collapse">
-              <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-slate-200 shadow-2xs">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs flex-1 min-h-0 max-h-[calc(100vh-250px)] flex flex-col overflow-hidden mb-2">
+          <div className="overflow-y-scroll custom-scrollbar flex-1 min-h-0 pr-1">
+            <table className="w-full text-left text-sm text-slate-700 relative border-collapse">
+              <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-xs tracking-wider sticky top-0 z-20 border-b border-slate-200 shadow-2xs">
                 <tr>
-                  <th className="p-3.5 bg-slate-50">Món Ăn & SKU</th>
-                  <th className="p-3.5 bg-slate-50">Danh Mục</th>
-                  <th className="p-3.5 bg-slate-50">Giá Bán</th>
-                  <th className="p-3.5 w-[160px] min-w-[160px] bg-slate-50">Trạng Thái Kho</th>
-                  <th className="p-3.5 text-right w-[100px] min-w-[100px] bg-slate-50">Thao Tác</th>
+                  <th className="p-4 bg-slate-50">Món Ăn & SKU</th>
+                  <th className="p-4 bg-slate-50">Danh Mục</th>
+                  <th className="p-4 bg-slate-50">Giá Bán</th>
+                  <th className="p-4 w-[180px] min-w-[180px] bg-slate-50">Trạng Thái Kho</th>
+                  <th className="p-4 text-right w-[120px] min-w-[120px] bg-slate-50">Thao Tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {filteredItems.map((item) => (
                   <tr key={item.id} className="hover:bg-orange-50/40 transition-colors">
-                    <td className="p-3.5">
-                      <div className="flex items-center gap-3">
+                    <td className="p-4">
+                      <div className="flex items-center gap-3.5">
                         {item.imageUrl ? (
-                          <div className="w-11 h-11 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0">
+                          <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 shadow-2xs">
                             <AntImage
                               src={item.imageUrl}
                               alt={item.name}
-                              className="w-11 h-11 object-cover"
+                              className="w-12 h-12 object-cover"
                             />
                           </div>
                         ) : (
-                          <div className="w-11 h-11 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 flex-shrink-0">
-                            <ImageIcon className="w-5 h-5" />
+                          <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 flex-shrink-0">
+                            <ImageIcon className="w-6 h-6" />
                           </div>
                         )}
                         <div>
-                          <p className="font-bold text-slate-900 text-xs sm:text-sm">{item.name}</p>
-                          <span className="text-[10px] font-mono text-slate-400">{item.sku}</span>
+                          <p className="font-extrabold text-slate-900 text-base">{item.name}</p>
+                          <span className="text-xs font-mono font-semibold text-slate-500">{item.sku}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="p-3.5">
-                      <span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold whitespace-nowrap">
+                    <td className="p-4">
+                      <span className="px-3 py-1 rounded-lg bg-slate-100 text-slate-800 text-xs sm:text-sm font-bold whitespace-nowrap border border-slate-200/60">
                         {item.category}
                       </span>
                     </td>
-                    <td className="p-3.5">
-                      <span className="font-extrabold text-slate-900 text-xs sm:text-sm whitespace-nowrap">
+                    <td className="p-4">
+                      <span className="font-black text-slate-900 text-base sm:text-lg font-mono whitespace-nowrap">
                         {formatVND(item.price)}
                       </span>
                     </td>
-                    <td className="p-3.5 w-[160px] min-w-[160px]">
+                    <td className="p-4 w-[180px] min-w-[180px]">
                       {/* Optimistic Quick Switcher with UI/UX Pro Zero-Shift Layout */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         <Switch
                           checked={item.isAvailable}
                           onChange={() => handleToggleStock(item.id, item.isAvailable)}
                           size="small"
                         />
                         <span
-                          className={`text-xs font-semibold inline-block min-w-[95px] transition-colors duration-200 select-none ${
+                          className={`text-xs sm:text-sm font-bold inline-block min-w-[105px] transition-colors duration-200 select-none ${
                             item.isAvailable ? 'text-emerald-600' : 'text-slate-400'
                           }`}
                         >
@@ -592,17 +592,17 @@ export const MenuManagement: React.FC = () => {
                         </span>
                       </div>
                     </td>
-                    <td className="p-3.5 text-right space-x-1">
+                    <td className="p-4 text-right space-x-1.5">
                       {/* Nút Thao Tác: Chỉnh Sửa Món Ăn */}
                       <button
                         onClick={() => handleOpenEditModal(item)}
-                        className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-orange-50 hover:border-orange-300 text-slate-600 hover:text-orange-600 transition-colors cursor-pointer shadow-2xs"
+                        className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-orange-50 hover:border-orange-300 text-slate-700 hover:text-orange-600 transition-all cursor-pointer shadow-2xs"
                         title="Chỉnh sửa thông tin món ăn"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
 
-                      {/* Nút Xóa Món Ăn */}
+                      {/* Nút Thao Tác: Xóa Món Ăn */}
                       <Popconfirm
                         title="Xóa món ăn"
                         description="Bạn có chắc chắn muốn xóa món này khỏi thực đơn?"
@@ -612,7 +612,7 @@ export const MenuManagement: React.FC = () => {
                         okButtonProps={{ danger: true }}
                       >
                         <button
-                          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-red-50 hover:border-red-300 text-slate-400 hover:text-red-600 transition-colors cursor-pointer shadow-2xs"
+                          className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-300 text-slate-700 hover:text-rose-600 transition-all cursor-pointer shadow-2xs"
                           title="Xóa món ăn"
                         >
                           <Trash2 className="w-4 h-4" />

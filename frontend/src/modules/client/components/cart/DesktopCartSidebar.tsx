@@ -43,7 +43,7 @@ export const DesktopCartSidebar: React.FC<DesktopCartSidebarProps> = ({
       </div>
 
       {/* Cart Items Scroll Container */}
-      <div className="flex-1 overflow-y-auto space-y-3 pr-1 scrollbar-hide">
+      <div className="flex-1 overflow-y-scroll space-y-3 pr-1 custom-scrollbar">
         {items.length === 0 ? (
           <div className="py-20 text-center text-gray-400 space-y-3">
             <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto" />
@@ -65,7 +65,7 @@ export const DesktopCartSidebar: React.FC<DesktopCartSidebarProps> = ({
                 className="w-14 h-14 rounded-xl object-cover bg-gray-100 flex-shrink-0"
               />
               <div className="flex-1 min-w-0">
-                <h4 className="font-headline font-bold text-gray-900 text-sm truncate">
+                <h4 className="font-headline font-bold text-gray-900 text-sm leading-snug break-words">
                   {item.productName}
                 </h4>
                 <p className="font-headline font-extrabold text-orange-600 text-xs mt-0.5">

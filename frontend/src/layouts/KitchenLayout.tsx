@@ -60,10 +60,10 @@ export const KitchenLayout: React.FC<KitchenLayoutProps> = ({
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col select-none">
+    <div className="h-screen max-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col select-none overflow-hidden">
       {/* 1. KITCHEN LIGHT THEME TOPBAR */}
-      <header className="bg-white border-b border-slate-200 px-3 md:px-4 py-3 sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+      <header className="bg-white border-b border-slate-200 px-3 md:px-5 py-3 z-30 shadow-2xs flex-shrink-0">
+        <div className="w-full lg:w-[80%] mx-auto flex items-center justify-between gap-3">
           {/* Left: Kitchen Name & Tag */}
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-orange-600 flex items-center justify-center text-white shadow-sm flex-shrink-0">
@@ -93,8 +93,8 @@ export const KitchenLayout: React.FC<KitchenLayoutProps> = ({
         </div>
       </header>
 
-      {/* 2. MAIN KITCHEN KIOSK DISPLAY AREA */}
-      <main className="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full">
+      {/* 2. MAIN KITCHEN KIOSK DISPLAY AREA - CÁCH CHÂN MÀN HÌNH CHUẨN 10-16PX */}
+      <main className="flex-1 p-3 md:p-4 pb-4 w-full lg:w-[80%] mx-auto overflow-hidden flex flex-col min-h-0">
         {children ? children : <Outlet />}
       </main>
 

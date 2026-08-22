@@ -25,6 +25,7 @@ public class OrderMapper {
                 .priceTotal(orderItemEntity.getTotalPrice())
                 .note(orderItemEntity.getNote())
                 .threadId(orderItemEntity.getCreatedByThread())
+                .productImageUrl(orderItemEntity.getProduct() != null ? orderItemEntity.getProduct().getProductImageUrl() : null)
                 .build();
     }
 

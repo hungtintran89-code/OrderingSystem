@@ -34,12 +34,20 @@ import ordersystem.backend.modules.table.dto.request.TableCheckoutRequest;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import ordersystem.backend.modules.servicerequest.entity.ServiceRequestEntity;
+import ordersystem.backend.modules.servicerequest.enums.RequestStatus;
+import ordersystem.backend.modules.servicerequest.repository.ServiceRequestRepository;
+import ordersystem.backend.modules.table.event.TableStateChangeEvent;
+import org.springframework.context.ApplicationEventPublisher;
+
 @Service
 @RequiredArgsConstructor
 public class TableServiceImpl implements TableService {
     private final RestaurantTableRepository restaurantTableRepository;
     private final TableSessionRepository tableSessionRepository;
     private final TableSessionService tableSessionService;
+    private final ServiceRequestRepository serviceRequestRepository;
+    private final ApplicationEventPublisher eventPublisher;
     private final QRCodeGeneratorService qrCodeGeneratorService;
     private final RestaurantTableMapper restaurantTableMapper;
     private final TableSessionMapper tableSessionMapper;
@@ -230,6 +238,29 @@ public class TableServiceImpl implements TableService {
         } else {
             tableInfo.setTableStatus(TableStatus.EMPTY);
             restaurantTableRepository.save(tableInfo);
+
+            try {
+                List<ServiceRequestEntity> pendingReqs = serviceRequestRepository.findAllByRequestStatus(RequestStatus.PENDING);
+                if (pendingReqs != null && !pendingReqs.isEmpty()) {
+                    List<ServiceRequestEntity> tablePendingReqs = pendingReqs.stream()
+                            .filter(r -> r.getTableId() != null && r.getTableId().equals(tableId))
+                            .collect(Collectors.toList());
+                    for (ServiceRequestEntity r : tablePendingReqs) {
+                        r.setRequestStatus(RequestStatus.COMPLETED);
+                        r.setCompletedAt(new Date());
+                    }
+                    if (!tablePendingReqs.isEmpty()) {
+                        serviceRequestRepository.saveAll(tablePendingReqs);
+                    }
+                }
+            } catch (Exception e) {}
+
+            eventPublisher.publishEvent(new TableStateChangeEvent(
+                    this,
+                    tableInfo.getTableId(),
+                    tableInfo.getTableName(),
+                    TableStatus.EMPTY
+            ));
         }
     }
 }

@@ -12,6 +12,10 @@ import ordersystem.backend.modules.table.enums.TableStatus;
 import ordersystem.backend.modules.table.event.TableStateChangeEvent;
 import ordersystem.backend.modules.table.repository.RestaurantTableRepository;
 import ordersystem.backend.modules.table.repository.TableSessionRepository;
+import ordersystem.backend.modules.servicerequest.entity.ServiceRequestEntity;
+import ordersystem.backend.modules.servicerequest.enums.RequestStatus;
+import ordersystem.backend.modules.servicerequest.repository.ServiceRequestRepository;
+import java.util.stream.Collectors;
 import ordersystem.backend.modules.table.service.impl.TableSessionService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationEventPublisher;
@@ -35,6 +39,7 @@ public class TableSessionServiceImpl implements TableSessionService {
     private final TableSessionRepository tableSessionRepository;
     private final RestaurantTableRepository restaurantTableRepository;
     private final OrderRepository orderRepository;
+    private final ServiceRequestRepository serviceRequestRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -97,11 +102,30 @@ public class TableSessionServiceImpl implements TableSessionService {
         session.setEndedAt(new Date());
         tableSessionRepository.save(session);
 
-        // 📌 3. Cập nhật trạng thái bàn vật lý trong DB về EMPTY
+        // 📌 3. Cập nhật trạng thái bàn vật lý trong DB về EMPTY & hoàn tất các service request đang PENDING
         RestaurantTableEntity table = session.getTable();
         if (table != null) {
             table.setTableStatus(TableStatus.EMPTY);
             restaurantTableRepository.save(table);
+
+            try {
+                List<ServiceRequestEntity> pendingReqs = serviceRequestRepository.findAllByRequestStatus(RequestStatus.PENDING);
+                if (pendingReqs != null && !pendingReqs.isEmpty()) {
+                    List<ServiceRequestEntity> tablePendingReqs = pendingReqs.stream()
+                            .filter(r -> r.getTableId() != null && r.getTableId().equals(table.getTableId()))
+                            .collect(Collectors.toList());
+                    for (ServiceRequestEntity r : tablePendingReqs) {
+                        r.setRequestStatus(RequestStatus.COMPLETED);
+                        r.setCompletedAt(new Date());
+                    }
+                    if (!tablePendingReqs.isEmpty()) {
+                        serviceRequestRepository.saveAll(tablePendingReqs);
+                        log.info("Auto-completed {} pending service requests for table {} on session close", tablePendingReqs.size(), table.getTableId());
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to auto-complete service requests on session close: {}", e.getMessage());
+            }
         }
 
         // 🚀 BẮN EVENT: Giải phóng bàn về 🟢 EMPTY

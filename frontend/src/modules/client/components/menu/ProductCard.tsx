@@ -48,7 +48,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Card Content */}
       <div className="p-3.5 sm:p-4 flex flex-col justify-between flex-1 gap-2">
         <div onClick={() => onOpenDetails(product)} className="cursor-pointer">
-          <h3 className="font-headline font-bold text-gray-900 text-sm sm:text-base leading-snug line-clamp-1 group-hover:text-orange-600 transition-colors">
+          <h3 className="font-headline font-bold text-gray-900 text-sm sm:text-base leading-snug break-words group-hover:text-orange-600 transition-colors">
             {product.productName}
           </h3>
           <p className="font-headline font-extrabold text-orange-600 text-base sm:text-lg mt-0.5">

@@ -88,15 +88,13 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
                   <div className="relative h-20 w-20 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
                     <img
                       src={
-                        item.productId === 101
-                          ? "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?auto=format&fit=crop&w=600&q=80"
-                          : item.productId === 102
-                          ? "https://images.unsplash.com/photo-1541832676-9b763b0239ab?auto=format&fit=crop&w=600&q=80"
-                          : item.productId === 201
-                          ? "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=600&q=80"
-                          : "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=600&q=80"
+                        item.productImageUrl ||
+                        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600"
                       }
                       alt={item.productName}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600";
+                      }}
                       className="w-full h-full object-cover shadow-sm"
                     />
                     <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-md border border-gray-100">

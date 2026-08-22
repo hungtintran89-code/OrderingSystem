@@ -55,11 +55,8 @@ export const BellNotificationDrawer: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3 font-sans">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Xếp theo thời gian (cũ nhất ở trên):
-            </p>
 
-            {sortedRequests.map((req) => {
+            {sortedRequests.map((req, index) => {
               const isBill =
                 req.requestType &&
                 (req.requestType.includes('BILL') || req.requestType.includes('PAYMENT'));
@@ -69,7 +66,7 @@ export const BellNotificationDrawer: React.FC = () => {
 
               return (
                 <div
-                  key={req.id}
+                  key={req.id ? `req-${req.id}` : `table-${req.tableId || req.tableName}-${index}`}
                   className={`p-3.5 rounded-2xl border ${cardBg} shadow-sm flex items-center justify-between gap-3 transition-all`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -94,7 +91,7 @@ export const BellNotificationDrawer: React.FC = () => {
 
                   {/* 1-Tap Confirm Button */}
                   <button
-                    onClick={() => handleConfirmRequest(req.id)}
+                    onClick={() => handleConfirmRequest(req.id || req.requestId!)}
                     className="h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1 shadow-sm transition-all cursor-pointer flex-shrink-0"
                     title="Đánh dấu hoàn tất xử lý"
                   >
