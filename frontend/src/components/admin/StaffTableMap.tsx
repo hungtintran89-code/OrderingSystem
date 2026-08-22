@@ -509,8 +509,8 @@ export const StaffTableMap: React.FC = () => {
 
       {/* STATE 1: SCROLLABLE TABLE GRID CONTAINER CARD ("Ô VUÔNG CUỘN THEO DẦN") */}
       {!loading && !error && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-3 flex-1 min-h-0 max-h-[calc(100vh-170px)] overflow-y-scroll custom-scrollbar pr-1.5 mb-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-3 flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1.5 mb-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
             {tables.map((table) => {
               let cardStyle = 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:border-emerald-400';
               let statusText = 'Trống';

@@ -34,18 +34,18 @@ export const StaffDashboardPage: React.FC = () => {
 
   return (
     <>
-      <div style={{ display: isTabActive('tables') ? 'block' : 'none' }}>
+      <div className="h-full flex-1 flex flex-col min-h-0" style={{ display: isTabActive('tables') ? 'flex' : 'none' }}>
         <StaffTableMap />
       </div>
 
       {visitedTabs['orders'] && (
-        <div style={{ display: isTabActive('orders') ? 'block' : 'none' }}>
+        <div className="h-full flex-1 flex flex-col min-h-0" style={{ display: isTabActive('orders') ? 'flex' : 'none' }}>
           <OrderListManagement />
         </div>
       )}
 
       {visitedTabs['quick-pos'] && (
-        <div style={{ display: isTabActive('quick-pos') ? 'block' : 'none' }}>
+        <div className="h-full flex-1 flex flex-col min-h-0" style={{ display: isTabActive('quick-pos') ? 'flex' : 'none' }}>
           <QuickPosManagement />
         </div>
       )}

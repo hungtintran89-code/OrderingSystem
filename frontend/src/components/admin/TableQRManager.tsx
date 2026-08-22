@@ -368,8 +368,8 @@ export const TableQRManager: React.FC = () => {
 
       {/* STATE 4: SUCCESS TABLE CARDS GRID INSIDE SCROLLABLE CONTAINER CARD */}
       {!loading && !error && (
-        <div className="flex-1 min-h-0 p-3 sm:p-4 overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="flex-1 min-h-0 p-3 sm:p-4 overflow-y-auto custom-scrollbar border border-slate-200/80 rounded-xl bg-slate-50/50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-2">
             {filteredTables.map((table) => {
               const isSelected = selectedTableIds.includes(table.id);
               return (

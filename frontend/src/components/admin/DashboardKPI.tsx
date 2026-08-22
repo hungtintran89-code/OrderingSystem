@@ -193,10 +193,10 @@ export const DashboardKPI: React.FC = () => {
   // UI STATE 2: LOADING SKELETON SHIMMER (Matching Layout 1:1)
   if (loading) {
     return (
-      <div className="space-y-6 animate-pulse select-none">
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-6 animate-pulse select-none pr-1">
         <div className="h-12 bg-slate-200 rounded-xl w-full"></div>
         {/* KPI Cards Skeleton Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((n) => (
             <div key={n} className="bg-white p-5 rounded-xl border border-slate-200 space-y-3 shadow-2xs">
               <div className="flex justify-between items-center">
@@ -215,25 +215,27 @@ export const DashboardKPI: React.FC = () => {
   // UI STATE 3: ERROR STATE WITH RETRY BUTTON
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center space-y-3">
-        <AlertTriangle className="w-10 h-10 text-red-500 mx-auto" />
-        <h3 className="font-bold text-base">Lỗi Tải Báo Cáo Doanh Thu</h3>
-        <p className="text-xs text-red-600 max-w-md mx-auto">{error}</p>
-        <button
-          type="button"
-          onClick={() => loadDashboardData()}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-xs inline-flex items-center gap-2 cursor-pointer transition-colors shadow-xs"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>Thử lại kết nối</span>
-        </button>
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-6">
+        <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center space-y-3 max-w-lg mx-auto">
+          <AlertTriangle className="w-10 h-10 text-red-500 mx-auto" />
+          <h3 className="font-bold text-base">Lỗi Tải Báo Cáo Doanh Thu</h3>
+          <p className="text-xs text-red-600 max-w-md mx-auto">{error}</p>
+          <button
+            type="button"
+            onClick={() => loadDashboardData()}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-xs inline-flex items-center gap-2 cursor-pointer transition-colors shadow-xs"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Thử lại kết nối</span>
+          </button>
+        </div>
       </div>
     );
   }
 
   // UI STATE 1: NORMAL DATA STATE
   return (
-    <div className="space-y-6 font-sans">
+    <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-4 font-sans pr-1 pb-2">
       {/* 0. TOP FILTER BAR CONTROL */}
       <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -294,8 +296,8 @@ export const DashboardKPI: React.FC = () => {
         </div>
       </div>
 
-      {/* 1. TOP 4 KPI CARDS (Grid 4 cột trên Desktop) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 1. TOP 4 KPI CARDS (Responsive Grid) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         {/* Card 1: Doanh thu */}
         <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-2xs space-y-2 hover:border-orange-300 transition-colors">
           <div className="flex items-center justify-between">
@@ -367,9 +369,9 @@ export const DashboardKPI: React.FC = () => {
       </div>
 
       {/* 2. REVENUE ANALYTICS CHART & TOP SELLING PRODUCTS GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Recharts AreaChart (2 cols) */}
-        <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
+        {/* Left: Recharts AreaChart (2 cols on xl) */}
+        <div className="xl:col-span-2 bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-bold text-sm text-slate-900">{getChartTitle()}</h3>
