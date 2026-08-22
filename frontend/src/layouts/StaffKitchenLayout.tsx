@@ -9,7 +9,7 @@ interface StaffKitchenLayoutProps {
 }
 
 export const StaffKitchenLayout: React.FC<StaffKitchenLayoutProps> = ({ children, activeTabKey = 'kitchen-kanban' }) => {
-  const [soundAlert, setSoundAlert] = useState<boolean>(true);
+  const [soundAlert, setSoundAlert] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<string>('');
   const [currentTab, setCurrentTab] = useState<string>(activeTabKey);
   const navigate = useNavigate();

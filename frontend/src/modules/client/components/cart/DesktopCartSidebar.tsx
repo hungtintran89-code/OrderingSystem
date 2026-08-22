@@ -8,6 +8,7 @@ interface DesktopCartSidebarProps {
   onUpdateQuantity: (productId: number, delta: number) => void;
   onClearCart: () => void;
   onSubmitOrder: () => void;
+  isSubmitting?: boolean;
 }
 
 export const DesktopCartSidebar: React.FC<DesktopCartSidebarProps> = ({
@@ -16,6 +17,7 @@ export const DesktopCartSidebar: React.FC<DesktopCartSidebarProps> = ({
   onUpdateQuantity,
   onClearCart,
   onSubmitOrder,
+  isSubmitting = false,
 }) => {
   return (
     <aside className="bg-white rounded-3xl border border-gray-200/80 shadow-sm p-6 flex flex-col h-[calc(100vh-140px)] sticky top-28">
@@ -110,10 +112,19 @@ export const DesktopCartSidebar: React.FC<DesktopCartSidebarProps> = ({
 
           <button
             onClick={onSubmitOrder}
-            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-headline font-bold py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 flex justify-center items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+            disabled={isSubmitting}
+            className={`w-full font-headline font-bold py-3.5 rounded-2xl shadow-lg flex justify-center items-center gap-2 transition-all cursor-pointer ${
+              isSubmitting
+                ? 'bg-gray-300 text-gray-500 shadow-none cursor-not-allowed'
+                : 'bg-orange-600 hover:bg-orange-700 active:scale-[0.98] text-white shadow-orange-500/25'
+            }`}
           >
-            <span>Gửi đơn cho nhà bếp</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>{isSubmitting ? 'Đang đặt món...' : 'Đặt món'}</span>
+            {isSubmitting ? (
+              <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <ArrowRight className="w-4 h-4" />
+            )}
           </button>
         </div>
       )}

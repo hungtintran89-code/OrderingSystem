@@ -120,7 +120,7 @@ export const KitchenKiosk: React.FC = () => {
 
     // 1. STOMP Real-Time Subscriber: Instant Order Notification when Customer Submits Order
     const unsubscribeNewOrders = wsService.subscribe('/topic/kitchen/orders', () => {
-      playNewOrderSound();
+      // Sound alert removed per user directive
       message.info({
         content: '🔔 Có đơn hàng mới gửi đến nhà bếp chế biến!',
         key: 'new-kitchen-order-alert',

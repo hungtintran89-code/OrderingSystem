@@ -94,6 +94,7 @@ export function CustomerApp() {
   const [isServiceOpen, setIsServiceOpen] = useState<boolean>(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showSuccessToast, setShowSuccessToast] = useState<boolean>(false);
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState<boolean>(false);
 
   const [personalOrders, setPersonalOrders] = useState<PersonalOrder | null>(MOCK_PERSONAL_ORDERS);
   const [, setMasterTableOrder] = useState<MasterTableOrder | null>(MOCK_MASTER_TABLE_ORDER);
@@ -148,41 +149,51 @@ export function CustomerApp() {
 
   const loadMenu = async () => {
     const data = await apiService.getMenu(currentTable.qrToken);
-    setCategories(data);
+    if (data && data.length > 0) {
+      setCategories(data);
+      if (!activeCategoryId) {
+        setActiveCategoryId(data[0].categoryId);
+      }
+    }
   };
 
   const loadOrders = async () => {
-    const pOrder = await apiService.getPersonalOrder(currentTable.tableSessionId, threadId);
-    const mOrder = await apiService.getMasterTableOrder(currentTable.tableId);
-    setPersonalOrders(pOrder);
-    setMasterTableOrder(mOrder);
+    try {
+      const pOrder = await apiService.getPersonalOrders(currentTable.tableSessionId, threadId);
+      if (pOrder) {
+        setPersonalOrders(pOrder);
+      }
+      const mOrder = await apiService.getMasterTableOrder(currentTable.tableId);
+      if (mOrder) {
+        setMasterTableOrder(mOrder);
+      }
+    } catch {}
   };
 
   const handleAddToCart = (product: Product, quantity = 1, note = '') => {
     setCartItems((prev) => {
-      const existingIdx = prev.findIndex((item) => item.productId === product.productId && item.note === note);
-      if (existingIdx > -1) {
-        const updated = [...prev];
-        updated[existingIdx].quantity += quantity;
-        updated[existingIdx].priceTotal = updated[existingIdx].quantity * updated[existingIdx].productPrice;
-        return updated;
-      } else {
-        return [
-          ...prev,
-          {
-            productId: product.productId,
-            productName: product.productName,
-            productPrice: product.productPrice,
-            quantity,
-            priceTotal: product.productPrice * quantity,
-            note,
-            productImageUrl: product.productImageUrl
-          }
-        ];
+      const existing = prev.find((item) => item.productId === product.productId && item.note === note);
+      if (existing) {
+        return prev.map((item) =>
+          item.productId === product.productId && item.note === note
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
       }
+      return [
+        ...prev,
+        {
+          productId: product.productId,
+          productName: product.productName,
+          productPrice: product.productPrice,
+          quantity,
+          priceTotal: product.productPrice * quantity,
+          note,
+          productImageUrl: product.productImageUrl
+        }
+      ];
     });
-
-    apiService.addToCart(currentTable.tableSessionId, threadId, product.productId, quantity, note);
+    setSelectedProduct(null);
   };
 
   const handleUpdateQuantity = (productId: number, delta: number) => {
@@ -207,66 +218,76 @@ export function CustomerApp() {
   };
 
   const handleSubmitOrder = async () => {
-    if (cartItems.length === 0) return;
+    if (cartItems.length === 0 || isSubmittingOrder) return;
 
-    const currentCartTotal = cartItems.reduce((acc, item) => acc + item.productPrice * item.quantity, 0);
+    try {
+      setIsSubmittingOrder(true);
+      const snapshotItems = [...cartItems];
+      const currentCartTotal = snapshotItems.reduce((acc, item) => acc + item.productPrice * item.quantity, 0);
 
-    const itemsToSubmit = cartItems.map((item) => ({
-      productId: Number(item.productId),
-      quantity: Number(item.quantity),
-      note: item.note
-    }));
-
-    const result = await apiService.submitOrder(currentTable.tableId, threadId, itemsToSubmit);
-
-    if (result && result.tableSessionId) {
-      setCurrentTable((prev) => ({
-        ...prev,
-        tableSessionId: result.tableSessionId,
+      const itemsToSubmit = snapshotItems.map((item) => ({
+        productId: Number(item.productId),
+        quantity: Number(item.quantity),
+        note: item.note
       }));
-      setPersonalOrders(result);
-      const freshMasterOrder = await apiService.getMasterTableOrder(currentTable.tableId);
-      if (freshMasterOrder) {
-        setMasterTableOrder(freshMasterOrder);
+
+      // Optimistic Instant UI Response
+      setCartItems([]);
+      setIsCartOpen(false);
+      setShowSuccessToast(true);
+
+      const result = await apiService.submitOrder(currentTable.tableId, threadId, itemsToSubmit);
+
+      if (result && result.tableSessionId) {
+        setCurrentTable((prev) => ({
+          ...prev,
+          tableSessionId: result.tableSessionId,
+        }));
+        setPersonalOrders(result);
+        const freshMasterOrder = await apiService.getMasterTableOrder(currentTable.tableId);
+        if (freshMasterOrder) {
+          setMasterTableOrder(freshMasterOrder);
+        }
+      } else {
+        const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const newOrderItems = snapshotItems.map((item, i) => ({
+          orderItemId: Date.now() + i,
+          productId: item.productId,
+          productName: item.productName,
+          quantity: item.quantity,
+          priceProduct: item.productPrice,
+          priceTotal: item.quantity * item.productPrice,
+          note: item.note,
+          threadId,
+          status: 'PENDING' as const,
+          orderedAt: nowStr
+        }));
+
+        setPersonalOrders((prev) => ({
+          tableSessionId: currentTable.tableSessionId,
+          threadId,
+          myTotal: (prev?.myTotal || 0) + currentCartTotal,
+          myItems: [...newOrderItems, ...(prev?.myItems || [])]
+        }));
+
+        setMasterTableOrder((prev) => ({
+          tableId: currentTable.tableId,
+          tableName: currentTable.tableName,
+          tableSessionId: currentTable.tableSessionId,
+          sessionStatus: 'ACTIVE',
+          totalPrice: (prev?.totalPrice || 0) + currentCartTotal,
+          allTableItems: [...newOrderItems, ...(prev?.allTableItems || [])]
+        }));
       }
-    } else {
-      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const newOrderItems = cartItems.map((item, i) => ({
-        orderItemId: Date.now() + i,
-        productId: item.productId,
-        productName: item.productName,
-        quantity: item.quantity,
-        priceProduct: item.productPrice,
-        priceTotal: item.quantity * item.productPrice,
-        note: item.note,
-        threadId,
-        status: 'PENDING' as const,
-        orderedAt: nowStr
-      }));
 
-      setPersonalOrders((prev) => ({
-        tableSessionId: currentTable.tableSessionId,
-        threadId,
-        myTotal: (prev?.myTotal || 0) + currentCartTotal,
-        myItems: [...newOrderItems, ...(prev?.myItems || [])]
-      }));
-
-      setMasterTableOrder((prev) => ({
-        tableId: currentTable.tableId,
-        tableName: currentTable.tableName,
-        tableSessionId: currentTable.tableSessionId,
-        sessionStatus: 'ACTIVE',
-        totalPrice: (prev?.totalPrice || 0) + currentCartTotal,
-        allTableItems: [...newOrderItems, ...(prev?.allTableItems || [])]
-      }));
+      setTimeout(() => {
+        setShowSuccessToast(false);
+      }, 4000);
+    } catch (err) {
+      console.error('Error submitting order:', err);
+    } finally {
+      setIsSubmittingOrder(false);
     }
-
-    setCartItems([]);
-    setIsCartOpen(false);
-    setShowSuccessToast(true);
-    setTimeout(() => {
-      setShowSuccessToast(false);
-    }, 4000);
   };
 
   const handleServiceRequest = (type: RequestType) => {
@@ -391,6 +412,7 @@ export function CustomerApp() {
               onUpdateQuantity={(pid, delta) => handleUpdateQuantity(pid, delta)}
               onClearCart={handleClearCart}
               onSubmitOrder={handleSubmitOrder}
+              isSubmitting={isSubmittingOrder}
             />
           </div>
         </div>
@@ -426,10 +448,12 @@ export function CustomerApp() {
         </div>
       )}
 
-      {/* LARGE FLOATING BELL BUTTON (NÚT CHUÔNG TO YÊU CẦU PHỤC VỤ CỐ ĐỊNH GÓC DƯỚI BÊN PHẢI) */}
+      {/* LARGE FLOATING BELL BUTTON (NÚT CHUÔNG TO YÊU CẦU PHỤC VỤ CỐ ĐỊNH GÓC DƯỚI BÊN PHẢI - TỰ ĐỘNG NHẢY LÊN TRÊN THANH GIỎ HÀNG) */}
       <button
         onClick={() => setIsServiceOpen(true)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-amber-600 text-white shadow-2xl hover:shadow-orange-500/50 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center cursor-pointer border-2 border-white ring-4 ring-orange-500/20 group"
+        className={`fixed right-4 sm:right-6 z-50 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-amber-600 text-white shadow-2xl hover:shadow-orange-500/50 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center cursor-pointer border-2 border-white ring-4 ring-orange-500/20 group ${
+          totalCartCount > 0 ? 'bottom-24 sm:bottom-28 lg:bottom-6' : 'bottom-6'
+        }`}
         title="Bấm để Gọi phục vụ hoặc Yêu cầu tính tiền"
       >
         <span className="absolute -top-2 bg-amber-900 text-amber-100 text-[10px] font-black px-2 py-0.5 rounded-full shadow-md whitespace-nowrap border border-amber-400/50 font-label group-hover:scale-105 transition-transform">
@@ -453,6 +477,7 @@ export function CustomerApp() {
         onUpdateQuantity={(pid, delta) => handleUpdateQuantity(pid, delta)}
         onClearCart={handleClearCart}
         onSubmitOrder={handleSubmitOrder}
+        isSubmitting={isSubmittingOrder}
       />
 
       <OrderHistoryModal

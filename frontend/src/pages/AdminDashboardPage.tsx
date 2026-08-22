@@ -36,48 +36,48 @@ export const AdminDashboardPage: React.FC = () => {
 
   return (
     <>
-      <div style={{ display: isTabActive('admin') ? 'block' : 'none' }}>
+      <div className="h-full flex-1 flex flex-col min-h-0" style={{ display: isTabActive('admin') ? 'flex' : 'none' }}>
         <DashboardKPI />
       </div>
 
       {visitedTabs['menu'] && (
-        <div style={{ display: isTabActive('menu') ? 'block' : 'none' }}>
+        <div className="h-full flex-1 flex flex-col min-h-0" style={{ display: isTabActive('menu') ? 'flex' : 'none' }}>
           <MenuManagement />
         </div>
       )}
 
       {visitedTabs['tables-qr'] && (
-        <div style={{ display: isTabActive('tables-qr') ? 'block' : 'none' }}>
+        <div className="h-full flex-1 flex flex-col min-h-0" style={{ display: isTabActive('tables-qr') ? 'flex' : 'none' }}>
           <TableQRManager />
         </div>
       )}
 
       {visitedTabs['tables'] && (
-        <div style={{ display: isTabActive('tables') ? 'block' : 'none' }}>
+        <div className="h-full flex-1 flex flex-col min-h-0" style={{ display: isTabActive('tables') ? 'flex' : 'none' }}>
           <StaffTableMap />
         </div>
       )}
 
       {visitedTabs['staff'] && (
-        <div style={{ display: isTabActive('staff') ? 'block' : 'none' }}>
+        <div className="h-full flex-1 flex flex-col min-h-0" style={{ display: isTabActive('staff') ? 'flex' : 'none' }}>
           <StaffManagement />
         </div>
       )}
 
       {visitedTabs['orders'] && (
-        <div style={{ display: isTabActive('orders') ? 'block' : 'none' }}>
+        <div className="h-full flex-1 flex flex-col min-h-0" style={{ display: isTabActive('orders') ? 'flex' : 'none' }}>
           <OrderListManagement />
         </div>
       )}
 
       {visitedTabs['quick-pos'] && (
-        <div style={{ display: isTabActive('quick-pos') ? 'block' : 'none' }}>
+        <div className="h-full flex-1 flex flex-col min-h-0" style={{ display: isTabActive('quick-pos') ? 'flex' : 'none' }}>
           <QuickPosManagement />
         </div>
       )}
 
       {visitedTabs['analytics'] && (
-        <div style={{ display: isTabActive('analytics') ? 'block' : 'none' }} className="space-y-4 font-sans">
+        <div className="h-full flex-1 flex flex-col min-h-0 space-y-4 font-sans" style={{ display: isTabActive('analytics') ? 'flex' : 'none' }}>
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
             <PieChart className="w-5 h-5 text-orange-600" />
             <h3 className="font-bold text-sm text-slate-900">Báo Cáo Analytics & Cơ Cấu Thanh Toán Chuyên Sâu</h3>

@@ -704,7 +704,7 @@ export const QuickPosManagement: React.FC = () => {
             </div>
 
             {/* PRODUCT CARDS TOUCH GRID WITH ALWAYS-VISIBLE INTERNAL SCROLLBAR */}
-            <div className="flex-1 min-h-0 max-h-[calc(100vh-275px)] overflow-y-scroll custom-scrollbar pr-1.5 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1.5 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
               {filteredMenuItems.length === 0 ? (
                 <div className="bg-white rounded-2xl p-12 border border-slate-200/80 text-center space-y-3 shadow-2xs my-4">
                   <UtensilsCrossed className="w-10 h-10 text-slate-300 mx-auto" />
@@ -767,24 +767,24 @@ export const QuickPosManagement: React.FC = () => {
             </div>
           </div>
 
-          {/* RIGHT COLUMN: CART & TAKEAWAY LIVE ORDERS QUEUE PANEL (SPLIT INTO 2 DIV BLOCKS) */}
-          <div className="lg:col-span-5 xl:col-span-4 flex flex-col h-full min-h-0 overflow-hidden space-y-3">
-            {/* KHỐI DIV 1 (TRÊN): GIỎ HÀNG VÀ DANH SÁCH MÓN VỪA HƠN 2 MÓN (MAX-H 250PX) */}
-            <div className="flex-shrink-0 flex flex-col overflow-hidden bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3">
+          {/* RIGHT COLUMN: CART & TAKEAWAY LIVE ORDERS QUEUE PANEL */}
+          <div className="lg:col-span-5 xl:col-span-4 flex flex-col h-full min-h-0 overflow-hidden space-y-2.5">
+            {/* KHỐI DIV 1 (TRÊN): GIỎ HÀNG VÀ DANH SÁCH MÓN */}
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
               {/* Cart Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-shrink-0">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
-                  <ShoppingBag className="w-5 h-5 text-orange-600" />
+                  <ShoppingBag className="w-4 h-4 text-orange-600" />
                   <div>
-                    <h3 className="font-bold text-sm text-slate-900">Giỏ Đơn Tạm Tính</h3>
+                    <h3 className="font-bold text-xs sm:text-sm text-slate-900 leading-tight">Giỏ Đơn Tạm Tính</h3>
                     {orderType === 'DINE_IN' && selectedTable && (
-                      <p className="text-[11px] text-orange-600 font-semibold">
+                      <p className="text-[10px] text-orange-600 font-semibold">
                         {formatTableName(selectedTable.tableNumber)} • {selectedTable.zone}
                       </p>
                     )}
                     {orderType === 'TAKEAWAY' && (
-                      <p className="text-[11px] text-purple-700 font-semibold flex items-center gap-1">
-                        <span>Đơn mang về {activeTakeawayTicketId ? `#${activeTakeawayTicketId}` : '(Đơn mới)'}</span>
+                      <p className="text-[10px] text-purple-700 font-semibold">
+                        Đơn mang về {activeTakeawayTicketId ? `#${activeTakeawayTicketId}` : '(Đơn mới)'}
                       </p>
                     )}
                   </div>
@@ -793,59 +793,60 @@ export const QuickPosManagement: React.FC = () => {
                 {cart.length > 0 && (
                   <button
                     onClick={handleClearCart}
-                    className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                    className="text-slate-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
                     title="Xóa giỏ món"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
 
-              {/* Cart Items List: LỚN HƠN 2 MÓN VÌA TÍ (MAX-H 250PX), HÉ LỘ MÓN THỨ 3 VÀ CÓ THANH CUỘN */}
+              {/* Cart Items List: FLEX-1 DYNAMIC AUTO SCROLL */}
               {cart.length === 0 ? (
-                <div className="py-6 text-center space-y-2 border-2 border-dashed border-slate-100 rounded-xl my-auto">
-                  <ShoppingBag className="w-8 h-8 text-slate-300 mx-auto" />
+                <div className="py-4 text-center space-y-1.5 border-2 border-dashed border-slate-100 rounded-xl my-auto">
+                  <ShoppingBag className="w-6 h-6 text-slate-300 mx-auto" />
                   <p className="text-xs text-slate-500 font-medium">Chạm chọn món ăn bên trái để thêm vào giỏ</p>
                 </div>
               ) : (
-                <div className="max-h-[250px] overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                   {cart.map((item) => (
-                    <div key={item.product.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-0.5">
-                          <p className="font-semibold text-slate-900 text-xs">{item.product.name}</p>
-                          <p className="text-[11px] font-mono text-slate-500">{formatVND(item.product.price)} / phần</p>
+                    <div key={item.product.id} className="p-2 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <div className="min-w-0 flex-1 pr-2">
+                          <p className="font-bold text-slate-900 text-xs truncate leading-tight">{item.product.name}</p>
+                          <p className="text-[10px] font-mono text-slate-500">{formatVND(item.product.price)} / phần</p>
                         </div>
 
                         {/* Stepper Quantity */}
-                        <div className="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-slate-200">
+                        <div className="flex items-center gap-1 bg-white px-1 py-0.5 rounded-lg border border-slate-200 flex-shrink-0">
                           <button
                             onClick={() => handleUpdateQuantity(item.product.id, -1)}
-                            className="w-5 h-5 rounded hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer font-bold"
+                            className="w-4 h-4 rounded hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer font-bold"
                           >
-                            <Minus className="w-3 h-3" />
+                            <Minus className="w-2.5 h-2.5" />
                           </button>
                           <span className="font-bold text-xs text-slate-900 px-1">{item.quantity}</span>
                           <button
                             onClick={() => handleUpdateQuantity(item.product.id, 1)}
-                            className="w-5 h-5 rounded hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer font-bold"
+                            className="w-4 h-4 rounded hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer font-bold"
                           >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-2.5 h-2.5" />
                           </button>
                         </div>
                       </div>
 
-                      {/* Inline Note Input */}
-                      <input
-                        type="text"
-                        placeholder="Ghi chú món (Ít cay, bánh mềm...)"
-                        value={item.note || ''}
-                        onChange={(e) => handleUpdateItemNote(item.product.id, e.target.value)}
-                        className="w-full p-1.5 rounded-md border border-slate-200 bg-white text-[11px] focus:border-orange-500 outline-none"
-                      />
-
-                      <div className="text-right pt-1 border-t border-slate-200/60 font-semibold text-slate-900 text-xs">
-                        {formatVND(item.product.price * item.quantity)}
+                      {/* Inline Note Input & Price */}
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <input
+                          type="text"
+                          placeholder="Ghi chú món..."
+                          value={item.note || ''}
+                          onChange={(e) => handleUpdateItemNote(item.product.id, e.target.value)}
+                          className="flex-1 px-2 py-0.5 h-6 rounded border border-slate-200 bg-white text-[10px] focus:border-orange-500 outline-none"
+                        />
+                        <span className="font-bold text-slate-900 text-xs font-mono flex-shrink-0">
+                          {formatVND(item.product.price * item.quantity)}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -853,49 +854,49 @@ export const QuickPosManagement: React.FC = () => {
               )}
             </div>
 
-            {/* KHỐI DIV 2 (DƯỚI): TỔNG TIỀN VÀ NÚT BẤM CỐ ĐỊNH 100% Ở ĐÁY HÀNG KHÔNG DI CHUYỂN */}
-            <div className="flex-shrink-0 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3">
+            {/* KHỐI DIV 2 (DƯỚI): TỔNG TIỀN VÀ NÚT BẤM CỐ ĐỊNH 100% Ở ĐÁY */}
+            <div className="flex-shrink-0 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
               {/* Total Amount Summary */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="flex justify-between items-center text-xs text-slate-600 font-medium">
                   <span>Số lượng món tạm tính:</span>
                   <span className="font-bold text-slate-900">{cart.reduce((s, i) => s + i.quantity, 0)} món</span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-orange-50 border border-orange-200 flex justify-between items-center">
-                  <span className="font-semibold text-orange-950 text-xs">TỔNG TẠM TÍNH:</span>
-                  <span className="font-bold text-lg text-orange-600">{formatVND(totalAmount)}</span>
+                <div className="px-3 py-2 rounded-xl bg-orange-50 border border-orange-200 flex justify-between items-center">
+                  <span className="font-bold text-orange-950 text-xs">TỔNG TẠM TÍNH:</span>
+                  <span className="font-extrabold text-base sm:text-lg text-orange-600">{formatVND(totalAmount)}</span>
                 </div>
               </div>
 
-              {/* OPERATION BUTTONS: DINE_IN vs TAKEAWAY (GIỮ NGUYÊN 100% NHƯ ẢNH 3) */}
+              {/* OPERATION BUTTONS */}
               <div>
                 {orderType === 'DINE_IN' ? (
                   <button
                     onClick={() => handleSendToKitchen()}
                     disabled={cart.length === 0 || submittingOrder}
-                    className={`w-full h-12 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all min-h-[48px] shadow-sm ${cart.length > 0 && !submittingOrder
+                    className={`w-full h-10 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-sm ${cart.length > 0 && !submittingOrder
                         ? 'bg-orange-600 hover:bg-orange-700 active:scale-98 text-white cursor-pointer ring-2 ring-orange-500/20'
                         : 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
                       }`}
                   >
-                    <Send className={`w-4 h-4 ${submittingOrder ? 'animate-spin' : ''}`} />
+                    <Send className={`w-3.5 h-3.5 ${submittingOrder ? 'animate-spin' : ''}`} />
                     <span>
                       {submittingOrder
-                        ? 'Đang gửi đơn xuống Bếp...'
-                        : `Gửi Bếp & Gọi Món ${selectedTable ? formatTableName(selectedTable.tableNumber) : 'cho Bàn'}`}
+                        ? 'Đang gửi đơn...'
+                        : `Gửi Bếp ${selectedTable ? formatTableName(selectedTable.tableNumber) : 'cho Bàn'}`}
                     </span>
                   </button>
                 ) : (
                   <button
                     onClick={handleOpenCheckoutModal}
                     disabled={cart.length === 0}
-                    className={`w-full h-12 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all min-h-[48px] shadow-sm ${cart.length > 0
+                    className={`w-full h-10 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-sm ${cart.length > 0
                         ? 'bg-purple-600 hover:bg-purple-700 active:scale-98 text-white cursor-pointer ring-2 ring-purple-500/20'
                         : 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
                       }`}
                   >
-                    <CreditCard className="w-4 h-4" />
+                    <CreditCard className="w-3.5 h-3.5" />
                     <span>
                       Thanh Toán Đơn Mang Về {activeTakeawayTicketId ? '#' + activeTakeawayTicketId : ''}
                     </span>

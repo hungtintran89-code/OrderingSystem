@@ -2,29 +2,10 @@ import apiClient, { ApiResponse } from './api';
 import { KitchenOrder, OrderStatus, KdsHistoryLogItem, KitchenOrderItem } from '../types/kds';
 import { message } from 'antd';
 
-// Web Audio API Alert Synthesizer
+// Web Audio API Alert Synthesizer (Đã tắt toàn bộ thông báo âm thanh dự án)
 export const playNewOrderSound = () => {
-  try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    const playNote = (freq: number, startTime: number, duration: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime + startTime + duration);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(ctx.currentTime + startTime);
-      osc.stop(ctx.currentTime + startTime + duration);
-    };
-    playNote(659.25, 0, 0.15);
-    playNote(880.00, 0.12, 0.25);
-  } catch (err) {
-    console.warn('Web Audio API blocked or unsupported:', err);
-  }
+  // Audio sound notifications disabled project-wide per user directive
+  return;
 };
 
 export interface AggregatedDishItem {
