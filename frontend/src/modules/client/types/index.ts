@@ -44,6 +44,7 @@ export interface OrderItem {
   threadId: number;
   status?: 'COOKING' | 'SERVED' | 'PENDING' | 'CANCELLED';
   orderedAt?: string;
+  productImageUrl?: string;
 }
 
 export interface PersonalOrder {

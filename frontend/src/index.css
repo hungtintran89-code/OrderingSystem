@@ -46,8 +46,63 @@
   -webkit-backdrop-filter: none !important;
 }
 
-body {
+html, body, #root {
+  height: 100%;
+  max-height: 100vh;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
   font-family: 'Inter', sans-serif;
   background-color: #F8FAFC;
   color: #0F172A;
 }
+
+/* Sleek Modern Visible 8px Global & Internal Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+  display: block !important;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+  border-radius: 8px !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #64748b !important; /* Slate 500 - 100% distinctly visible */
+  border-radius: 8px !important;
+  border: 1px solid #f1f5f9 !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ea580c !important; /* Orange 600 */
+}
+
+.custom-scrollbar {
+  overflow-y: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #94a3b8 #f1f5f9 !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+  display: block !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+  border-radius: 8px !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #94a3b8 !important; /* Slate 400 - distinctly visible */
+  border-radius: 8px !important;
+  border: 2px solid #f1f5f9 !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #ea580c !important; /* Orange 600 */
+}
+

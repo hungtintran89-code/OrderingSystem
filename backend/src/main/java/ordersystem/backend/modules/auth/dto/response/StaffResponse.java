@@ -16,4 +16,5 @@ public class StaffResponse {
     private Date createdAt;
     private java.math.BigDecimal salary;
     private String phone;
+    private String password;
 }

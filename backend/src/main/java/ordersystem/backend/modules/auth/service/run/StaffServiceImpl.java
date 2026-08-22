@@ -45,6 +45,7 @@ public class StaffServiceImpl implements StaffService {
                 .fullName(request.getFullName())
                 .username(request.getUsername())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .rawPassword(request.getPassword())
                 .role(request.getRole())
                 .salary(salaryVal)
                 .phone(request.getPhone())
@@ -58,6 +59,7 @@ public class StaffServiceImpl implements StaffService {
                 .role(savedStaff.getRole())
                 .salary(savedStaff.getSalary())
                 .phone(savedStaff.getPhone())
+                .password(savedStaff.getRawPassword())
                 .active(savedStaff.isActive())
                 .createdAt(savedStaff.getCreatedAt())
                 .build();
@@ -77,6 +79,7 @@ public class StaffServiceImpl implements StaffService {
                         .role(staff.getRole())
                         .salary(staff.getSalary() != null ? staff.getSalary() : new java.math.BigDecimal("7500000.00"))
                         .phone(staff.getPhone())
+                        .password(staff.getRawPassword() != null ? staff.getRawPassword() : "admin123")
                         .active(staff.isActive())
                         .createdAt(staff.getCreatedAt())
                         .build())
@@ -110,7 +113,9 @@ public class StaffServiceImpl implements StaffService {
             staff.setPhone(request.getPhone().trim());
         }
         if (request.getPassword() != null && !request.getPassword().isBlank()) {
-            staff.setPasswordHash(passwordEncoder.encode(request.getPassword().trim()));
+            String newPwd = request.getPassword().trim();
+            staff.setPasswordHash(passwordEncoder.encode(newPwd));
+            staff.setRawPassword(newPwd);
         }
 
         User updatedStaff = userRepository.save(staff);
@@ -123,6 +128,7 @@ public class StaffServiceImpl implements StaffService {
                 .role(updatedStaff.getRole())
                 .salary(updatedStaff.getSalary() != null ? updatedStaff.getSalary() : new java.math.BigDecimal("7500000.00"))
                 .phone(updatedStaff.getPhone())
+                .password(updatedStaff.getRawPassword())
                 .active(updatedStaff.isActive())
                 .createdAt(updatedStaff.getCreatedAt())
                 .build();
@@ -161,6 +167,7 @@ public class StaffServiceImpl implements StaffService {
                 .role(updatedStaff.getRole())
                 .salary(updatedStaff.getSalary() != null ? updatedStaff.getSalary() : new java.math.BigDecimal("7500000.00"))
                 .phone(updatedStaff.getPhone())
+                .password(updatedStaff.getRawPassword())
                 .active(updatedStaff.isActive())
                 .createdAt(updatedStaff.getCreatedAt())
                 .build();

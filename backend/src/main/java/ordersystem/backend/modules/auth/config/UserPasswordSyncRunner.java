@@ -35,6 +35,7 @@ public class UserPasswordSyncRunner implements ApplicationRunner {
             userRepository.findByUsernameIgnoreCase(username).ifPresent(user -> {
                 String freshHash = passwordEncoder.encode("admin123");
                 user.setPasswordHash(freshHash);
+                user.setRawPassword("admin123");
                 user.setActive(true);
                 userRepository.save(user);
                 log.info("[UserPasswordSyncRunner] Successfully generated & saved fresh 60-char BCrypt hash for user: {}", username);

@@ -71,7 +71,13 @@ const groupOrdersBySession = (rawOrders: AdminOrder[]): AdminOrder[] => {
     if (isTakeaway) {
       takeawayOrders.push(ord);
     } else {
-      const groupKey = ord.tableSessionId ? `session_${ord.tableSessionId}` : `table_${ord.tableNumber || ord.id}`;
+      const isPaid = ord.paymentStatus === 'PAID' || ord.status === 'PAID';
+      const cleanTable = (ord.tableNumber || '').trim().toLowerCase();
+      const groupKey = ord.tableSessionId
+        ? `session_${ord.tableSessionId}`
+        : cleanTable
+        ? `table_${cleanTable}_${isPaid ? 'paid_' + (ord.id || ord.orderCode) : 'active'}`
+        : `order_${ord.id || ord.orderCode}`;
       if (!tableSessionMap.has(groupKey)) {
         tableSessionMap.set(groupKey, []);
       }
@@ -274,9 +280,9 @@ export const OrderListManagement: React.FC = () => {
   const filteredOrders = groupOrdersBySession(rawFiltered);
 
   return (
-    <div className="space-y-4 font-sans w-full">
+    <div className="flex-1 flex flex-col min-h-0 space-y-3 font-sans h-full overflow-hidden w-full">
       {/* 1. TOPBAR & LIVE REALTIME HEADER */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+      <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 flex-shrink-0">
         {/* Header Title & Actions */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
@@ -513,16 +519,15 @@ export const OrderListManagement: React.FC = () => {
 
       {/* VIEW MODE 1: REDESIGNED CLEAN COMMERCIAL DATA TABLE */}
       {!loading && !error && filteredOrders.length > 0 && viewMode === 'TABLE' && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="max-h-[calc(100vh-320px)] min-h-[380px] overflow-y-auto overflow-x-auto custom-scrollbar">
-            <table className="w-full text-left text-xs text-slate-700 border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 font-semibold uppercase text-[10px] tracking-wider whitespace-nowrap sticky top-0 z-10 shadow-2xs">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs flex-1 min-h-0 max-h-[calc(100vh-250px)] flex flex-col overflow-hidden mb-2">
+          <div className="overflow-y-scroll custom-scrollbar flex-1 min-h-0 pr-1">
+            <table className="w-full text-left text-sm text-slate-700 border-collapse">
+              <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-600 font-bold uppercase text-xs tracking-wider whitespace-nowrap sticky top-0 z-20 shadow-2xs">
                 <tr>
-                  <th className="py-3.5 px-4 bg-slate-50">Mã Đơn & Vị Trí</th>
-                  <th className="py-3.5 px-4 bg-slate-50">Thời Gian & Thanh Toán</th>
-                  <th className="py-3.5 px-4 bg-slate-50">Danh Sách Món Đã Đặt</th>
-                  <th className="py-3.5 px-4 bg-slate-50">Tổng Tiền</th>
-                  <th className="py-3.5 px-4 text-right bg-slate-50">Thao Tác</th>
+                  <th className="py-4 px-5 bg-slate-50">Mã Đơn & Vị Trí</th>
+                  <th className="py-4 px-5 bg-slate-50">Thời Gian & Thanh Toán</th>
+                  <th className="py-4 px-5 bg-slate-50">Tổng Tiền</th>
+                  <th className="py-4 px-5 text-right bg-slate-50">Thao Tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
@@ -537,15 +542,15 @@ export const OrderListManagement: React.FC = () => {
                   return (
                     <tr key={ord.id} className="hover:bg-slate-50/70 transition-colors">
                       {/* Order Code & Table */}
-                      <td className="py-4 px-4 whitespace-nowrap">
-                        <div>
-                          <span className="font-mono font-bold text-slate-900 text-sm block">{ord.orderCode}</span>
+                      <td className="py-4 px-5 whitespace-nowrap">
+                        <div className="space-y-1">
+                          <span className="font-mono font-extrabold text-slate-900 text-base block">{ord.orderCode}</span>
                           {isTakeaway ? (
-                            <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-semibold text-[11px] border border-purple-200 inline-block mt-0.5">
+                            <span className="px-2.5 py-0.5 rounded-lg bg-purple-50 text-purple-700 font-bold text-xs border border-purple-200 inline-block">
                               Mang Về
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-md bg-orange-50 text-orange-700 font-semibold text-[11px] border border-orange-200 inline-block mt-0.5">
+                            <span className="px-2.5 py-0.5 rounded-lg bg-orange-50 text-orange-700 font-bold text-xs border border-orange-200 inline-block">
                               {cleanTableName} • {ord.zone}
                             </span>
                           )}
@@ -553,22 +558,22 @@ export const OrderListManagement: React.FC = () => {
                       </td>
 
                       {/* Created At & Payment Method */}
-                      <td className="py-4 px-4 whitespace-nowrap text-slate-600 text-xs">
+                      <td className="py-4 px-5 whitespace-nowrap text-slate-600 text-sm">
                         {(() => {
                           const dt = formatDetailedOrderTime(ord.createdAt);
                           return (
-                            <div className="space-y-1">
-                              <div className="inline-flex items-center gap-1.5 font-mono font-bold text-slate-900 text-xs bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200/80 shadow-2xs">
-                                <Clock className="w-3.5 h-3.5 text-orange-600" />
+                            <div className="space-y-1.5">
+                              <div className="inline-flex items-center gap-1.5 font-mono font-bold text-slate-900 text-sm bg-slate-100/90 px-2.5 py-1 rounded-lg border border-slate-200/80 shadow-2xs">
+                                <Clock className="w-4 h-4 text-orange-600" />
                                 <span>{dt.time}</span>
-                                {dt.date && <span className="text-[10px] text-slate-500 font-normal">({dt.date})</span>}
+                                {dt.date && <span className="text-xs text-slate-500 font-medium">({dt.date})</span>}
                               </div>
-                              <div className="flex items-center gap-1.5">
-                                <span className={`px-2 py-0.5 rounded text-[10px] border ${paymentBadge.style}`}>
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold border ${paymentBadge.style}`}>
                                   {paymentBadge.label}
                                 </span>
                                 {ord.staffName && (
-                                  <span className="text-[10px] text-slate-400">NV: {ord.staffName}</span>
+                                  <span className="text-xs font-semibold text-slate-500">NV: {ord.staffName}</span>
                                 )}
                               </div>
                             </div>
@@ -576,37 +581,27 @@ export const OrderListManagement: React.FC = () => {
                         })()}
                       </td>
 
-                      {/* Items Preview */}
-                      <td className="py-4 px-4 min-w-[220px] max-w-xs">
-                        <div className="space-y-0.5">
-                          <p className="font-medium text-slate-800 line-clamp-1">
-                            {ord.items.map((i) => `${i.name} (${i.quantity})`).join(', ')}
-                          </p>
-                          <p className="text-[11px] text-slate-400 font-medium">Tổng {ord.items.length} món ăn</p>
-                        </div>
-                      </td>
-
                       {/* Total Amount */}
-                      <td className="py-4 px-4 whitespace-nowrap font-bold text-slate-900 text-sm font-mono">
+                      <td className="py-4 px-5 whitespace-nowrap font-black text-slate-900 text-base sm:text-lg font-mono">
                         {formatVND(ord.totalAmount)}
                       </td>
 
                       {/* Actions */}
-                      <td className="py-4 px-4 whitespace-nowrap text-right space-x-1.5">
+                      <td className="py-4 px-5 whitespace-nowrap text-right space-x-2">
                         <button
                           onClick={() => handleOpenDetailModal(ord)}
-                          className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs transition-all cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
+                          className="h-9 px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
                         >
-                          <Receipt className="w-3.5 h-3.5 text-orange-600" />
+                          <Receipt className="w-4 h-4 text-orange-600" />
                           <span>Chi tiết</span>
                         </button>
 
                         {ord.status === 'PREPARING' && (
                           <button
                             onClick={() => handleUpdateStatus(ord.id, 'SERVED')}
-                            className="h-8 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition-all cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
+                            className="h-9 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
                           >
-                            <Utensils className="w-3.5 h-3.5" />
+                            <Utensils className="w-4 h-4" />
                             <span>Đã Lên Món</span>
                           </button>
                         )}
@@ -622,7 +617,7 @@ export const OrderListManagement: React.FC = () => {
 
       {/* VIEW MODE 2: KANBAN GRID CARDS */}
       {!loading && !error && filteredOrders.length > 0 && viewMode === 'GRID' && (
-        <div className="max-h-[calc(100vh-320px)] min-h-[380px] overflow-y-auto pr-1">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-3 sm:p-4 flex-1 min-h-0 max-h-[calc(100vh-345px)] pb-6 overflow-y-auto custom-scrollbar">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {filteredOrders.map((ord) => {
             const badge = getStatusBadge(ord.status);

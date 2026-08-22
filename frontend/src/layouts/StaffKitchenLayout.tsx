@@ -135,7 +135,7 @@ export const StaffKitchenLayout: React.FC<StaffKitchenLayoutProps> = ({ children
       </nav>
 
       {/* 3. MAIN DISPLAY AREA (Realtime Outlet) */}
-      <main className="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full overflow-y-auto">
+      <main className="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full overflow-hidden flex flex-col min-h-0">
         {currentTab === 'tables-grid' ? (
           <div className="space-y-4">
             {/* Status Legend */}

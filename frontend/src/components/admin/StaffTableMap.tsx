@@ -216,6 +216,11 @@ export const StaffTableMap: React.FC = () => {
                 const newStatus: TableStatus = (reqType.includes('BILL') || reqType.includes('PAYMENT'))
                   ? 'BILL_REQUESTED'
                   : 'CALLING_STAFF';
+                
+                // Quy tắc ưu tiên: Nếu bàn đang ở BILL_REQUESTED (màu Đỏ), không hạ cấp xuống CALLING_STAFF (màu Vàng)
+                if (tbl.status === 'BILL_REQUESTED' && newStatus === 'CALLING_STAFF') {
+                  return tbl;
+                }
                 return { ...tbl, status: newStatus };
               } else if (data.requestStatus === 'COMPLETED') {
                 loadTables(false);
@@ -447,9 +452,9 @@ export const StaffTableMap: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 font-sans">
-      {/* MAP STATUS LEGEND TOOLBAR STICKY */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 transition-all">
+    <div className="flex-1 flex flex-col min-h-0 space-y-3 font-sans h-full overflow-hidden w-full">
+      {/* MAP STATUS LEGEND TOOLBAR */}
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <LayoutGrid className="w-6 h-6 text-orange-600 stroke-[2.2] flex-shrink-0" />
           <h2 className="font-extrabold text-xl sm:text-2xl text-slate-900 tracking-tight">Sơ Đồ Phục Vụ & Trạng Thái Bàn</h2>
@@ -504,8 +509,8 @@ export const StaffTableMap: React.FC = () => {
 
       {/* STATE 1: SCROLLABLE TABLE GRID CONTAINER CARD ("Ô VUÔNG CUỘN THEO DẦN") */}
       {!loading && !error && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 max-h-[calc(100vh-210px)] min-h-[420px] overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-3 flex-1 min-h-0 max-h-[calc(100vh-170px)] overflow-y-scroll custom-scrollbar pr-1.5 mb-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {tables.map((table) => {
               let cardStyle = 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:border-emerald-400';
               let statusText = 'Trống';
@@ -526,7 +531,7 @@ export const StaffTableMap: React.FC = () => {
               return (
                 <div
                   key={table.id}
-                  className={`p-4 rounded-xl border transition-all shadow-2xs hover:shadow-md flex flex-col justify-between select-none ${cardStyle}`}
+                  className={`p-3.5 rounded-xl border transition-all shadow-2xs hover:shadow-md flex flex-col justify-between select-none ${cardStyle}`}
                 >
                   {/* Header */}
                   <div>

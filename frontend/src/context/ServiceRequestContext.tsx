@@ -32,12 +32,34 @@ export const ServiceRequestProvider: React.FC<{ children: React.ReactNode }> = (
   const [lastConfirmedRequest, setLastConfirmedRequest] = useState<ServiceRequestItem | null>(null);
   const [undoTimerSeconds, setUndoTimerSeconds] = useState<number>(0);
 
-  // Helper: Khử trùng lặp danh sách theo tableId (Mỗi bàn chỉ xuất hiện 1 dòng duy nhất)
+  const isBillRequest = (type?: string): boolean => {
+    if (!type) return false;
+    const upper = type.toUpperCase();
+    return upper.includes('BILL') || upper.includes('PAYMENT');
+  };
+
+  // Helper: Khử trùng lặp danh sách theo tableId (Mỗi bàn chỉ xuất hiện 1 dòng duy nhất, ưu tiên Yêu cầu tính tiền)
   const deduplicateByTable = (list: ServiceRequestItem[]): ServiceRequestItem[] => {
-    const map = new Map<number | string, ServiceRequestItem>();
+    const map = new Map<string, ServiceRequestItem>();
     list.forEach((item) => {
-      const key = item.tableId || item.tableName || item.id;
-      map.set(key, item);
+      const normalizedItem: ServiceRequestItem = {
+        ...item,
+        id: item.id || item.requestId || 0,
+        requestId: item.requestId || item.id,
+      };
+      const key = normalizedItem.tableId ? String(normalizedItem.tableId) : (normalizedItem.tableName || String(normalizedItem.id));
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, normalizedItem);
+      } else {
+        const existingIsBill = isBillRequest(existing.requestType);
+        const itemIsBill = isBillRequest(normalizedItem.requestType);
+        if (itemIsBill && !existingIsBill) {
+          map.set(key, normalizedItem);
+        } else if (itemIsBill === existingIsBill) {
+          map.set(key, normalizedItem);
+        }
+      }
     });
     return Array.from(map.values());
   };
@@ -50,9 +72,20 @@ export const ServiceRequestProvider: React.FC<{ children: React.ReactNode }> = (
 
   // 2. Add incoming request to Toast stack (if toasts.length < 3)
   const addIncomingToast = useCallback((newItem: ServiceRequestItem) => {
+    const reqId = newItem.id || newItem.requestId;
+    if (!reqId) return;
+
+    const normalizedItem: ToastItem = {
+      ...newItem,
+      id: reqId,
+      requestId: reqId,
+      progressPercent: 100,
+      isExiting: false,
+    };
+
     setToasts((prevToasts) => {
       // Avoid duplicate toasts for same request ID
-      if (prevToasts.some((t) => t.id === newItem.id)) {
+      if (prevToasts.some((t) => t.id === reqId || t.requestId === reqId)) {
         return prevToasts;
       }
 
@@ -61,35 +94,33 @@ export const ServiceRequestProvider: React.FC<{ children: React.ReactNode }> = (
         return prevToasts;
       }
 
-      const toastObj: ToastItem = {
-        ...newItem,
-        progressPercent: 100,
-        isExiting: false,
-      };
-
-      return [toastObj, ...prevToasts];
+      return [normalizedItem, ...prevToasts];
     });
   }, []);
 
   // 3. Dismiss Toast (Slide-out animation into Bell Drawer)
   const dismissToast = useCallback((requestId: number) => {
+    if (!requestId) return;
     setToasts((prev) =>
-      prev.map((t) => (t.id === requestId ? { ...t, isExiting: true } : t))
+      prev.map((t) => ((t.id === requestId || t.requestId === requestId) ? { ...t, isExiting: true } : t))
     );
 
     setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== requestId));
+      setToasts((prev) => prev.filter((t) => t.id !== requestId && t.requestId !== requestId));
     }, 400); // 400ms CSS slide-out duration
   }, []);
 
   // 4. Handle 1-Tap Confirm (on Toast or inside Bell Drawer)
   const handleConfirmRequest = useCallback(
     async (requestId: number) => {
-      const targetReq = pendingRequests.find((r) => r.id === requestId) || toasts.find((t) => t.id === requestId);
+      if (!requestId) return;
+
+      const targetReq = pendingRequests.find((r) => r.id === requestId || r.requestId === requestId) ||
+        toasts.find((t) => t.id === requestId || t.requestId === requestId);
 
       // Instantly remove from toasts and pending list (1-Tap UX response)
       dismissToast(requestId);
-      setPendingRequests((prev) => prev.filter((r) => r.id !== requestId));
+      setPendingRequests((prev) => prev.filter((r) => r.id !== requestId && r.requestId !== requestId));
 
       if (targetReq) {
         setLastConfirmedRequest(targetReq);
@@ -174,16 +205,48 @@ export const ServiceRequestProvider: React.FC<{ children: React.ReactNode }> = (
     loadActiveRequests();
 
     // Subscribe to service requests broadcast channel
-    const unsubRequests = wsService.subscribe('/topic/admin/service-requests', (data) => {
-      if (data) {
+    const unsubRequests = wsService.subscribe('/topic/admin/service-requests', (rawMessage) => {
+      if (rawMessage) {
+        const reqId = rawMessage.id || rawMessage.requestId || 0;
+        const data: ServiceRequestItem = {
+          ...rawMessage,
+          id: reqId,
+          requestId: reqId,
+        };
+
         if (data.requestStatus === 'PENDING') {
           setPendingRequests((prev) => {
-            const filtered = prev.filter((r) => r.tableId !== data.tableId && r.tableName !== data.tableName);
-            return [data, ...filtered];
+            const isMatch = (r: ServiceRequestItem) =>
+              (data.tableId && r.tableId === data.tableId) ||
+              (data.tableName && r.tableName === data.tableName);
+
+            const existingIndex = prev.findIndex(isMatch);
+            if (existingIndex !== -1) {
+              const existing = prev[existingIndex];
+              const existingIsBill = isBillRequest(existing.requestType);
+              const dataIsBill = isBillRequest(data.requestType);
+
+              // Nếu bàn đang có Yêu cầu tính tiền (BILL) mà nhận Gọi phục vụ (CALL_STAFF), giữ nguyên Yêu cầu tính tiền!
+              if (existingIsBill && !dataIsBill) {
+                return prev;
+              }
+
+              const newPrev = prev.filter((_, idx) => idx !== existingIndex);
+              return [data, ...newPrev];
+            }
+            return [data, ...prev];
           });
           addIncomingToast(data);
         } else if (data.requestStatus === 'COMPLETED') {
-          setPendingRequests((prev) => prev.filter((r) => r.id !== data.id && r.tableId !== data.tableId));
+          setPendingRequests((prev) =>
+            prev.filter(
+              (r) =>
+                r.id !== data.id &&
+                r.requestId !== data.id &&
+                !(data.tableId && r.tableId === data.tableId) &&
+                !(data.tableName && r.tableName === data.tableName)
+            )
+          );
           dismissToast(data.id);
         }
       }

@@ -312,10 +312,10 @@ export const KitchenKiosk: React.FC = () => {
   }, [dateFilteredHistoryLog]);
 
   return (
-    <div className="space-y-4 font-sans max-w-7xl mx-auto">
+    <div className="flex-1 min-h-0 flex flex-col space-y-2.5 font-sans w-full h-full overflow-hidden">
       
-      {/* 1. TOP NAVIGATION VIEW SWITCHER TABS */}
-      <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+      {/* 1. TOP NAVIGATION VIEW SWITCHER TABS - CỐ ĐỊNH PHÍA TRÊN */}
+      <div className="bg-white p-2.5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
         {/* Main View Tabs */}
         <div className="flex items-center gap-2">
           <button
@@ -376,11 +376,11 @@ export const KitchenKiosk: React.FC = () => {
 
       {/* VIEW 1: ACTIVE KITCHEN TICKETS GRID */}
       {!loading && !error && (
-        <div className={activeTab === 'ACTIVE_KITCHEN' ? 'space-y-4' : 'hidden'}>
+        <div className={activeTab === 'ACTIVE_KITCHEN' ? 'flex-1 min-h-0 flex flex-col space-y-3 overflow-hidden h-full' : 'hidden'}>
           
-          {/* FEATURE 1: BẢNG TỔNG GOM MÓN CHẾ BIẾN - GỠ BỎ PHỤ ĐỀ DẤU DÒNG '()' */}
+          {/* FEATURE 1: BẢNG TỔNG GOM MÓN CHẾ BIẾN - CỐ ĐỊNH PHÍA TRÊN */}
           {aggregatedDishes.length > 0 && (
-            <div className="bg-white p-4 rounded-2xl border border-orange-200/80 shadow-2xs space-y-3">
+            <div className="bg-white p-3.5 rounded-2xl border border-orange-200/80 shadow-2xs space-y-2.5 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-600">
@@ -420,8 +420,8 @@ export const KitchenKiosk: React.FC = () => {
             </div>
           )}
 
-          {/* CATEGORY FILTERS BAR - DYNAMIC REALTIME CATALOG CATEGORIES */}
-          <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between gap-3">
+          {/* CATEGORY FILTERS BAR - CỐ ĐỊNH PHÍA TRÊN */}
+          <div className="bg-white p-2.5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between gap-3 flex-shrink-0">
             <div className="flex items-center gap-1.5 overflow-x-auto text-xs scrollbar-none">
               <span className="text-slate-500 font-medium px-2 flex items-center gap-1 hidden sm:inline-flex">
                 <Filter className="w-3.5 h-3.5 text-orange-600" /> Lọc món:
@@ -464,38 +464,38 @@ export const KitchenKiosk: React.FC = () => {
             )}
           </div>
 
-          {/* ACTIVE TICKETS GRID */}
-          {filteredOrders.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3 shadow-2xs">
-              <Inbox className="w-12 h-12 text-slate-300 mx-auto" />
-              <h4 className="font-bold text-slate-800 text-sm">Không Có Đơn Hàng Nào Đang Chờ Chế Biến</h4>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Hiện tại các đơn hàng gọi từ khách tại bàn đã được hoàn thành hết. Bấm vào tab "Lịch Sử Hoàn Thành" để xem lại các đơn đã trả.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredOrders.map((order, orderIdx) => (
-                <KitchenTicketCard
-                  key={`kds-order-${order.id}-${orderIdx}`}
-                  order={order}
-                  onUpdateStatus={handleUpdateStatus}
-                  onToggleItem={handleToggleItem}
-                />
-              ))}
-            </div>
-          )}
+          {/* ACTIVE TICKETS GRID CONTAINER CARD - KHUNG DIV CỐ ĐỊNH CÓ THANH CUỘN NỘI BỘ VÀ KHÔNG TRÀN MÀN HÌNH */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-3.5 flex-1 min-h-0 overflow-y-scroll custom-scrollbar pr-1.5 mb-1">
+            {filteredOrders.length === 0 ? (
+              <div className="bg-white rounded-2xl p-12 text-center space-y-3 my-4">
+                <Inbox className="w-12 h-12 text-slate-300 mx-auto" />
+                <h4 className="font-bold text-slate-800 text-sm">Không Có Đơn Hàng Nào Đang Chờ Chế Biến</h4>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  Hiện tại các đơn hàng gọi từ khách tại bàn đã được hoàn thành hết. Bấm vào tab "Lịch Sử Hoàn Thành" để xem lại các đơn đã trả.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredOrders.map((order, orderIdx) => (
+                  <KitchenTicketCard
+                    key={`kds-order-${order.id}-${orderIdx}`}
+                    order={order}
+                    onUpdateStatus={handleUpdateStatus}
+                    onToggleItem={handleToggleItem}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
-
-      {/* VIEW 2: DEDICATED VERTICAL TIMELINE KDS HISTORY LOG PAGE */}
       {!loading && !error && (
-        <div className={activeTab === 'HISTORY_TIMELINE' ? 'space-y-5' : 'hidden'}>
+        <div className={activeTab === 'HISTORY_TIMELINE' ? 'flex-1 min-h-0 flex flex-col space-y-3 overflow-hidden h-full' : 'hidden'}>
           
-          {/* HISTORY METRICS & DATE FILTER BAR */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-4">
+          {/* HISTORY METRICS & DATE FILTER BAR - CỐ ĐỊNH PHÍA TRÊN */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3 flex-shrink-0">
             {/* Date Filter Buttons */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5 mr-1">
                   <Calendar className="w-4 h-4 text-orange-600" /> Xem lịch sử theo ngày:
@@ -538,30 +538,30 @@ export const KitchenKiosk: React.FC = () => {
             </div>
 
             {/* Metrics Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-200/80 flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tổng Đơn Đã Hoàn Thành</p>
-                  <h3 className="text-xl font-bold text-slate-900 mt-0.5">{dateFilteredHistoryLog.length} Đơn</h3>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Tổng Đơn Đã Hoàn Thành</p>
+                  <h3 className="text-lg font-bold text-slate-900 mt-0.5">{dateFilteredHistoryLog.length} Đơn</h3>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 font-bold">
-                  <CheckCircle2 className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 font-bold">
+                  <CheckCircle2 className="w-4.5 h-4.5" />
                 </div>
               </div>
 
-              <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
+              <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-200/80 flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Thời Gian Chế Biến TB</p>
-                  <h3 className="text-xl font-bold text-slate-900 mt-0.5">{avgPrepTime} phút/đơn</h3>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Thời Gian Chế Biến TB</p>
+                  <h3 className="text-lg font-bold text-slate-900 mt-0.5">{avgPrepTime} phút/đơn</h3>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold">
-                  <Clock className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                  <Clock className="w-4.5 h-4.5" />
                 </div>
               </div>
 
-              <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
+              <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-200/80 flex items-center justify-between">
                 <div className="w-full">
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Tìm Kiếm Nhật Ký</p>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Tìm Kiếm Nhật Ký</p>
                   <div className="relative">
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
                     <input
@@ -577,97 +577,85 @@ export const KitchenKiosk: React.FC = () => {
             </div>
           </div>
 
-          {/* VERTICAL TIMELINE STREAM CONTAINER */}
-          {filteredHistoryLog.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3 shadow-2xs">
-              <History className="w-12 h-12 text-slate-300 mx-auto" />
-              <h4 className="font-bold text-slate-800 text-sm">Chưa Có Lịch Sử Hoàn Thành Nào</h4>
-              <p className="text-xs text-slate-500">
-                Không tìm thấy đơn hàng hoàn thành nào trong khoảng thời gian đã chọn.
-              </p>
-            </div>
-          ) : (
-            <div className="relative border-l-2 border-slate-200/80 ml-4 md:ml-6 pl-6 space-y-5">
-              {filteredHistoryLog.map((log, logIdx) => {
-                const isExpanded = expandedHistoryIds.has(log.id);
-                return (
-                  <div key={`hist-log-${log.id}-${logIdx}`} className="relative group">
-                    
-                    {/* TIMELINE NODE DOT MARKER */}
-                    <div className="absolute -left-[41px] top-1.5 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center border-4 border-slate-50 shadow-2xs font-bold flex-shrink-0">
-                      <Check className="w-4 h-4 stroke-[3]" />
-                    </div>
-
-                    {/* TIMELINE CARD CONTENT */}
-                    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3 hover:shadow-md transition-all">
-                      
-                      {/* Timeline Card Header */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono font-bold text-slate-900 text-sm">{log.orderCode}</span>
-                          <span className="px-2.5 py-1 rounded-md bg-orange-50 text-orange-700 font-bold text-xs border border-orange-200/80">
+          {/* VERTICAL LIST CONTAINER CARD - THIẾT KẾ DẠNG LIST FULL WIDTH CHUẨN XÁC VỚI BÊN ĐƠN CHẾ BIẾN */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-3.5 flex-1 min-h-0 overflow-y-scroll custom-scrollbar pr-1.5 mb-1 w-full space-y-2.5">
+            {filteredHistoryLog.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3 shadow-2xs">
+                <History className="w-12 h-12 text-slate-300 mx-auto" />
+                <h4 className="font-bold text-slate-800 text-sm">Chưa Có Lịch Sử Hoàn Thành Nào</h4>
+                <p className="text-xs text-slate-500">
+                  Không tìm thấy đơn hàng hoàn thành nào trong khoảng thời gian đã chọn.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5 w-full">
+                {filteredHistoryLog.map((log, logIdx) => {
+                  return (
+                    <div
+                      key={`hist-log-${log.id}-${logIdx}`}
+                      className="bg-slate-50/70 hover:bg-slate-100/80 border border-slate-200/80 rounded-xl p-3 transition-all w-full flex flex-col space-y-2"
+                    >
+                      {/* LIST ITEM HEADER ROW: LEFT BADGES & RIGHT EXACT TIMESTAMP (HH:mm:ss) */}
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          </div>
+                          <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm">{log.orderCode}</span>
+                          <span className="px-2.5 py-0.5 rounded-md bg-orange-50 text-orange-700 font-bold text-xs border border-orange-200/80">
                             {log.tableName}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold text-[11px] inline-flex items-center gap-1">
+                            Đã Hoàn Thành
                           </span>
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold text-xs inline-flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Đã Hoàn Thành
+                          <span className="font-mono text-slate-600 font-bold text-xs flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200/80">
+                            <Clock className="w-3.5 h-3.5 text-orange-600" />
+                            <span>Mốc hoàn thành: </span>
+                            <strong className="text-orange-700">
+                              {(() => {
+                                if (log.completedTimestampMs) {
+                                  const date = new Date(log.completedTimestampMs);
+                                  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+                                }
+                                if (log.completedAt) {
+                                  const date = new Date(log.completedAt);
+                                  if (!isNaN(date.getTime())) {
+                                    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+                                  }
+                                  if (/^\d{2}:\d{2}(:\d{2})?$/.test(log.completedAt)) {
+                                    return log.completedAt.length === 5 ? `${log.completedAt}:00` : log.completedAt;
+                                  }
+                                }
+                                return '--:--:--';
+                              })()}
+                            </strong>
                           </span>
                         </div>
                       </div>
 
-                      {/* Timeline Items List - ONLY TOGGLED ON DEMAND */}
-                      {isExpanded && (
-                        <div className="space-y-1.5 bg-slate-50/70 p-3 rounded-xl border border-slate-200/60 animate-fade-in">
-                          <p className="font-semibold text-slate-500 uppercase tracking-wider text-[10px] mb-1">
-                            Danh sách các món ăn đã chế biến xong:
-                          </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                            {(log.items || []).map((it, itIdx) => (
-                              <div key={`hist-item-${log.id}-${it.id}-${itIdx}`} className="p-2.5 rounded-xl bg-white border border-slate-200/80 flex justify-between items-center text-xs">
-                                <div>
-                                  <p className="font-semibold text-slate-900">{it.name}</p>
-                                  {it.note && <p className="text-[10px] text-amber-800 font-medium mt-0.5">Ghi chú: {it.note}</p>}
-                                </div>
-                                <span className="font-bold text-orange-600 ml-2">x{it.quantity}</span>
-                              </div>
-                            ))}
-                          </div>
+                      {/* LIST ITEM CONTENT: ALWAYS SHOW ALL DISHES OF THE ORDER BY DEFAULT */}
+                      <div className="bg-white p-2.5 sm:p-3 rounded-lg border border-slate-200/60 space-y-1.5">
+                        <p className="font-semibold text-slate-400 uppercase tracking-wider text-[10px]">
+                          Danh sách món ăn trong đơn ({(log.items || []).length}):
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                          {(log.items || []).map((it, itIdx) => (
+                            <div key={`hist-item-${log.id}-${it.id}-${itIdx}`} className="p-2 rounded-md bg-slate-50 border border-slate-100 flex justify-between items-center text-xs">
+                              <span className="font-medium text-slate-800 whitespace-normal break-words">{it.name}</span>
+                              <span className="font-bold text-orange-600 ml-2 flex-shrink-0">x{it.quantity}</span>
+                            </div>
+                          ))}
                         </div>
-                      )}
-
-                      {/* Timeline Bottom Footer: Exact/Relative Timestamp & Toggle Detail Button */}
-                      <div className="flex items-center justify-between pt-1 text-xs">
-                        <span className="font-mono text-slate-500 font-medium flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-slate-400" /> Mốc thời gian hoàn thành: <strong>{getLiveRelativeCompletedAt(log, nowMs)}</strong>
-                        </span>
-
-                        <button
-                          onClick={() => toggleExpandHistory(log.id)}
-                          className="h-8 px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                        >
-                          {isExpanded ? (
-                            <>
-                              <EyeOff className="w-3.5 h-3.5 text-slate-500" />
-                              <span>Ẩn chi tiết món</span>
-                            </>
-                          ) : (
-                            <>
-                              <Eye className="w-3.5 h-3.5 text-orange-600" />
-                              <span>Chi tiết đơn ({(log.items || []).length})</span>
-                            </>
-                          )}
-                        </button>
                       </div>
-
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

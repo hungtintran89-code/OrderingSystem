@@ -20,4 +20,5 @@ public class OrderItemResponse {
     private String note;
     private Long threadId;
     private String status;
+    private String productImageUrl;
 }

@@ -13,6 +13,7 @@ import ordersystem.backend.modules.table.enums.SessionStatus;
 import ordersystem.backend.modules.table.enums.TableStatus;
 import ordersystem.backend.modules.table.event.TableStateChangeEvent;
 import ordersystem.backend.modules.servicerequest.enums.RequestStatus;
+import ordersystem.backend.modules.servicerequest.enums.RequestType;
 import ordersystem.backend.modules.servicerequest.mapper.ServiceRequestMapper;
 import ordersystem.backend.modules.servicerequest.repository.ServiceRequestRepository;
 import ordersystem.backend.modules.table.repository.RestaurantTableRepository;
@@ -26,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 
 @Component
@@ -58,7 +61,7 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
 
         String actualSessionToken = session != null ? session.getSessionToken() : sessionToken;
 
-        // 2. Khử trùng lặp: Nếu bàn này đã có Yêu cầu PENDING đang chờ -> Cập nhật loại yêu cầu & thời gian thay vì tạo ô lặp lại
+        // 2. Khử trùng lặp & Ưu tiên: Nếu bàn này đã có Yêu cầu PENDING đang chờ -> Cập nhật loại yêu cầu theo quy tắc ưu tiên (BILL > CALL_STAFF)
         List<ServiceRequestEntity> existingPendingList = serviceRequestRepository.findAllByRequestStatus(RequestStatus.PENDING);
         ServiceRequestEntity serviceRequestEntity = existingPendingList.stream()
                 .filter(r -> r.getTableId() != null && r.getTableId().equals(table.getTableId()))
@@ -66,10 +69,16 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
                 .orElse(null);
 
         if (serviceRequestEntity != null) {
-            serviceRequestEntity.setRequestType(serviceRequestDto.getRequestType());
+            boolean existingIsBill = isBillType(serviceRequestEntity.getRequestType());
+            boolean newIsBill = isBillType(serviceRequestDto.getRequestType());
+
+            // Nếu yêu cầu mới là tính tiền hoặc yêu cầu cũ chưa phải tính tiền thì mới cập nhật requestType mới
+            if (newIsBill || !existingIsBill) {
+                serviceRequestEntity.setRequestType(serviceRequestDto.getRequestType());
+            }
             serviceRequestEntity.setCreatedAt(new Date());
             serviceRequestEntity = serviceRequestRepository.save(serviceRequestEntity);
-            log.info("Updated existing PENDING request for table {}: type={}", table.getTableId(), serviceRequestDto.getRequestType());
+            log.info("Updated existing PENDING request for table {}: type={}", table.getTableId(), serviceRequestEntity.getRequestType());
         } else {
             serviceRequestEntity = ServiceRequestEntity.builder()
                     .tableId(table.getTableId())
@@ -85,9 +94,8 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
         ServiceRequestEntity saved = serviceRequestEntity;
 
         // 3. Cập nhật trạng thái bàn vật lý & phát sự kiện WebSocket Realtime
-        String reqTypeName = serviceRequestDto.getRequestType() != null ? serviceRequestDto.getRequestType().name() : "";
-        TableStatus targetStatus = (reqTypeName.contains("BILL") || reqTypeName.contains("PAYMENT"))
-                ? TableStatus.BILL_REQUESTED : TableStatus.CALLING_STAFF;
+        boolean isFinalBill = isBillType(saved.getRequestType());
+        TableStatus targetStatus = isFinalBill ? TableStatus.BILL_REQUESTED : TableStatus.CALLING_STAFF;
 
         table.setTableStatus(targetStatus);
         restaurantTableRepository.save(table);
@@ -105,6 +113,12 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
         ServiceRequestResponse response = serviceRequestMapper.toServiceRequestResponse(saved);
         webSocketPublisher.notifyServiceRequest(response);
         return response;
+    }
+
+    private boolean isBillType(RequestType type) {
+        if (type == null) return false;
+        String name = type.name();
+        return name.contains("BILL") || name.contains("PAYMENT");
     }
 
     private TableSessionEntity resolveTableSession(String sessionToken) {
@@ -145,12 +159,28 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
 
     @Override
     @Transactional(readOnly = true)
-    //Nhân viên xem danh sách Pending
+    //Nhân viên xem danh sách Pending (Đã khử trùng lặp theo tableId, ưu tiên REQUEST_BILL)
     public List<ServiceRequestResponse> getActiveRequest(){
         List<ServiceRequestEntity> activeRequests = serviceRequestRepository.findAllByRequestStatus(RequestStatus.PENDING);
 
-        //Chuyển từ list entity -> list dto response
-        return activeRequests.stream()
+        Map<Long, ServiceRequestEntity> map = new LinkedHashMap<>();
+        for (ServiceRequestEntity req : activeRequests) {
+            Long tid = req.getTableId();
+            if (tid == null) continue;
+
+            ServiceRequestEntity existing = map.get(tid);
+            if (existing == null) {
+                map.put(tid, req);
+            } else {
+                boolean existingIsBill = isBillType(existing.getRequestType());
+                boolean reqIsBill = isBillType(req.getRequestType());
+                if (reqIsBill && !existingIsBill) {
+                    map.put(tid, req);
+                }
+            }
+        }
+
+        return map.values().stream()
                 .map(serviceRequestMapper::toServiceRequestResponse)
                 .collect(Collectors.toList());
     }
@@ -164,44 +194,35 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
         ServiceRequestEntity currentRequest = serviceRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Service request not found with id: " + requestId));
 
-        //Chuyển yêu cầu thành completed
-        currentRequest.setRequestStatus(RequestStatus.COMPLETED);
-        currentRequest.setCompletedAt(new Date());
-        serviceRequestRepository.save(currentRequest);
+        Long tableId = currentRequest.getTableId();
 
-        if (currentRequest.getTableId() != null) {
-            Long tableId = currentRequest.getTableId();
-
-            // Kiểm tra xem bàn còn các yêu cầu PENDING khác hay không
-            List<ServiceRequestEntity> remainingPending = serviceRequestRepository
+        // 1. Chuyển TẤT CẢ các pending request của cùng 1 bàn thành COMPLETED
+        if (tableId != null) {
+            List<ServiceRequestEntity> allPendingForTable = serviceRequestRepository
                     .findAllByRequestStatus(RequestStatus.PENDING)
                     .stream()
-                    .filter(r -> r.getTableId() != null && r.getTableId().equals(tableId) && !r.getRequestId().equals(requestId))
+                    .filter(r -> r.getTableId() != null && r.getTableId().equals(tableId))
                     .collect(Collectors.toList());
 
-            TableStatus finalStatus;
-            if (!remainingPending.isEmpty()) {
-                boolean hasBill = remainingPending.stream().anyMatch(r ->
-                        r.getRequestType() != null && (r.getRequestType().name().contains("BILL") || r.getRequestType().name().contains("PAYMENT")));
-                finalStatus = hasBill ? TableStatus.BILL_REQUESTED : TableStatus.CALLING_STAFF;
-            } else {
-                // Nếu là hoàn tất Yêu cầu tính tiền -> Đóng phiên làm việc an toàn (Try-catch chống nổ ngoại lệ)
-                if (currentRequest.getRequestType() != null && currentRequest.getRequestType().name().contains("BILL")){
-                    try {
-                        if (currentRequest.getSessionId() != null && !currentRequest.getSessionId().isBlank()) {
-                            tableSessionService.closeSession(currentRequest.getSessionId());
-                        }
-                    } catch (Exception e) {
-                        log.warn("Safe-handled exception closing session for request {}: {}", requestId, e.getMessage());
-                    }
-                }
-
-                // Kiểm tra xem bàn có Session đang ACTIVE hay không để trả về đúng màu (Đang ăn / Trống)
-                boolean hasActiveSession = tableSessionRepository
-                        .findByTableTableIdAndStatus(tableId, SessionStatus.ACTIVE)
-                        .isPresent();
-                finalStatus = hasActiveSession ? TableStatus.OCCUPIED : TableStatus.EMPTY;
+            for (ServiceRequestEntity req : allPendingForTable) {
+                req.setRequestStatus(RequestStatus.COMPLETED);
+                req.setCompletedAt(new Date());
             }
+            if (!allPendingForTable.isEmpty()) {
+                serviceRequestRepository.saveAll(allPendingForTable);
+            }
+        } else {
+            currentRequest.setRequestStatus(RequestStatus.COMPLETED);
+            currentRequest.setCompletedAt(new Date());
+            serviceRequestRepository.save(currentRequest);
+        }
+
+        // 2. Khôi phục trạng thái bàn về OCCUPIED (nếu có active session) hoặc EMPTY (nếu không có active session)
+        if (tableId != null) {
+            boolean hasActiveSession = tableSessionRepository
+                    .findByTableTableIdAndStatus(tableId, SessionStatus.ACTIVE)
+            .isPresent();
+            TableStatus finalStatus = hasActiveSession ? TableStatus.OCCUPIED : TableStatus.EMPTY;
 
             restaurantTableRepository.findById(tableId).ifPresent(table -> {
                 table.setTableStatus(finalStatus);

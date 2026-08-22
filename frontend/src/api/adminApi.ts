@@ -512,7 +512,7 @@ export const fetchStaffUsersApi = async (): Promise<StaffUser[]> => {
       return list.map((item: any) => {
         const uName = item.username || 'staff';
         const uId = String(item.userId || item.id || '');
-        const pWord = item.password || getSavedStaffPassword(uName, uId);
+        const pWord = item.password || item.rawPassword || getSavedStaffPassword(uName, uId) || '123456';
         return {
           id: uId || `usr-${Math.random()}`,
           name: item.fullName || item.name || uName || 'Nhân viên',
@@ -572,7 +572,7 @@ export const createStaffApi = async (staffData: {
         role: item.role || staffData.role,
         salary: Number(item.salary || staffData.salary || 7500000),
         username: item.username || staffData.username,
-        password: pwdToSave,
+        password: item.password || item.rawPassword || pwdToSave,
         status: 'ACTIVE',
         lastActive: 'Vừa hoạt động',
       };
@@ -639,7 +639,7 @@ export const updateStaffApi = async (
         role: item.role || staffData.role,
         salary: Number(item.salary || staffData.salary || 7500000),
         username: uName,
-        password: getSavedStaffPassword(uName, staffId),
+        password: item.password || item.rawPassword || staffData.password || getSavedStaffPassword(uName, staffId),
         status: item.active !== false ? 'ACTIVE' : 'INACTIVE',
         lastActive: 'Vừa cập nhật',
       };
@@ -817,6 +817,13 @@ export const fetchAdminOrdersApi = async (status?: string, date?: string, startD
           orderCode: item.orderCode || `#ORD-${orderIdStr}`,
           tableNumber: displayTableName,
           zone: displayZone,
+          tableSessionId: item.tableSessionId
+            ? Number(item.tableSessionId)
+            : item.session?.tableSessionId
+            ? Number(item.session.tableSessionId)
+            : item.sessionTableId
+            ? Number(item.sessionTableId)
+            : undefined,
           createdAt: item.openedAt || item.createdAt ? new Date(item.openedAt || item.createdAt).toISOString() : new Date().toISOString(),
           status: item.status || 'PENDING',
           paymentStatus: item.paymentStatus || 'UNPAID',
@@ -966,6 +973,7 @@ export const fetchMasterTableOrderApi = async (tableId: string): Promise<any> =>
 
 export interface ServiceRequestItem {
   id: number;
+  requestId?: number;
   tableId: number;
   tableName: string;
   sessionId: string;
@@ -976,9 +984,13 @@ export interface ServiceRequestItem {
 
 export const fetchActiveServiceRequestsApi = async (): Promise<ServiceRequestItem[]> => {
   try {
-    const res = await apiClient.get<ApiResponse<ServiceRequestItem[]>>('/admin/service-requests/active');
+    const res = await apiClient.get<ApiResponse<any[]>>('/admin/service-requests/active');
     if (res.data && res.data.data && Array.isArray(res.data.data)) {
-      return res.data.data;
+      return res.data.data.map((item) => ({
+        ...item,
+        id: item.id || item.requestId,
+        requestId: item.requestId || item.id,
+      }));
     }
   } catch (err) {
     console.error('Error fetching active service requests:', err);

@@ -183,12 +183,12 @@ export const StaffManagement: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 font-sans">
+    <div className="flex-1 flex flex-col min-h-0 space-y-3 font-sans h-full overflow-hidden">
       {/* HEADER TOOLBAR */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <Users className="w-6 h-6 text-orange-600 stroke-[2.2] flex-shrink-0" />
-          <h2 className="font-extrabold text-xl sm:text-2xl text-slate-900 tracking-tight">Quản Lý Nhân Viên & Phân Quyền</h2>
+          <h2 className="font-extrabold text-xl sm:text-2xl text-slate-900 tracking-tight">Quản Lý Nhân Viên</h2>
         </div>
 
         <button
@@ -231,10 +231,10 @@ export const StaffManagement: React.FC = () => {
 
       {/* STATE 1: NORMAL DATA STAFF TABLE */}
       {!loading && !error && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="overflow-y-auto custom-scrollbar flex-1 min-h-0">
             <table className="w-full text-left text-xs text-slate-700 min-w-[920px]">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-20 shadow-2xs">
                 <tr>
                   <th className="px-4 py-3.5 min-w-[200px]">Họ & Tên Nhân Viên</th>
                   <th className="px-4 py-3.5 min-w-[220px]">Liên Hệ (Email & SĐT)</th>

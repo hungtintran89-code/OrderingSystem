@@ -49,7 +49,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         { key: '/app/admin', icon: LayoutGrid, label: 'Dashboard Tổng quan' },
         { key: '/app/admin/menu', icon: UtensilsCrossed, label: 'Quản lý Thực đơn & Topping' },
         { key: '/app/admin/tables-qr', icon: LayoutGrid, label: 'Quản lý Bàn & Mã QR' },
-        { key: '/app/admin/staff', icon: Users, label: 'Quản lý Nhân viên & Quyền' },
+        { key: '/app/admin/staff', icon: Users, label: 'Quản lý Nhân viên' },
         { key: '/app/admin/analytics', icon: PieChart, label: 'Báo cáo & Analytics' },
       ],
     },
@@ -103,7 +103,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       '/app/admin': 'Dashboard Tổng Quan',
       '/app/admin/menu': 'Quản lý Thực đơn & Topping',
       '/app/admin/tables-qr': 'Quản lý Bàn & Mã QR',
-      '/app/admin/staff': 'Quản lý Nhân viên & Quyền',
+      '/app/admin/staff': 'Quản lý Nhân viên',
       '/app/admin/analytics': 'Báo cáo & Analytics',
       '/app/admin/tables': 'Sơ đồ & Danh sách Bàn',
       '/app/admin/orders': 'Danh sách Đơn hàng',
@@ -231,10 +231,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
   return (
     <ServiceRequestProvider>
-      <div className="min-h-screen bg-slate-50 flex font-sans">
-        {/* DESKTOP SIDEBAR - STICKY FIXED LEFT SIDEBAR */}
+      <div className="h-screen max-h-screen bg-slate-50 flex font-sans overflow-hidden">
+        {/* DESKTOP SIDEBAR - FIXED LEFT SIDEBAR */}
         <aside
-          className={`sticky top-0 h-screen z-30 hidden md:block flex-shrink-0 transition-[width] duration-300 ease-in-out ${
+          className={`h-full z-30 hidden md:block flex-shrink-0 transition-[width] duration-300 ease-in-out ${
             collapsed ? 'w-20' : 'w-64'
           }`}
         >
@@ -253,9 +253,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         </Drawer>
 
         {/* RIGHT MAIN CONTENT AREA */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
           {/* TOPBAR */}
-          <header className="bg-white border-b border-slate-200 px-3 md:px-4 py-3 sticky top-0 z-20 flex items-center justify-between gap-2 md:gap-3 shadow-2xs">
+          <header className="bg-white border-b border-slate-200 px-3 md:px-4 py-3 z-20 flex items-center justify-between gap-2 md:gap-3 shadow-2xs flex-shrink-0">
             <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
               {/* Hamburger Button (Mobile) */}
               <button
@@ -308,14 +308,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           </header>
 
           {/* MAIN BODY CONTAINER */}
-          <main className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto">
+          <main className="flex-1 px-3 pt-2 pb-2.5 md:px-4 md:pt-2.5 md:pb-2.5 flex flex-col space-y-2.5 min-h-0 overflow-hidden">
             {/* Dynamic & Clickable Breadcrumb */}
-            <div className="bg-white px-3.5 py-2 rounded-lg border border-slate-200 shadow-2xs inline-block">
+            <div className="bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs inline-block flex-shrink-0 self-start">
               <Breadcrumb items={getBreadcrumbItems()} />
             </div>
 
             {/* Render Page Content */}
-            <div className="bg-white rounded-xl p-4 md:p-6 border border-slate-200 shadow-2xs min-h-[480px]">
+            <div className="bg-white rounded-2xl p-3 md:p-4 border border-slate-200/80 shadow-2xs flex-1 flex flex-col min-h-0 overflow-hidden">
               {children || <Outlet />}
             </div>
           </main>
